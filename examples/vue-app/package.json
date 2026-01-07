@@ -1,0 +1,22 @@
+{
+  "name": "vnext-vue-example",
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "vue": "^3.4.0",
+    "vue-router": "^4.2.5",
+    "@vnext/vue": "file:../../adapters/vue",
+    "@vnext/core-ts": "file:../../core/core-ts"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^5.0.0",
+    "typescript": "^5.3.3",
+    "vite": "^5.0.0"
+  }
+}
+

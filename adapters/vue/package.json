@@ -1,0 +1,42 @@
+{
+  "name": "@vnext/vue",
+  "version": "0.1.0",
+  "description": "Vue 3 adapter for VNext TypeScript core SDK",
+  "main": "./dist/index.js",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsup",
+    "clean": "rm -rf dist",
+    "dev": "tsup --watch"
+  },
+  "keywords": [
+    "vnext",
+    "sdk",
+    "vue",
+    "vue3",
+    "adapter"
+  ],
+  "author": "",
+  "license": "UNLICENSED",
+  "peerDependencies": {
+    "vue": "^3.0.0"
+  },
+  "dependencies": {
+    "@vnext/core-ts": "file:../../core/core-ts"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "tsup": "^8.0.1",
+    "typescript": "^5.3.3",
+    "vue": "^3.4.0"
+  }
+}
+
