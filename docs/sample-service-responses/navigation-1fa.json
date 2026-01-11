@@ -1,0 +1,263 @@
+{
+  "homepage": "account-list",
+  "items": [
+    {
+      "type": "group",
+      "version": "v1",
+      "key": "account-overview",
+      "order": 100000,
+      "title": "Hesap Özeti",
+      "subtitle": "Hesaplarınızı görüntüleyin ve yönetin",
+      "iconUrn": "urn:local:icons:account_operations_20px:svg",
+      "disabled": false,
+      "disabledReason": null,
+      "badge": {
+        "isNew": false,
+        "isHot": false,
+        "count": false
+      },
+      "config": {
+        "expandable": true,
+        "defaultExpanded": true
+      },
+      "children": [
+        {
+          "type": "search",
+          "version": "v2",
+          "key": "account-list",
+          "order": 101000,
+          "title": "Hesap Listesi",
+          "subtitle": "Tüm hesaplarınızı görüntüleyin",
+          "iconUrn": "urn:local:icons:account_list_20px:svg",
+          "disabled": false,
+          "disabledReason": null,
+          "badge": {
+            "isNew": false,
+            "isHot": false,
+            "count": true
+          },
+          "config": {
+            "key": "account-list",
+            "version": "1.4",
+            "domain": "account",
+            "flow": "view"
+          }
+        },
+        {
+          "type": "search",
+          "version": "v1",
+          "key": "saving-account-list",
+          "order": 102000,
+          "title": "Vadeli Hesap Listesi",
+          "subtitle": "Vadeli mevduat hesaplarınız",
+          "iconUrn": "urn:local:icons:saving_account_list_20px:svg",
+          "disabled": false,
+          "disabledReason": null,
+          "badge": {
+            "isNew": false,
+            "isHot": false,
+            "count": true
+          },
+          "config": {
+            "file": "savingAccountList.json"
+          }
+        }
+      ]
+    },
+    {
+      "type": "divider",
+      "version": "v1"
+    },
+    {
+      "type": "group",
+      "version": "v1",
+      "key": "notifications",
+      "order": 200000,
+      "title": "Bildirimler",
+      "subtitle": "Hesap hareketleri ve bildirimler",
+      "iconUrn": "urn:local:icons:notifications_20px:svg",
+      "disabled": false,
+      "disabledReason": null,
+      "badge": {
+        "isNew": false,
+        "isHot": false,
+        "count": true
+      },
+      "config": {
+        "expandable": true,
+        "defaultExpanded": false
+      },
+      "children": [
+        {
+          "type": "dynamicView",
+          "version": "v1",
+          "key": "notification-list",
+          "order": 201000,
+          "title": "Bildirimlerim",
+          "subtitle": "Tüm bildirimlerinizi görüntüleyin",
+          "iconUrn": "urn:local:icons:notification_list_20px:svg",
+          "disabled": false,
+          "disabledReason": null,
+          "badge": {
+            "isNew": false,
+            "isHot": false,
+            "count": true
+          },
+          "config": {
+            "view": "notification-list",
+            "version": "1.0"
+          }
+        },
+        {
+          "type": "search",
+          "version": "v2",
+          "key": "transaction-history",
+          "order": 202000,
+          "title": "İşlem Geçmişi",
+          "subtitle": "Hesap hareketlerinizi görüntüleyin",
+          "iconUrn": "urn:local:icons:transaction_history_20px:svg",
+          "disabled": false,
+          "disabledReason": null,
+          "badge": {
+            "isNew": false,
+            "isHot": false,
+            "count": false
+          },
+          "config": {
+            "key": "transaction-history",
+            "version": "1.2",
+            "domain": "account",
+            "flow": "view"
+          }
+        }
+      ]
+    },
+    {
+      "type": "divider",
+      "version": "v1"
+    },
+    {
+      "type": "dynamicView",
+      "version": "v2",
+      "key": "profile-view",
+      "order": 300000,
+      "title": "Profilim",
+      "subtitle": "Kişisel bilgilerinizi görüntüleyin",
+      "iconUrn": "urn:local:icons:profile_20px:svg",
+      "disabled": false,
+      "disabledReason": null,
+      "badge": {
+        "isNew": false,
+        "isHot": false,
+        "count": false
+      },
+      "config": {
+        "key": "display-profile",
+        "domain": "IDM",
+        "version": "1.1",
+        "flow": "view"
+      },
+      "data": [
+        {
+          "type": "dataManager",
+          "promoteAs": "userInfo",
+          "context": "user",
+          "scope": "persistent",
+          "key": "userInfo",
+          "path": "user"
+        }
+      ]
+    },
+    {
+      "type": "divider",
+      "version": "v1"
+    },
+    {
+      "type": "group",
+      "version": "v1",
+      "key": "settings",
+      "order": 400000,
+      "title": "Ayarlar",
+      "subtitle": "Uygulama ve hesap ayarları",
+      "iconUrn": "urn:local:icons:settings_20px:svg",
+      "disabled": false,
+      "disabledReason": null,
+      "badge": {
+        "isNew": false,
+        "isHot": false,
+        "count": false
+      },
+      "config": {
+        "expandable": true,
+        "defaultExpanded": false
+      },
+      "children": [
+        {
+          "type": "dynamicView",
+          "version": "v1",
+          "key": "app-settings",
+          "order": 401000,
+          "title": "Uygulama Ayarları",
+          "subtitle": "Bildirim, dil ve görünüm ayarları",
+          "iconUrn": "urn:local:icons:app_settings_20px:svg",
+          "disabled": false,
+          "disabledReason": null,
+          "badge": {
+            "isNew": false,
+            "isHot": false,
+            "count": false
+          },
+          "config": {
+            "view": "app-settings",
+            "version": "1.0"
+          }
+        },
+        {
+          "type": "staticView",
+          "version": "v1",
+          "key": "about-app",
+          "order": 402000,
+          "title": "Uygulama Hakkında",
+          "subtitle": "Versiyon ve lisans bilgileri",
+          "iconUrn": "urn:local:icons:about_app_20px:svg",
+          "disabled": false,
+          "disabledReason": null,
+          "badge": {
+            "isNew": false,
+            "isHot": false,
+            "count": false
+          },
+          "config": {
+            "component": "aboutApp"
+          }
+        }
+      ]
+    },
+    {
+      "type": "divider",
+      "version": "v1"
+    },
+    {
+      "type": "workflow",
+      "version": "v2",
+      "key": "logout",
+      "order": 500000,
+      "title": "Çıkış Yap",
+      "subtitle": "Hesabınızdan güvenli şekilde çıkış yapın",
+      "iconUrn": "urn:local:icons:logout_20px:svg",
+      "disabled": false,
+      "disabledReason": null,
+      "badge": {
+        "isNew": false,
+        "isHot": false,
+        "count": false
+      },
+      "config": {
+        "key": "logout",
+        "domain": "IDM",
+        "version": "1.0",
+        "flow": "workflow"
+      }
+    }
+  ]
+}

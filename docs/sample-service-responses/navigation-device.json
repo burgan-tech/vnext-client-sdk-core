@@ -1,0 +1,180 @@
+{
+  "homepage": "authentication",
+  "items": [
+    {
+      "type": "group",
+      "version": "v1",
+      "key": "authentication",
+      "order": 100000,
+      "title": "Giriş ve Kayıt",
+      "subtitle": "Hesabınıza giriş yapın veya yeni hesap oluşturun",
+      "iconUrn": "urn:local:icons:authentication_20px:svg",
+      "disabled": false,
+      "disabledReason": null,
+      "badge": {
+        "isNew": false,
+        "isHot": false,
+        "count": false
+      },
+      "config": {
+        "expandable": true,
+        "defaultExpanded": true
+      },
+      "children": [
+        {
+          "type": "workflow",
+          "version": "v2",
+          "key": "user-registration",
+          "order": 101000,
+          "title": "Kayıt Ol",
+          "subtitle": "Yeni hesap oluşturun",
+          "iconUrn": "urn:local:icons:register_20px:svg",
+          "disabled": false,
+          "disabledReason": null,
+          "badge": {
+            "isNew": true,
+            "isHot": false,
+            "count": false
+          },
+          "config": {
+            "key": "user-registration",
+            "domain": "IDM",
+            "version": "1.1",
+            "flow": "workflow"
+          }
+        },
+        {
+          "type": "workflow",
+          "version": "v2",
+          "key": "login-2fa",
+          "order": 102000,
+          "title": "Giriş Yap",
+          "subtitle": "Hesabınıza giriş yapın",
+          "iconUrn": "urn:local:icons:login_20px:svg",
+          "disabled": false,
+          "disabledReason": null,
+          "badge": {
+            "isNew": false,
+            "isHot": false,
+            "count": false
+          },
+          "config": {
+            "key": "login-2fa",
+            "domain": "IDM",
+            "version": "1.1",
+            "flow": "workflow"
+          }
+        }
+      ]
+    },
+    {
+      "type": "divider",
+      "version": "v1"
+    },
+    {
+      "type": "group",
+      "version": "v1",
+      "key": "information",
+      "order": 200000,
+      "title": "Bilgilendirme",
+      "subtitle": "Kampanyalar, duyurular ve yardım",
+      "iconUrn": "urn:local:icons:information_20px:svg",
+      "disabled": false,
+      "disabledReason": null,
+      "badge": {
+        "isNew": false,
+        "isHot": false,
+        "count": false
+      },
+      "config": {
+        "expandable": true,
+        "defaultExpanded": false
+      },
+      "children": [
+        {
+          "type": "dynamicView",
+          "version": "v1",
+          "key": "campaigns",
+          "order": 201000,
+          "title": "Kampanyalar",
+          "subtitle": "Güncel kampanyaları görüntüleyin",
+          "iconUrn": "urn:local:icons:campaigns_20px:svg",
+          "disabled": false,
+          "disabledReason": null,
+          "badge": {
+            "isNew": false,
+            "isHot": true,
+            "count": false
+          },
+          "config": {
+            "view": "campaign-list",
+            "version": "1.0"
+          }
+        },
+        {
+          "type": "dynamicView",
+          "version": "v1",
+          "key": "announcements",
+          "order": 202000,
+          "title": "Duyurular",
+          "subtitle": "Önemli duyuruları takip edin",
+          "iconUrn": "urn:local:icons:announcements_20px:svg",
+          "disabled": false,
+          "disabledReason": null,
+          "badge": {
+            "isNew": false,
+            "isHot": false,
+            "count": true
+          },
+          "config": {
+            "view": "announcement-list",
+            "version": "1.0"
+          }
+        },
+        {
+          "type": "staticView",
+          "version": "v1",
+          "key": "help",
+          "order": 203000,
+          "title": "Yardım",
+          "subtitle": "Sık sorulan sorular ve destek",
+          "iconUrn": "urn:local:icons:help_20px:svg",
+          "disabled": false,
+          "disabledReason": null,
+          "badge": {
+            "isNew": false,
+            "isHot": false,
+            "count": false
+          },
+          "config": {
+            "component": "helpCenter"
+          }
+        }
+      ]
+    },
+    {
+      "type": "divider",
+      "version": "v1"
+    },
+    {
+      "type": "webView",
+      "version": "v1",
+      "key": "about-us",
+      "order": 300000,
+      "title": "Hakkımızda",
+      "subtitle": "Kurumsal bilgiler",
+      "iconUrn": "urn:local:icons:about_20px:svg",
+      "disabled": false,
+      "disabledReason": null,
+      "badge": {
+        "isNew": false,
+        "isHot": false,
+        "count": false
+      },
+      "config": {
+        "url": "https://www.example.com/about",
+        "method": "get"
+      }
+    }
+  ]
+}

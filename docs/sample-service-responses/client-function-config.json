@@ -1,0 +1,145 @@
+{
+  "version": "1.0.0",
+  "theme": "retail",
+
+  "api": {
+    "timeout": 30000
+  },
+
+  "config": {
+    "endpoint": "/client/config",
+    "cache": true,
+    "refreshInterval": 3600000
+  },
+
+  "realtime": {
+    "websocket": {
+      "enabled": true,
+      "reconnect": {
+        "enabled": true,
+        "maxAttempts": 5,
+        "delay": 1000
+      }
+    },
+    "mqtt": {
+      "enabled": true,
+      "options": {
+        "keepAlive": 60,
+        "cleanSession": true,
+        "qos": 1,
+        "topicPrefix": "vnext/client/"
+      },
+      "reconnect": {
+        "enabled": true,
+        "maxAttempts": 10,
+        "delay": 2000
+      }
+    }
+  },
+
+  "initialization": [
+    {
+      "order": 100,
+      "type": "exceptionHandler",
+      "config": {
+        "mode": "verbose",
+        "reportEndpoint": "/error/report"
+      }
+    },
+    {
+      "order": 200,
+      "type": "genericSdk",
+      "config": {
+        "name": "firebase",
+        "options": {}
+      }
+    },
+    {
+      "order": 300,
+      "type": "analytics",
+      "config": {
+        "enabled": true,
+        "provider": "mixpanel"
+      }
+    },
+    {
+      "order": 400,
+      "type": "workflow",
+      "config": {
+        "workflow": "morph-idm:workflow:device-register"
+      }
+    },
+    {
+      "order": 500,
+      "type": "workflow",
+      "config": {
+        "workflow": "morph-idm:workflow:device-auth"
+      }
+    }
+  ],
+
+  "auth": {
+    "tokenRefresh": {
+      "endpoint": "/auth/token/refresh",
+      "strategy": "rotating"
+    },
+
+    "logout": {
+      "endpoint": "/auth/logout"
+    },
+
+    "tokenTypes": {
+      "device": {
+        "expiry": "infinite",
+        "refreshable": false,
+        "autoStart": true
+      },
+      "1fa": {
+        "expiry": "90d",
+        "refreshable": false
+      },
+      "2fa": {
+        "expiry": "5m",
+        "refreshable": true,
+        "refreshStrategy": "rotating"
+      },
+      "3fa": {
+        "expiry": "2m",
+        "refreshable": true
+      }
+    }
+  },
+
+
+  "navigation": {
+    "endpoint": "/client/navigation"
+  },
+
+  "features": {
+    "biometric": {
+      "enabled": true,
+      "types": ["fingerprint", "faceId"]
+    },
+    "pushNotifications": {
+      "enabled": true,
+      "providers": [
+        { "name": "firebase", "platforms": ["android", "ios", "web"] },
+        { "name": "apns", "platforms": ["ios"] },
+        { "name": "huawei", "platforms": ["android"] }
+      ]
+    },
+    "deepLinking": {
+      "enabled": true,
+      "scheme": "vnextapp",
+      "domains": ["app.example.com"]
+    }
+  },
+
+
+  "localization": {
+    "_comment": "TODO: Backend-driven sistemde Accept-Language header ile çözülmeli. Navigation, views, workflows zaten lokalize gelir. Revize edilecek.",
+    "default": "tr",
+    "supported": ["tr", "en"],
+    "endpoint": "/localization/{lang}"
+  }
+}

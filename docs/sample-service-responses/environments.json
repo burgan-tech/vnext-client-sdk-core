@@ -1,0 +1,39 @@
+{
+  "version": "1.0.0",
+  "allowMultiStage": true,
+  "defaultStage": "prod",
+  "stages": [
+    {
+      "id": "prod",
+      "name": "Production",
+      "baseUrl": "https://api.example.com/v1",
+      "wsUrl": "wss://ws.example.com/v1",
+      "mqttUrl": "mqtts://mqtt.example.com:8883",
+      "configEndpoint": "https://api.example.com/v1/client/config"
+    },
+    {
+      "id": "pilot",
+      "name": "Pilot",
+      "baseUrl": "https://pilot-api.example.com/v1",
+      "wsUrl": "wss://pilot-ws.example.com/v1",
+      "mqttUrl": "mqtts://pilot-mqtt.example.com:8883",
+      "configEndpoint": "https://pilot-api.example.com/v1/client/config"
+    },
+    {
+      "id": "uat",
+      "name": "UAT",
+      "baseUrl": "https://uat-api.example.com/v1",
+      "wsUrl": "wss://uat-ws.example.com/v1",
+      "mqttUrl": "mqtts://uat-mqtt.example.com:8883",
+      "configEndpoint": "https://uat-api.example.com/v1/client/config"
+    },
+    {
+      "id": "test",
+      "name": "Test",
+      "baseUrl": "https://test-api.example.com/v1",
+      "wsUrl": "wss://test-ws.example.com/v1",
+      "mqttUrl": "mqtts://test-mqtt.example.com:8883",
+      "configEndpoint": "https://test-api.example.com/v1/client/config"
+    }
+  ]
+}

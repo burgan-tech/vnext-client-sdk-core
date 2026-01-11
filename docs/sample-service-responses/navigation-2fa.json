@@ -1,0 +1,531 @@
+{
+  "homepage": "account-list",
+  "items": [
+    {
+      "type": "group",
+      "version": "v1",
+      "key": "account-operations",
+      "order": 100000,
+      "title": "Hesap İşlemleri",
+      "subtitle": "Hesap açma, listeleme ve transfer işlemleri",
+      "iconUrn": "urn:local:icons:account_operations_20px:svg",
+      "disabled": false,
+      "disabledReason": null,
+      "badge": {
+        "isNew": false,
+        "isHot": false,
+        "count": false
+      },
+      "config": {
+        "expandable": true,
+        "defaultExpanded": true
+      },
+      "children": [
+        {
+          "type": "search",
+          "version": "v2",
+          "key": "account-list",
+          "order": 101000,
+          "title": "Hesap Listesi",
+          "subtitle": "Tüm hesaplarınızı görüntüleyin",
+          "iconUrn": "urn:local:icons:account_list_20px:svg",
+          "disabled": false,
+          "disabledReason": null,
+          "badge": {
+            "isNew": false,
+            "isHot": false,
+            "count": true
+          },
+          "config": {
+            "key": "account-list",
+            "version": "1.4",
+            "domain": "account",
+            "flow": "view"
+          }
+        },
+        {
+          "type": "workflow",
+          "version": "v2",
+          "key": "account-opening-workflow",
+          "order": 102000,
+          "title": "Hesap Açma",
+          "subtitle": "Yeni hesap açın",
+          "iconUrn": "urn:local:icons:account_open_20px:svg",
+          "disabled": false,
+          "disabledReason": null,
+          "badge": {
+            "isNew": true,
+            "isHot": true,
+            "count": false
+          },
+          "config": {
+            "key": "account-opening-workflow",
+            "domain": "account",
+            "version": "1.1",
+            "flow": "workflow"
+          }
+        }
+      ]
+    },
+    {
+      "type": "divider",
+      "version": "v1"
+    },
+    {
+      "type": "group",
+      "version": "v1",
+      "key": "money-transfers",
+      "order": 200000,
+      "title": "Para Transferleri",
+      "subtitle": "EFT, FAST ve havale işlemleri",
+      "iconUrn": "urn:local:icons:money_transfers_20px:svg",
+      "disabled": false,
+      "disabledReason": null,
+      "badge": {
+        "isNew": false,
+        "isHot": true,
+        "count": false
+      },
+      "config": {
+        "expandable": true,
+        "defaultExpanded": false
+      },
+      "children": [
+        {
+          "type": "workflow",
+          "version": "v2",
+          "key": "quick-transfer",
+          "order": 201000,
+          "title": "Hızlı Para Transferi",
+          "subtitle": "EFT/FAST ile para gönderin",
+          "iconUrn": "urn:local:icons:quick_transfer_20px:svg",
+          "disabled": false,
+          "disabledReason": null,
+          "badge": {
+            "isNew": false,
+            "isHot": true,
+            "count": false
+          },
+          "config": {
+            "key": "quick-transfer",
+            "domain": "transfer",
+            "version": "1.2",
+            "flow": "workflow"
+          }
+        },
+        {
+          "type": "workflow",
+          "version": "v2",
+          "key": "swift-transfer",
+          "order": 202000,
+          "title": "SWIFT Transferi",
+          "subtitle": "Yurtdışı para transferi",
+          "iconUrn": "urn:local:icons:swift_transfer_20px:svg",
+          "disabled": false,
+          "disabledReason": null,
+          "badge": {
+            "isNew": false,
+            "isHot": false,
+            "count": false
+          },
+          "config": {
+            "key": "swift-transfer",
+            "domain": "transfer",
+            "version": "1.1",
+            "flow": "workflow"
+          }
+        },
+        {
+          "type": "workflow",
+          "version": "v2",
+          "key": "recurring-transfer",
+          "order": 203000,
+          "title": "Otomatik Ödeme",
+          "subtitle": "Tekrarlayan ödemeleri yönetin",
+          "iconUrn": "urn:local:icons:recurring_transfer_20px:svg",
+          "disabled": false,
+          "disabledReason": null,
+          "badge": {
+            "isNew": true,
+            "isHot": false,
+            "count": false
+          },
+          "config": {
+            "key": "recurring-transfer",
+            "domain": "transfer",
+            "version": "1.0",
+            "flow": "workflow"
+          }
+        }
+      ]
+    },
+    {
+      "type": "divider",
+      "version": "v1"
+    },
+    {
+      "type": "group",
+      "version": "v1",
+      "key": "security",
+      "order": 300000,
+      "title": "Güvenlik",
+      "subtitle": "Şifre ve güvenlik ayarları",
+      "iconUrn": "urn:local:icons:security_20px:svg",
+      "disabled": false,
+      "disabledReason": null,
+      "badge": {
+        "isNew": false,
+        "isHot": false,
+        "count": false
+      },
+      "config": {
+        "expandable": true,
+        "defaultExpanded": false
+      },
+      "children": [
+        {
+          "type": "workflow",
+          "version": "v2",
+          "key": "update-password-workflow",
+          "order": 301000,
+          "title": "Şifre Güncelle",
+          "subtitle": "Giriş şifrenizi değiştirin",
+          "iconUrn": "urn:local:icons:circle_password_20px:svg",
+          "disabled": false,
+          "disabledReason": null,
+          "badge": {
+            "isNew": false,
+            "isHot": true,
+            "count": false
+          },
+          "config": {
+            "key": "update-password-workflow",
+            "domain": "IDM",
+            "version": "1.1",
+            "flow": "workflow"
+          },
+          "data": [
+            {
+              "type": "dataManager",
+              "promoteAs": "userInfo",
+              "context": "user",
+              "scope": "persistent",
+              "key": "userInfo",
+              "path": "user.tckn"
+            }
+          ]
+        },
+        {
+          "type": "workflow",
+          "version": "v2",
+          "key": "change-pin-workflow",
+          "order": 302000,
+          "title": "PIN Değiştir",
+          "subtitle": "İşlem PIN'inizi güncelleyin",
+          "iconUrn": "urn:local:icons:pin_change_20px:svg",
+          "disabled": false,
+          "disabledReason": null,
+          "badge": {
+            "isNew": false,
+            "isHot": false,
+            "count": false
+          },
+          "config": {
+            "key": "change-pin-workflow",
+            "domain": "IDM",
+            "version": "1.0",
+            "flow": "workflow"
+          }
+        },
+        {
+          "type": "dynamicView",
+          "version": "v1",
+          "key": "security-settings",
+          "order": 303000,
+          "title": "Güvenlik Ayarları",
+          "subtitle": "İki faktörlü doğrulama ve güvenlik seçenekleri",
+          "iconUrn": "urn:local:icons:security_settings_20px:svg",
+          "disabled": false,
+          "disabledReason": null,
+          "badge": {
+            "isNew": false,
+            "isHot": false,
+            "count": false
+          },
+          "config": {
+            "view": "security-settings",
+            "version": "1.0"
+          }
+        }
+      ]
+    },
+    {
+      "type": "divider",
+      "version": "v1"
+    },
+    {
+      "type": "group",
+      "version": "v1",
+      "key": "loans",
+      "order": 400000,
+      "title": "Krediler",
+      "subtitle": "Kredi başvuruları ve yönetimi",
+      "iconUrn": "urn:local:icons:loans_20px:svg",
+      "disabled": false,
+      "disabledReason": null,
+      "badge": {
+        "isNew": false,
+        "isHot": false,
+        "count": false
+      },
+      "config": {
+        "expandable": true,
+        "defaultExpanded": false
+      },
+      "children": [
+        {
+          "type": "workflow",
+          "version": "v2",
+          "key": "loan-application-workflow",
+          "order": 401000,
+          "title": "Kredi Başvurusu",
+          "subtitle": "Yeni kredi başvurusu yapın",
+          "iconUrn": "urn:local:icons:loan_application_20px:svg",
+          "disabled": false,
+          "disabledReason": null,
+          "badge": {
+            "isNew": true,
+            "isHot": true,
+            "count": false
+          },
+          "config": {
+            "key": "loan-application-workflow",
+            "domain": "loan",
+            "version": "1.1",
+            "flow": "workflow"
+          }
+        },
+        {
+          "type": "instance",
+          "version": "v2",
+          "key": "loan-application-instance-8398cabd-7dc3-44e8-a8fc-ddbf5a143dd1",
+          "order": 402000,
+          "title": "Kredi Başvurum",
+          "subtitle": "Devam eden başvurunuz",
+          "iconUrn": "urn:local:icons:loan_application_20px:svg",
+          "disabled": false,
+          "disabledReason": null,
+          "badge": {
+            "isNew": false,
+            "isHot": true,
+            "count": false
+          },
+          "config": {
+            "id": "8398cabd-7dc3-44e8-a8fc-ddbf5a143dd1",
+            "workflow": {
+              "key": "loan-application-workflow",
+              "domain": "loan",
+              "version": "1.1",
+              "flow": "workflow"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "type": "divider",
+      "version": "v1"
+    },
+    {
+      "type": "group",
+      "version": "v1",
+      "key": "notifications",
+      "order": 500000,
+      "title": "Bildirimler",
+      "subtitle": "Hesap hareketleri ve bildirimler",
+      "iconUrn": "urn:local:icons:notifications_20px:svg",
+      "disabled": false,
+      "disabledReason": null,
+      "badge": {
+        "isNew": false,
+        "isHot": false,
+        "count": true
+      },
+      "config": {
+        "expandable": true,
+        "defaultExpanded": false
+      },
+      "children": [
+        {
+          "type": "dynamicView",
+          "version": "v1",
+          "key": "notification-list",
+          "order": 501000,
+          "title": "Bildirimlerim",
+          "subtitle": "Tüm bildirimlerinizi görüntüleyin",
+          "iconUrn": "urn:local:icons:notification_list_20px:svg",
+          "disabled": false,
+          "disabledReason": null,
+          "badge": {
+            "isNew": false,
+            "isHot": false,
+            "count": true
+          },
+          "config": {
+            "view": "notification-list",
+            "version": "1.0"
+          }
+        },
+        {
+          "type": "search",
+          "version": "v2",
+          "key": "transaction-history",
+          "order": 502000,
+          "title": "İşlem Geçmişi",
+          "subtitle": "Hesap hareketlerinizi görüntüleyin",
+          "iconUrn": "urn:local:icons:transaction_history_20px:svg",
+          "disabled": false,
+          "disabledReason": null,
+          "badge": {
+            "isNew": false,
+            "isHot": false,
+            "count": false
+          },
+          "config": {
+            "key": "transaction-history",
+            "version": "1.2",
+            "domain": "account",
+            "flow": "view"
+          }
+        }
+      ]
+    },
+    {
+      "type": "divider",
+      "version": "v1"
+    },
+    {
+      "type": "dynamicView",
+      "version": "v2",
+      "key": "profile-view",
+      "order": 600000,
+      "title": "Profilim",
+      "subtitle": "Kişisel bilgilerinizi görüntüleyin ve düzenleyin",
+      "iconUrn": "urn:local:icons:profile_20px:svg",
+      "disabled": false,
+      "disabledReason": null,
+      "badge": {
+        "isNew": false,
+        "isHot": false,
+        "count": false
+      },
+      "config": {
+        "key": "display-profile",
+        "domain": "IDM",
+        "version": "1.1",
+        "flow": "view"
+      },
+      "data": [
+        {
+          "type": "dataManager",
+          "promoteAs": "userInfo",
+          "context": "user",
+          "scope": "persistent",
+          "key": "userInfo",
+          "path": "user"
+        }
+      ]
+    },
+    {
+      "type": "divider",
+      "version": "v1"
+    },
+    {
+      "type": "group",
+      "version": "v1",
+      "key": "settings",
+      "order": 700000,
+      "title": "Ayarlar",
+      "subtitle": "Uygulama ve hesap ayarları",
+      "iconUrn": "urn:local:icons:settings_20px:svg",
+      "disabled": false,
+      "disabledReason": null,
+      "badge": {
+        "isNew": false,
+        "isHot": false,
+        "count": false
+      },
+      "config": {
+        "expandable": true,
+        "defaultExpanded": false
+      },
+      "children": [
+        {
+          "type": "dynamicView",
+          "version": "v1",
+          "key": "app-settings",
+          "order": 701000,
+          "title": "Uygulama Ayarları",
+          "subtitle": "Bildirim, dil ve görünüm ayarları",
+          "iconUrn": "urn:local:icons:app_settings_20px:svg",
+          "disabled": false,
+          "disabledReason": null,
+          "badge": {
+            "isNew": false,
+            "isHot": false,
+            "count": false
+          },
+          "config": {
+            "view": "app-settings",
+            "version": "1.0"
+          }
+        },
+        {
+          "type": "staticView",
+          "version": "v1",
+          "key": "about-app",
+          "order": 702000,
+          "title": "Uygulama Hakkında",
+          "subtitle": "Versiyon ve lisans bilgileri",
+          "iconUrn": "urn:local:icons:about_app_20px:svg",
+          "disabled": false,
+          "disabledReason": null,
+          "badge": {
+            "isNew": false,
+            "isHot": false,
+            "count": false
+          },
+          "config": {
+            "component": "aboutApp"
+          }
+        }
+      ]
+    },
+    {
+      "type": "divider",
+      "version": "v1"
+    },
+    {
+      "type": "workflow",
+      "version": "v2",
+      "key": "logout",
+      "order": 800000,
+      "title": "Çıkış Yap",
+      "subtitle": "Hesabınızdan güvenli şekilde çıkış yapın",
+      "iconUrn": "urn:local:icons:logout_20px:svg",
+      "disabled": false,
+      "disabledReason": null,
+      "badge": {
+        "isNew": false,
+        "isHot": false,
+        "count": false
+      },
+      "config": {
+        "key": "logout",
+        "domain": "IDM",
+        "version": "1.0",
+        "flow": "workflow"
+      }
+    }
+  ]
+}
