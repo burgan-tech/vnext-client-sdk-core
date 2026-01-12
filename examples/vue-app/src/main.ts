@@ -15,6 +15,22 @@ async function enableMocking() {
   }
 }
 
+// Enable WebSocket mock in development
+function enableWebSocketMock() {
+  if (import.meta.env.DEV) {
+    console.log('🔶 [VueApp] Enabling WebSocket mock...');
+    import('../../../mocks/websocket.js').then(({ setupWebSocketMock }) => {
+      setupWebSocketMock();
+      console.log('✅ [VueApp] WebSocket mock enabled');
+    }).catch((error) => {
+      console.warn('⚠️ [VueApp] Failed to enable WebSocket mock:', error);
+    });
+  }
+}
+
+// Enable WebSocket mock (doesn't need to wait)
+enableWebSocketMock();
+
 // Start the app after MSW is ready
 enableMocking().then(() => {
   console.log('🚀 [VueApp] Creating Vue app instance...');
