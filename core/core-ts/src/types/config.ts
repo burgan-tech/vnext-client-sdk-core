@@ -128,9 +128,9 @@ export interface StageSelectionWorkflow {
   version: string;
   
   /**
-   * Optional comment showing the built URL (for reference)
+   * Note: _comment field may exist in JSON for reference/documentation purposes
+   * but is ignored by SDK and applications
    */
-  _comment?: string;
 }
 
 export interface EnvironmentsResponse {

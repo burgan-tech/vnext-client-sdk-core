@@ -12,7 +12,7 @@
   },
   "stages": [
     {
-      "id": "localhost",
+      "key": "localhost",
       "name": "Local Development",
       "baseUrl": "http://localhost:3001",
       "wsUrl": "ws://localhost:3001",
@@ -20,7 +20,7 @@
       "configEndpoint": "http://localhost:3001/client/config"
     },
     {
-      "id": "pilot",
+      "key": "pilot",
       "name": "Pilot",
       "baseUrl": "https://pilot-api.example.com/v1",
       "wsUrl": "wss://pilot-ws.example.com/v1",
