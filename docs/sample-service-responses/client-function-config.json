@@ -115,6 +115,11 @@
     "endpoint": "/client/navigation"
   },
 
+  "router": {
+    "mode": "mdi",
+    "_comment": "Router mode: 'sdi' (Single Document Interface) or 'mdi' (Multi Document Interface). MDI mode özellikle kurumsal müşteriler ve backoffice çalışanları için kritiktir. User preference'dan değiştirilirse uygulama restart gerektirir. ÖNEMLİ: Device ve 1FA token seviyelerinde router her zaman SDI modunda çalışır (override). Bu mode ayarı sadece 2FA+ token seviyeleri için geçerlidir."
+  },
+
   "features": {
     "biometric": {
       "enabled": true,

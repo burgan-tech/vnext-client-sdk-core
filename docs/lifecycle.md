@@ -7,7 +7,10 @@
 * **100.** **DataManager.Init**: Bu core sınıf direkt olarak güvenli alanda verileri saklamak için kullanılır. İçerisinde secure storage mantığını da, cache mantığını da yaşatır. 
 * **200.** İlk açılışta init edilmesi gereken SDK'lar, loglama seviyesi gibi temel uygulama konfigürasyonları backend'den edinilir. Ve verilen sırayla init edilir. [`client-function-config.json`](docs/sample-service-responses/client-function-config.json) örneğinde olduğu gibi, backend'de client akışının config fonksiyonu konfigürasyon içeriğini dönecektir.
 * **300.** **Auth-Manager.Init**: Cihaz/Kullanıcı doğrulama sistemi, auth-manager init edilir. Eğer hiç login olunmamışsa `deviceId` ve `InstallationId` ile device token oluşturulur. Giriş yapılmış ise, giriş yapmış son kullanıcının 1FA access token'ı kullanılır. Login sonrası ise zaten 2FA token kullanılır.
-* **400.** Token seviyesine ve kullanıcıya göre homepage backend'den çekilerek kullanıcıya gösterilir. (İlk kurulum, 1FA durumu, 2FA durumu gibi farklı homepage'ler olabilir)
+* **350.** **Router.Init**: Router initialize edilir. Router mode token seviyesine göre belirlenir:
+  - **Device/1FA token**: Router **her zaman SDI modunda** çalışır (override). MDI mode bu seviyelerde anlamsızdır.
+  - **2FA+ token**: Config'den `router.mode` (SDI/MDI) alınır veya user preference kullanılır. Router mode cold start'da kritik olduğu için config'de belirtilmelidir. User preference'dan değiştirilirse uygulama restart gerektirir.
+* **400.** Token seviyesine ve kullanıcıya göre homepage backend'den çekilerek kullanıcıya gösterilir. Router, navigation response'undan `homepage` key'ini alır ve ilgili navigation item'ını gösterir. (İlk kurulum, 1FA durumu, 2FA durumu gibi farklı homepage'ler olabilir)
 * **500.** Token seviyesine ve kullanıcıya göre navigation bilgisi backend'den istenir. **Not:** Navigation homepage'den bağımsızdır, ancak token seviyesine göre farklılaşır. Her homepage durumuna göre navigation yapısı da değişebilir.
 
 ### first_run

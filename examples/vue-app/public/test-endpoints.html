@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mock Server Endpoint Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .test-container {
+            background: white;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+        }
+        h2 {
+            color: #666;
+            border-bottom: 2px solid #4CAF50;
+            padding-bottom: 10px;
+        }
+        button {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            margin: 5px;
+        }
+        button:hover {
+            background: #45a049;
+        }
+        .result {
+            margin-top: 15px;
+            padding: 15px;
+            background: #f9f9f9;
+            border-radius: 4px;
+            border-left: 4px solid #4CAF50;
+        }
+        .result.error {
+            border-left-color: #f44336;
+            background: #ffebee;
+        }
+        .result pre {
+            margin: 0;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        .status {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: bold;
+            margin-right: 10px;
+        }
+        .status.success {
+            background: #4CAF50;
+            color: white;
+        }
+        .status.error {
+            background: #f44336;
+            color: white;
+        }
+        .endpoint {
+            font-family: monospace;
+            background: #e0e0e0;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-size: 13px;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔶 Mock Server Endpoint Test</h1>
+    
+    <div class="test-container">
+        <h2>1. Environment Endpoint</h2>
+        <p><span class="endpoint">GET /api/v1/discovery/workflows/enviroment/instances/web-app/functions/enviroment</span></p>
+        <button onclick="testEnvironment()">Test Environment Endpoint</button>
+        <div id="env-result"></div>
+    </div>
+
+    <div class="test-container">
+        <h2>2. Client Config Endpoint</h2>
+        <p><span class="endpoint">GET /api/v1/morph-idm/workflows/client/instances/web-app/functions/client</span></p>
+        <button onclick="testClientConfig()">Test Client Config Endpoint</button>
+        <div id="client-result"></div>
+    </div>
+
+    <div class="test-container">
+        <h2>3. ETag Test (304 Not Modified)</h2>
+        <p>Test ETag support with If-None-Match header</p>
+        <button onclick="testETag()">Test ETag</button>
+        <div id="etag-result"></div>
+    </div>
+
+    <script>
+        async function testEnvironment() {
+            const resultDiv = document.getElementById('env-result');
+            resultDiv.innerHTML = '<p>Testing...</p>';
+            
+            try {
+                const response = await fetch('/api/v1/discovery/workflows/enviroment/instances/web-app/functions/enviroment');
+                const data = await response.json();
+                const etag = response.headers.get('ETag');
+                
+                resultDiv.innerHTML = `
+                    <div class="result ${response.ok ? '' : 'error'}">
+                        <span class="status ${response.ok ? 'success' : 'error'}">${response.status} ${response.statusText}</span>
+                        ${etag ? `<strong>ETag:</strong> ${etag}<br>` : ''}
+                        <strong>Response:</strong>
+                        <pre>${JSON.stringify(data, null, 2)}</pre>
+                    </div>
+                `;
+            } catch (error) {
+                resultDiv.innerHTML = `
+                    <div class="result error">
+                        <span class="status error">ERROR</span>
+                        <pre>${error.message}</pre>
+                    </div>
+                `;
+            }
+        }
+
+        async function testClientConfig() {
+            const resultDiv = document.getElementById('client-result');
+            resultDiv.innerHTML = '<p>Testing...</p>';
+            
+            try {
+                const response = await fetch('/api/v1/morph-idm/workflows/client/instances/web-app/functions/client');
+                const data = await response.json();
+                const etag = response.headers.get('ETag');
+                
+                resultDiv.innerHTML = `
+                    <div class="result ${response.ok ? '' : 'error'}">
+                        <span class="status ${response.ok ? 'success' : 'error'}">${response.status} ${response.statusText}</span>
+                        ${etag ? `<strong>ETag:</strong> ${etag}<br>` : ''}
+                        <strong>Response:</strong>
+                        <pre>${JSON.stringify(data, null, 2)}</pre>
+                    </div>
+                `;
+            } catch (error) {
+                resultDiv.innerHTML = `
+                    <div class="result error">
+                        <span class="status error">ERROR</span>
+                        <pre>${error.message}</pre>
+                    </div>
+                `;
+            }
+        }
+
+        async function testETag() {
+            const resultDiv = document.getElementById('etag-result');
+            resultDiv.innerHTML = '<p>Testing...</p>';
+            
+            try {
+                // First request to get ETag
+                const firstResponse = await fetch('/api/v1/discovery/workflows/enviroment/instances/web-app/functions/enviroment');
+                const etag = firstResponse.headers.get('ETag');
+                
+                if (!etag) {
+                    resultDiv.innerHTML = `
+                        <div class="result error">
+                            <span class="status error">ERROR</span>
+                            <p>No ETag received in first request</p>
+                        </div>
+                    `;
+                    return;
+                }
+                
+                // Second request with If-None-Match
+                const secondResponse = await fetch('/api/v1/discovery/workflows/enviroment/instances/web-app/functions/enviroment', {
+                    headers: {
+                        'If-None-Match': etag
+                    }
+                });
+                
+                resultDiv.innerHTML = `
+                    <div class="result ${secondResponse.status === 304 ? '' : 'error'}">
+                        <span class="status ${secondResponse.status === 304 ? 'success' : 'error'}">${secondResponse.status} ${secondResponse.statusText}</span>
+                        <p><strong>First Request ETag:</strong> ${etag}</p>
+                        <p><strong>Second Request Status:</strong> ${secondResponse.status === 304 ? '✅ 304 Not Modified (ETag working!)' : '❌ Expected 304, got ' + secondResponse.status}</p>
+                    </div>
+                `;
+            } catch (error) {
+                resultDiv.innerHTML = `
+                    <div class="result error">
+                        <span class="status error">ERROR</span>
+                        <pre>${error.message}</pre>
+                    </div>
+                `;
+            }
+        }
+    </script>
+</body>
+</html>

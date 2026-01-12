@@ -28,7 +28,38 @@ export interface SdkConfig {
 }
 
 export interface ClientOptions {
+  /**
+   * Environment endpoint URL
+   * Example: "/api/v1/discovery/workflows/enviroment/instances/web-app/functions/enviroment"
+   * or full URL: "http://localhost:3001/api/v1/discovery/workflows/enviroment/instances/web-app/functions/enviroment"
+   */
+  environmentEndpoint: string;
+  
+  /**
+   * Application/Client key
+   * Example: "web-app"
+   */
+  appKey: string;
+  
+  /**
+   * Optional: Override default stage selection
+   * If not provided, uses defaultStage from environments response
+   */
+  defaultStage?: string;
+  
+  /**
+   * Optional: Enable debug/verbose logging
+   */
+  debug?: boolean;
+  
+  /**
+   * Optional: Additional SDK config overrides
+   */
   config?: Partial<SdkConfig>;
+  
+  /**
+   * Optional: Custom interceptors
+   */
   interceptors?: {
     request?: Array<(config: any) => any | Promise<any>>;
     response?: Array<(response: any) => any | Promise<any>>;

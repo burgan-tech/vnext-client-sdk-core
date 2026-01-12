@@ -40,7 +40,7 @@ export class FeatureManager implements IFeatureManager {
       }>('/features');
 
       // Store features
-      response.data.features.forEach(feature => {
+      response.data.features.forEach((feature: FeatureConfig) => {
         this.features.set(feature.id, feature);
         this.stateStore.set(`features.${feature.id}`, feature);
       });
