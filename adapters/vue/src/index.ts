@@ -8,6 +8,7 @@ import type { App } from 'vue';
 import type { VNextSDK, ClientOptions } from '@vnext/core-ts';
 import { VNextSDK as SDK } from '@vnext/core-ts';
 import { VNextSDKKey } from './composables';
+import type { MultiStageMode } from '@vnext/core-ts';
 
 // Adapter-specific logger (using console with prefix)
 const adapterLogger = {
@@ -57,6 +58,12 @@ export interface VuePluginOptions {
    * Optional: Enable debug/verbose logging
    */
   debug?: boolean;
+  
+  /**
+   * Optional: Custom stage selection dialog component
+   * If not provided, uses default dialog implementation
+   */
+  stageSelectionDialog?: any;
 }
 
 /**
@@ -68,12 +75,44 @@ export const VNextVuePlugin = {
       throw new Error('VNextVuePlugin requires environmentEndpoint and appKey');
     }
 
+    // Create stage selection dialog function
+    const createStageSelectionDialog = (stages: Array<{ id: string; name: string }>): Promise<string> => {
+      return new Promise((resolve, reject) => {
+        adapterLogger.info('🔶 [VueAdapter] Showing stage selection dialog...', { stagesCount: stages.length });
+        
+        // Use custom dialog if provided
+        if (options.stageSelectionDialog) {
+          options.stageSelectionDialog(stages, resolve, reject);
+          return;
+        }
+
+        // Default: Use browser prompt (simple but functional)
+        // TODO: Replace with proper Vue dialog component in app context
+        const stageList = stages.map((s, i) => `${i + 1}. ${s.name} (${s.id})`).join('\n');
+        const message = `Select environment:\n\n${stageList}\n\nEnter stage ID:`;
+        const defaultId = stages[0]?.id || '';
+        const selected = prompt(message, defaultId);
+        
+        if (selected && stages.find(s => s.id === selected)) {
+          adapterLogger.info('✅ [VueAdapter] Stage selected:', selected);
+          resolve(selected);
+        } else if (selected === null) {
+          adapterLogger.warn('⚠️ [VueAdapter] Stage selection cancelled by user');
+          reject(new Error('Stage selection cancelled by user'));
+        } else {
+          adapterLogger.error('❌ [VueAdapter] Invalid stage ID:', selected);
+          reject(new Error(`Invalid stage ID: ${selected}`));
+        }
+      });
+    };
+
     // Convert Vue plugin options to ClientOptions
     const clientOptions: ClientOptions = {
       environmentEndpoint: options.environmentEndpoint,
       appKey: options.appKey,
       defaultStage: options.defaultStage,
       debug: options.debug,
+      onStageSelection: createStageSelectionDialog,
     };
 
     adapterLogger.info('🔌 [VueAdapter] Installing VNext Vue plugin...', { 

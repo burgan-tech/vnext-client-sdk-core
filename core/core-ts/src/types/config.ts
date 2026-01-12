@@ -53,6 +53,13 @@ export interface ClientOptions {
   debug?: boolean;
   
   /**
+   * Optional: Stage selection callback for onStartup mode
+   * Called when multiStageMode is 'onStartup' to let user select stage
+   * Should return a Promise that resolves with the selected stage ID
+   */
+  onStageSelection?: (stages: Array<{ id: string; name: string }>) => Promise<string>;
+  
+  /**
    * Optional: Additional SDK config overrides
    */
   config?: Partial<SdkConfig>;
@@ -73,3 +80,24 @@ export interface EnvironmentConfig {
   apiVersion?: string;
 }
 
+/**
+ * Multi-stage selection mode
+ * - never: Default stage always used, user cannot change
+ * - onStartup: Show dialog on app startup to select stage, then fetch client config
+ * - onProfile: App starts with default, user can change via "change environment" menu item in profile page
+ */
+export type MultiStageMode = 'never' | 'onStartup' | 'onProfile';
+
+export interface EnvironmentsResponse {
+  version: string;
+  multiStageMode: MultiStageMode;
+  defaultStage: string;
+  stages: Array<{
+    id: string;
+    name: string;
+    baseUrl: string;
+    wsUrl?: string;
+    mqttUrl?: string;
+    configEndpoint: string;
+  }>;
+}

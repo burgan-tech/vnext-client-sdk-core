@@ -174,9 +174,9 @@ export class VNextSDK {
       const environments = await this.fetchEnvironments();
       logger.debug('Environments fetched:', environments);
       
-      // Step 2: Select stage
-      logger.info('Step 2/7: Selecting stage...');
-      const selectedStage = this.selectStage(environments);
+      // Step 2: Select stage (check multiStageMode)
+      logger.info('Step 2/7: Selecting stage...', { multiStageMode: environments.multiStageMode });
+      const selectedStage = await this.selectStage(environments);
       logger.info('Stage selected:', { 
         id: selectedStage.id, 
         name: selectedStage.name,
@@ -256,10 +256,35 @@ export class VNextSDK {
 
   /**
    * Select stage from environments
+   * Handles multiStageMode: never, onStartup, onProfile
    */
-  private selectStage(environments: any): any {
-    const stageId = this.options.defaultStage || environments.defaultStage || 'prod';
-    logger.debug('Selecting stage:', { requested: stageId, available: environments.stages?.map((s: any) => s.id) });
+  private async selectStage(environments: any): Promise<any> {
+    const multiStageMode = environments.multiStageMode || 'never';
+    logger.debug('Selecting stage:', { 
+      multiStageMode,
+      requested: this.options.defaultStage,
+      default: environments.defaultStage,
+      available: environments.stages?.map((s: any) => s.id) 
+    });
+
+    let stageId: string;
+
+    // Handle different multiStageMode values
+    if (multiStageMode === 'onStartup' && this.options.onStageSelection) {
+      // Show dialog to user for stage selection
+      logger.info('onStartup mode: Requesting stage selection from user...');
+      const stages = environments.stages?.map((s: any) => ({ id: s.id, name: s.name })) || [];
+      stageId = await this.options.onStageSelection(stages);
+      logger.info('User selected stage:', stageId);
+    } else if (multiStageMode === 'never' || multiStageMode === 'onProfile') {
+      // Use default stage (never: always default, onProfile: start with default, can change later)
+      stageId = this.options.defaultStage || environments.defaultStage || 'prod';
+      logger.info('Using default stage:', stageId);
+    } else {
+      // Fallback to default
+      stageId = this.options.defaultStage || environments.defaultStage || 'prod';
+      logger.warn('Unknown multiStageMode, using default:', { multiStageMode, stageId });
+    }
     
     const stage = environments.stages?.find((s: any) => s.id === stageId);
     
