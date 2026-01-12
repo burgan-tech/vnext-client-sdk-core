@@ -272,11 +272,13 @@ export class VNextSDK {
     // Handle different multiStageMode values
     if (multiStageMode === 'onStartup') {
       // Check if backend-driven workflow is provided
-      if (environments.workflow?.endpoint) {
+      if (environments.workflow?.baseUrl && environments.workflow?.domain && environments.workflow?.workflow) {
         // Use backend-driven workflow for stage selection
         logger.info('onStartup mode: Using backend-driven workflow for stage selection...', {
-          workflowEndpoint: environments.workflow.endpoint,
+          workflowDomain: environments.workflow.domain,
+          workflowName: environments.workflow.workflow,
           workflowVersion: environments.workflow.version,
+          baseUrl: environments.workflow.baseUrl,
         });
         stageId = await this.selectStageViaWorkflow(environments.workflow, environments.stages);
         logger.info('Stage selected via workflow:', stageId);
@@ -317,25 +319,40 @@ export class VNextSDK {
   /**
    * Select stage via backend-driven workflow
    * The workflow will handle the UI and return the selected stage ID
+   * 
+   * URL pattern: {baseUrl}/api/v1/{domain}/workflows/{workflow}/instances/start
    */
   private async selectStageViaWorkflow(
-    workflow: { endpoint: string; version?: string; runtime?: string },
+    workflow: { baseUrl: string; domain: string; workflow: string; version: string; runtime?: string },
     availableStages: Array<{ id: string; name: string }>
   ): Promise<string> {
+    // Build workflow start URL according to Swagger pattern
+    // Pattern: /api/v1/{domain}/workflows/{workflow}/instances/start
+    const baseUrl = workflow.baseUrl.replace(/\/$/, ''); // Remove trailing slash
+    const workflowEndpoint = `${baseUrl}/api/v1/${workflow.domain}/workflows/${workflow.workflow}/instances/start`;
+    
     logger.debug('Starting stage selection workflow...', { 
-      endpoint: workflow.endpoint,
+      workflowEndpoint,
+      domain: workflow.domain,
+      workflow: workflow.workflow,
+      version: workflow.version,
       availableStages: availableStages.map(s => s.id),
     });
 
     try {
+      // Build URL with version as query parameter (according to Swagger)
+      const url = new URL(workflowEndpoint);
+      if (workflow.version) {
+        url.searchParams.set('version', workflow.version);
+      }
+      
       // Start workflow instance
-      const response = await fetch(workflow.endpoint, {
+      const response = await fetch(url.toString(), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          version: workflow.version,
           attributes: {
             availableStages,
           },

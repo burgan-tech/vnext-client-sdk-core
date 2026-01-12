@@ -98,9 +98,39 @@ export interface EnvironmentConfig {
 export type MultiStageMode = 'never' | 'onStartup' | 'onProfile';
 
 export interface StageSelectionWorkflow {
+  /**
+   * Runtime version (e.g., "v2")
+   */
   runtime: string;
-  endpoint: string;
+  
+  /**
+   * Base URL for the workflow API
+   * Example: "http://localhost:3001"
+   */
+  baseUrl: string;
+  
+  /**
+   * Domain for the workflow
+   * Example: "discovery"
+   */
+  domain: string;
+  
+  /**
+   * Workflow name/identifier
+   * Example: "stage-selector"
+   */
+  workflow: string;
+  
+  /**
+   * Workflow version
+   * Example: "1.1"
+   */
   version: string;
+  
+  /**
+   * Optional comment showing the built URL (for reference)
+   */
+  _comment?: string;
 }
 
 export interface EnvironmentsResponse {

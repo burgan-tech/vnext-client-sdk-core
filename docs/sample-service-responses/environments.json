@@ -3,8 +3,11 @@
   "multiStageMode": "onStartup",
   "defaultStage": "localhost",
   "workflow": {
+    "_comment": "http://localhost:3001/api/v1/discovery/workflows/stage-selector/instances/start",
     "runtime" : "v2",
-    "endpoint": "http://localhost:3001/api/v1/discovery/workflows/stage-selector/instances/start",
+    "baseUrl": "http://localhost:3001",
+    "domain": "discovery",
+    "workflow": "stage-selector",
     "version": "1.1"
   },
   "stages": [
