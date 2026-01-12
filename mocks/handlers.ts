@@ -385,6 +385,51 @@ export const handlers = [
     );
   }),
 
+  // ===== STAGE SELECTION WORKFLOW =====
+  // POST /api/v1/discovery/workflows/stage-selector/instances/start
+  http.post('/api/v1/discovery/workflows/stage-selector/instances/start', async ({ request }) => {
+    const body = await request.json() as {
+      version?: string;
+      attributes?: {
+        availableStages?: Array<{ id: string; name: string }>;
+      };
+    };
+    
+    // Create workflow instance for stage selection
+    const instanceId = generateUUID();
+    const etag = generateETag();
+    
+    const instance = {
+      id: instanceId,
+      key: 'stage-selection',
+      flow: 'stage-selector',
+      domain: 'discovery',
+      flowVersion: body.version || '1.1',
+      etag,
+      tags: [],
+      attributes: {
+        availableStages: body.attributes?.availableStages || [],
+        selectedStage: null, // Will be set when user selects
+      },
+      extensions: {},
+      status: {
+        code: 'active',
+        description: 'Stage selection workflow active',
+      },
+    };
+    
+    mockInstances.set(instanceId, instance);
+    
+    return HttpResponse.json({
+      id: instanceId,
+      status: {
+        code: 'active',
+        description: 'Stage selection workflow active',
+      },
+      attributes: instance.attributes,
+    });
+  }),
+
   // ===== WORKFLOW INSTANCES =====
   http.post('/api/v1/:domain/workflows/:workflow/instances/start', async ({ params, request }) => {
     const { domain, workflow } = params;

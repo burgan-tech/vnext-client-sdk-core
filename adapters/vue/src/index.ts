@@ -60,10 +60,20 @@ export interface VuePluginOptions {
   debug?: boolean;
   
   /**
-   * Optional: Custom stage selection dialog component
+   * Optional: Custom stage selection dialog/workflow handler
    * If not provided, uses default dialog implementation
+   * 
+   * @param stages Available stages
+   * @param resolve Callback to resolve with selected stage ID
+   * @param reject Callback to reject with error
+   * @param workflowInstance Optional workflow instance if backend-driven workflow is used
    */
-  stageSelectionDialog?: any;
+  stageSelectionDialog?: (
+    stages: Array<{ id: string; name: string }>,
+    resolve: (stageId: string) => void,
+    reject: (error: Error) => void,
+    workflowInstance?: any
+  ) => void;
 }
 
 /**
@@ -75,33 +85,65 @@ export const VNextVuePlugin = {
       throw new Error('VNextVuePlugin requires environmentEndpoint and appKey');
     }
 
-    // Create stage selection dialog function
-    const createStageSelectionDialog = (stages: Array<{ id: string; name: string }>): Promise<string> => {
+    // Create stage selection dialog/workflow function
+    const createStageSelectionDialog = (
+      stages: Array<{ id: string; name: string }>,
+      workflowInstance?: any
+    ): Promise<string> => {
       return new Promise((resolve, reject) => {
-        adapterLogger.info('🔶 [VueAdapter] Showing stage selection dialog...', { stagesCount: stages.length });
-        
-        // Use custom dialog if provided
-        if (options.stageSelectionDialog) {
-          options.stageSelectionDialog(stages, resolve, reject);
-          return;
+        // If workflow instance is provided, use workflow-based selection
+        if (workflowInstance) {
+          adapterLogger.info('🔶 [VueAdapter] Using backend-driven workflow for stage selection...', {
+            instanceId: workflowInstance.id,
+            workflowState: workflowInstance.status?.code,
+          });
+          
+          // Use custom workflow handler if provided
+          if (options.stageSelectionDialog) {
+            options.stageSelectionDialog(stages, resolve, reject, workflowInstance);
+            return;
+          }
+          
+          // Default: Use workflow manager to handle workflow
+          // The workflow will render its UI and return the selected stage
+          // For now, we'll use a simplified approach - in production, this would use WorkflowManager
+          adapterLogger.info('📋 [VueAdapter] Workflow instance received, handling workflow UI...');
+          
+          // TODO: Integrate with WorkflowManager to render workflow steps
+          // For now, fallback to simple dialog
+          adapterLogger.warn('⚠️ [VueAdapter] Workflow rendering not fully implemented, falling back to dialog');
+          showSimpleDialog();
+        } else {
+          // No workflow, use simple dialog
+          showSimpleDialog();
         }
 
-        // Default: Use browser prompt (simple but functional)
-        // TODO: Replace with proper Vue dialog component in app context
-        const stageList = stages.map((s, i) => `${i + 1}. ${s.name} (${s.id})`).join('\n');
-        const message = `Select environment:\n\n${stageList}\n\nEnter stage ID:`;
-        const defaultId = stages[0]?.id || '';
-        const selected = prompt(message, defaultId);
-        
-        if (selected && stages.find(s => s.id === selected)) {
-          adapterLogger.info('✅ [VueAdapter] Stage selected:', selected);
-          resolve(selected);
-        } else if (selected === null) {
-          adapterLogger.warn('⚠️ [VueAdapter] Stage selection cancelled by user');
-          reject(new Error('Stage selection cancelled by user'));
-        } else {
-          adapterLogger.error('❌ [VueAdapter] Invalid stage ID:', selected);
-          reject(new Error(`Invalid stage ID: ${selected}`));
+        function showSimpleDialog() {
+          adapterLogger.info('🔶 [VueAdapter] Showing stage selection dialog...', { stagesCount: stages.length });
+          
+          // Use custom dialog if provided
+          if (options.stageSelectionDialog) {
+            options.stageSelectionDialog(stages, resolve, reject);
+            return;
+          }
+
+          // Default: Use browser prompt (simple but functional)
+          // TODO: Replace with proper Vue dialog component in app context
+          const stageList = stages.map((s, i) => `${i + 1}. ${s.name} (${s.id})`).join('\n');
+          const message = `Select environment:\n\n${stageList}\n\nEnter stage ID:`;
+          const defaultId = stages[0]?.id || '';
+          const selected = prompt(message, defaultId);
+          
+          if (selected && stages.find(s => s.id === selected)) {
+            adapterLogger.info('✅ [VueAdapter] Stage selected:', selected);
+            resolve(selected);
+          } else if (selected === null) {
+            adapterLogger.warn('⚠️ [VueAdapter] Stage selection cancelled by user');
+            reject(new Error('Stage selection cancelled by user'));
+          } else {
+            adapterLogger.error('❌ [VueAdapter] Invalid stage ID:', selected);
+            reject(new Error(`Invalid stage ID: ${selected}`));
+          }
         }
       });
     };

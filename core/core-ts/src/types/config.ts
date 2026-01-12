@@ -55,9 +55,18 @@ export interface ClientOptions {
   /**
    * Optional: Stage selection callback for onStartup mode
    * Called when multiStageMode is 'onStartup' to let user select stage
-   * Should return a Promise that resolves with the selected stage ID
+   * 
+   * If workflow is provided, workflowInstance will be passed as second parameter
+   * The callback should handle workflow rendering and return the selected stage ID
+   * 
+   * @param stages Available stages to choose from
+   * @param workflowInstance Optional workflow instance if backend-driven workflow is used
+   * @returns Promise that resolves with the selected stage ID
    */
-  onStageSelection?: (stages: Array<{ id: string; name: string }>) => Promise<string>;
+  onStageSelection?: (
+    stages: Array<{ id: string; name: string }>,
+    workflowInstance?: any
+  ) => Promise<string>;
   
   /**
    * Optional: Additional SDK config overrides
@@ -88,10 +97,22 @@ export interface EnvironmentConfig {
  */
 export type MultiStageMode = 'never' | 'onStartup' | 'onProfile';
 
+export interface StageSelectionWorkflow {
+  runtime: string;
+  endpoint: string;
+  version: string;
+}
+
 export interface EnvironmentsResponse {
   version: string;
   multiStageMode: MultiStageMode;
   defaultStage: string;
+  /**
+   * Optional: Backend-driven workflow for stage selection
+   * When provided, this workflow will be used for stage selection instead of simple dialog
+   * The workflow will handle the UI and return the selected stage ID
+   */
+  workflow?: StageSelectionWorkflow;
   stages: Array<{
     id: string;
     name: string;

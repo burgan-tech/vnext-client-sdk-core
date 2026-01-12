@@ -270,12 +270,27 @@ export class VNextSDK {
     let stageId: string;
 
     // Handle different multiStageMode values
-    if (multiStageMode === 'onStartup' && this.options.onStageSelection) {
-      // Show dialog to user for stage selection
-      logger.info('onStartup mode: Requesting stage selection from user...');
-      const stages = environments.stages?.map((s: any) => ({ id: s.id, name: s.name })) || [];
-      stageId = await this.options.onStageSelection(stages);
-      logger.info('User selected stage:', stageId);
+    if (multiStageMode === 'onStartup') {
+      // Check if backend-driven workflow is provided
+      if (environments.workflow?.endpoint) {
+        // Use backend-driven workflow for stage selection
+        logger.info('onStartup mode: Using backend-driven workflow for stage selection...', {
+          workflowEndpoint: environments.workflow.endpoint,
+          workflowVersion: environments.workflow.version,
+        });
+        stageId = await this.selectStageViaWorkflow(environments.workflow, environments.stages);
+        logger.info('Stage selected via workflow:', stageId);
+      } else if (this.options.onStageSelection) {
+        // Fallback to callback-based dialog
+        logger.info('onStartup mode: Requesting stage selection from user via callback...');
+        const stages = environments.stages?.map((s: any) => ({ id: s.id, name: s.name })) || [];
+        stageId = await this.options.onStageSelection(stages);
+        logger.info('User selected stage:', stageId);
+      } else {
+        // No workflow and no callback, use default
+        logger.warn('onStartup mode but no workflow or callback provided, using default stage');
+        stageId = this.options.defaultStage || environments.defaultStage || 'prod';
+      }
     } else if (multiStageMode === 'never' || multiStageMode === 'onProfile') {
       // Use default stage (never: always default, onProfile: start with default, can change later)
       stageId = this.options.defaultStage || environments.defaultStage || 'prod';
@@ -297,6 +312,64 @@ export class VNextSDK {
     }
     
     return stage;
+  }
+
+  /**
+   * Select stage via backend-driven workflow
+   * The workflow will handle the UI and return the selected stage ID
+   */
+  private async selectStageViaWorkflow(
+    workflow: { endpoint: string; version?: string; runtime?: string },
+    availableStages: Array<{ id: string; name: string }>
+  ): Promise<string> {
+    logger.debug('Starting stage selection workflow...', { 
+      endpoint: workflow.endpoint,
+      availableStages: availableStages.map(s => s.id),
+    });
+
+    try {
+      // Start workflow instance
+      const response = await fetch(workflow.endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          version: workflow.version,
+          attributes: {
+            availableStages,
+          },
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to start stage selection workflow: ${response.statusText}`);
+      }
+
+      const workflowInstance = await response.json();
+      logger.debug('Workflow instance started:', { 
+        instanceId: workflowInstance.id,
+        state: workflowInstance.status?.code,
+      });
+
+      // If workflow has onStageSelection callback, use it to handle workflow UI
+      // The callback should render the workflow and return the selected stage ID
+      if (this.options.onStageSelection) {
+        // Pass workflow instance to callback
+        // The callback should handle workflow rendering and return selected stage
+        const stages = availableStages.map(s => ({ id: s.id, name: s.name }));
+        const selectedStageId = await this.options.onStageSelection(stages, workflowInstance);
+        return selectedStageId;
+      } else {
+        // No callback provided, workflow should be handled externally
+        // For now, wait for workflow completion and extract stage from result
+        // This is a simplified implementation - in real scenario, workflow manager would handle this
+        throw new Error('Workflow-based stage selection requires onStageSelection callback to handle workflow UI');
+      }
+    } catch (error) {
+      logger.error('Failed to select stage via workflow:', error);
+      throw error;
+    }
   }
 
   /**
