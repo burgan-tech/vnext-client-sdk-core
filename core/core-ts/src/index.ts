@@ -246,7 +246,7 @@ export class VNextSDK {
     const data = await response.json();
     logger.debug('Environments response:', { 
       status: response.status,
-      allowMultiStage: data.allowMultiStage,
+      multiStageMode: data.multiStageMode,
       defaultStage: data.defaultStage,
       stagesCount: data.stages?.length,
     });
