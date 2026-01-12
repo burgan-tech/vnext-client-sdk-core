@@ -90,7 +90,7 @@ export class VNextSDK {
       logger.info('🐛 Debug mode enabled - Verbose logging active');
     }
 
-    logger.info('🚀 Initializing VNextSDK...', { 
+    logger.info('🚀 Initializing CoreSDK...', { 
       environmentEndpoint: options.environmentEndpoint,
       appKey: options.appKey,
     });
@@ -278,7 +278,10 @@ export class VNextSDK {
    * Fetch client config from endpoint
    */
   private async fetchClientConfig(baseUrl: string): Promise<any> {
-    const clientConfigUrl = `${baseUrl}/api/v1/morph-idm/workflows/client/instances/${this.options.appKey}/functions/client`;
+    // Build URL: if baseUrl ends with /v1, remove it and add /api/v1, otherwise add /api/v1
+    // This handles both localhost:3001 and https://pilot-api.example.com/v1 cases
+    const normalizedBaseUrl = baseUrl.endsWith('/v1') ? baseUrl.replace(/\/v1$/, '') : baseUrl;
+    const clientConfigUrl = `${normalizedBaseUrl}/api/v1/morph-idm/workflows/client/instances/${this.options.appKey}/functions/client`;
     logger.debug('Fetching client config from:', clientConfigUrl);
     
     const response = await fetch(clientConfigUrl);

@@ -25,7 +25,7 @@ export class Logger {
 
   constructor(options: LoggerOptions = {}) {
     this.level = options.level ?? LogLevel.INFO;
-    this.prefix = options.prefix ?? '[VNextSDK]';
+    this.prefix = options.prefix ?? '[CoreSDK]';
     this.enableTimestamp = options.enableTimestamp ?? true;
     this.enableColors = options.enableColors ?? true;
   }
@@ -126,10 +126,10 @@ export class Logger {
   }
 }
 
-// Default logger instance
+// Default logger instance for Core SDK
 export const logger = new Logger({
   level: LogLevel.INFO,
-  prefix: '[VNextSDK]',
+  prefix: '[CoreSDK]',
   enableTimestamp: true,
   enableColors: true,
 });

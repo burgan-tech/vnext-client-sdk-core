@@ -111,6 +111,83 @@ app.get('/api/v1/morph-idm/workflows/client/instances/:appKey/functions/client',
   res.json(clientFunctionConfig);
 });
 
+// ===== ROOT ENDPOINT - List all available endpoints =====
+app.get('/', (req, res) => {
+  res.json({
+    name: 'VNext Mock Server',
+    version: '1.0.0',
+    description: 'Mock server for VNext SDK development and testing',
+    endpoints: [
+      {
+        method: 'GET',
+        path: '/api/v1/discovery/workflows/enviroment/instances/{appKey}/functions/enviroment',
+        description: 'Get environments list',
+        example: '/api/v1/discovery/workflows/enviroment/instances/web-app/functions/enviroment',
+      },
+      {
+        method: 'GET',
+        path: '/api/v1/morph-idm/workflows/client/instances/{appKey}/functions/client',
+        description: 'Get client config',
+        example: '/api/v1/morph-idm/workflows/client/instances/web-app/functions/client',
+      },
+      {
+        method: 'GET',
+        path: '/features',
+        description: 'Get features configuration',
+        example: '/features',
+      },
+      {
+        method: 'GET',
+        path: '/environments.json',
+        description: 'Get environments (legacy)',
+        example: '/environments.json',
+      },
+      {
+        method: 'GET',
+        path: '/client/config',
+        description: 'Get client config (legacy)',
+        example: '/client/config',
+      },
+      {
+        method: 'GET',
+        path: '/health',
+        description: 'Health check',
+        example: '/health',
+      },
+    ],
+    usage: {
+      note: 'Replace {appKey} with your application key (e.g., "web-app")',
+      examples: [
+        'curl http://localhost:3001/',
+        'curl http://localhost:3001/api/v1/discovery/workflows/enviroment/instances/web-app/functions/enviroment',
+        'curl http://localhost:3001/api/v1/morph-idm/workflows/client/instances/web-app/functions/client',
+        'curl http://localhost:3001/features',
+      ],
+    },
+  });
+});
+
+// ===== FEATURES ENDPOINT =====
+app.get('/features', (req, res) => {
+  res.json({
+    features: [
+      {
+        id: 'enableWebSocket',
+        enabled: true,
+        config: {},
+      },
+      {
+        id: 'enableStatePersistence',
+        enabled: true,
+        config: {},
+      },
+    ],
+    menu: {
+      items: [],
+    },
+  });
+});
+
 // ===== LEGACY ENDPOINTS (for backward compatibility) =====
 app.get('/environments.json', (req, res) => {
   res.json(environments);
@@ -129,8 +206,10 @@ app.get('/health', (req, res) => {
 app.listen(PORT, () => {
   console.log('\n🔶 Mock Server running on http://localhost:' + PORT);
   console.log('\n📋 Available Endpoints:');
+  console.log('   GET  /                                    - List all endpoints (this page)');
   console.log('   GET  /api/v1/discovery/workflows/enviroment/instances/{appKey}/functions/enviroment');
   console.log('   GET  /api/v1/morph-idm/workflows/client/instances/{appKey}/functions/client');
+  console.log('   GET  /features                             - Get features configuration');
   console.log('   GET  /environments.json (legacy)');
   console.log('   GET  /client/config (legacy)');
   console.log('   GET  /health');

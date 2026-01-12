@@ -6,16 +6,18 @@ import { router } from './router';
 // Enable MSW in development
 async function enableMocking() {
   if (import.meta.env.DEV) {
+    console.log('🔶 [VueApp] Enabling MSW mock service worker...');
     const { worker } = await import('../../../mocks/browser.js');
     await worker.start({
       onUnhandledRequest: 'bypass',
     });
-    console.log('🔶 MSW enabled - Mocking API requests');
+    console.log('✅ [VueApp] MSW enabled - Mocking API requests');
   }
 }
 
 // Start the app after MSW is ready
 enableMocking().then(() => {
+  console.log('🚀 [VueApp] Creating Vue app instance...');
   const app = createApp(App);
 
   // Install VNext Vue plugin
@@ -32,6 +34,8 @@ enableMocking().then(() => {
   // Install router
   app.use(router);
 
+  console.log('✅ [VueApp] Mounting Vue app...');
   app.mount('#app');
+  console.log('✅ [VueApp] Vue app mounted successfully!');
 });
 

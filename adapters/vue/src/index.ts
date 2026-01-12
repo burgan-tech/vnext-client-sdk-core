@@ -9,6 +9,14 @@ import type { VNextSDK, ClientOptions } from '@vnext/core-ts';
 import { VNextSDK as SDK } from '@vnext/core-ts';
 import { VNextSDKKey } from './composables';
 
+// Adapter-specific logger (using console with prefix)
+const adapterLogger = {
+  info: (...args: any[]) => console.log('%c[VueAdapter]', 'color: #9C27B0', ...args),
+  debug: (...args: any[]) => console.log('%c[VueAdapter]', 'color: #888', ...args),
+  warn: (...args: any[]) => console.warn('%c[VueAdapter]', 'color: #FF9800', ...args),
+  error: (...args: any[]) => console.error('%c[VueAdapter]', 'color: #F44336', ...args),
+};
+
 // Export hooks
 export { useAuth } from './hooks/useAuth';
 export { useApi } from './hooks/useApi';
@@ -68,13 +76,27 @@ export const VNextVuePlugin = {
       debug: options.debug,
     };
 
+    adapterLogger.info('🔌 [VueAdapter] Installing VNext Vue plugin...', { 
+      environmentEndpoint: options.environmentEndpoint,
+      appKey: options.appKey,
+    });
+
     const sdk = new SDK(clientOptions);
     
     // Provide SDK instance
     app.provide(VNextSDKKey, sdk);
 
+    adapterLogger.info('🔌 [VueAdapter] SDK instance created, initializing...');
+
     // Initialize SDK (loads environment, client config, etc.)
-    sdk.initialize().catch(console.error);
+    sdk.initialize()
+      .then(() => {
+        adapterLogger.info('✅ [VueAdapter] SDK initialization completed');
+      })
+      .catch((error) => {
+        adapterLogger.error('❌ [VueAdapter] SDK initialization failed:', error);
+        console.error(error);
+      });
 
     // Cleanup on app unmount
     app.config.globalProperties.$vnext = sdk;
