@@ -320,20 +320,40 @@ export class VNextSDK {
     // Support both 'key' and 'id' for backward compatibility
     logger.debug('Looking for stage:', { 
       stageId,
+      stageIdType: typeof stageId,
       stagesCount: environments.stages?.length,
       stages: environments.stages?.map((s: any) => ({ 
         key: s.key, 
         id: s.id, 
-        identifier: s.key || s.id 
+        identifier: s.key || s.id,
+        match: (s.key || s.id) === stageId
       }))
     });
     
-    const stage = environments.stages?.find((s: any) => (s.key || s.id) === stageId);
+    // Try to find stage by key first, then by id
+    const stage = environments.stages?.find((s: any) => {
+      const identifier = s.key || s.id;
+      const match = identifier === stageId;
+      if (match) {
+        logger.debug('Stage match found:', { identifier, stageId, key: s.key, id: s.id });
+      }
+      return match;
+    });
     
     if (!stage) {
+      const available = environments.stages?.map((s: any) => s.key || s.id) || [];
       logger.error('Stage not found:', { 
-        requested: stageId, 
-        available: environments.stages?.map((s: any) => s.key || s.id),
+        requested: stageId,
+        requestedType: typeof stageId,
+        available,
+        availableTypes: environments.stages?.map((s: any) => ({
+          key: s.key,
+          keyType: typeof s.key,
+          id: s.id,
+          idType: typeof s.id,
+          identifier: s.key || s.id,
+          identifierType: typeof (s.key || s.id)
+        })),
         stagesDetails: environments.stages?.map((s: any) => ({
           key: s.key,
           id: s.id,
@@ -341,7 +361,7 @@ export class VNextSDK {
           name: s.name
         }))
       });
-      throw new Error(`Stage '${stageId}' not found in environments`);
+      throw new Error(`Stage '${stageId}' not found in environments. Available: ${available.join(', ')}`);
     }
     
     return stage;
