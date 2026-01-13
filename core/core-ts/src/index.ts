@@ -286,25 +286,26 @@ export class VNextSDK {
           logger.info('Stage selected via workflow:', stageId);
         } catch (error) {
           logger.warn('Workflow-based stage selection failed, falling back to callback or default:', error);
-          // Fall through to callback or default
-          stageId = undefined as any;
+          // Fall through to callback or default - stageId remains undefined
         }
       }
       
       // If workflow didn't provide stageId, try callback or default
-      if (!stageId && this.options.onStageSelection) {
-        // Fallback to callback-based dialog
-        logger.info('onStartup mode: Requesting stage selection from user via callback...');
-        const stages = environments.stages?.map((s: any) => ({ 
-          id: s.key || s.id, // Support both key and id for backward compatibility
-          name: s.title || s.name // Support both title and name for backward compatibility
-        })) || [];
-        stageId = await this.options.onStageSelection(stages);
-        logger.info('User selected stage:', stageId);
-      } else {
-        // No workflow and no callback, use default
-        logger.warn('onStartup mode but no workflow or callback provided, using default stage');
-        stageId = this.options.defaultStage || environments.defaultStage || 'prod';
+      if (!stageId) {
+        if (this.options.onStageSelection) {
+          // Fallback to callback-based dialog
+          logger.info('onStartup mode: Requesting stage selection from user via callback...');
+          const stages = environments.stages?.map((s: any) => ({ 
+            id: s.key || s.id, // Support both key and id for backward compatibility
+            name: s.title || s.name // Support both title and name for backward compatibility
+          })) || [];
+          stageId = await this.options.onStageSelection(stages);
+          logger.info('User selected stage:', stageId);
+        } else {
+          // No workflow success and no callback, use default
+          logger.warn('onStartup mode: No workflow result and no callback provided, using default stage');
+          stageId = this.options.defaultStage || environments.defaultStage || 'prod';
+        }
       }
     } else if (multiStageMode === 'never' || multiStageMode === 'onProfile') {
       // Use default stage (never: always default, onProfile: start with default, can change later)
