@@ -357,7 +357,7 @@ export class VNextSDK {
       domain: workflow.domain,
       workflow: workflow.workflow,
       version: workflow.version,
-      availableStages: availableStages.map(s => s.id),
+      availableStages: availableStages.map(s => s.key || s.id),
     });
 
     try {
