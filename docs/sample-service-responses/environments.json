@@ -2,7 +2,7 @@
   "version": "1.0.0",
   "multiStageMode": "onStartup",
   "defaultStage": "localhost",
-  "workflow": {
+  "selector-workflow": {
     "_comment": "http://localhost:3001/api/v1/discovery/workflows/stage-selector/instances/start",
     "runtime" : "v2",
     "baseUrl": "http://localhost:3001",
