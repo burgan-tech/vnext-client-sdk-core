@@ -317,12 +317,28 @@ export class VNextSDK {
     }
     
     // Support both 'key' and 'id' for backward compatibility
+    logger.debug('Looking for stage:', { 
+      stageId,
+      stagesCount: environments.stages?.length,
+      stages: environments.stages?.map((s: any) => ({ 
+        key: s.key, 
+        id: s.id, 
+        identifier: s.key || s.id 
+      }))
+    });
+    
     const stage = environments.stages?.find((s: any) => (s.key || s.id) === stageId);
     
     if (!stage) {
       logger.error('Stage not found:', { 
         requested: stageId, 
-        available: environments.stages?.map((s: any) => s.key || s.id) 
+        available: environments.stages?.map((s: any) => s.key || s.id),
+        stagesDetails: environments.stages?.map((s: any) => ({
+          key: s.key,
+          id: s.id,
+          title: s.title,
+          name: s.name
+        }))
       });
       throw new Error(`Stage '${stageId}' not found in environments`);
     }
