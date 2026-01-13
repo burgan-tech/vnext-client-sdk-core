@@ -133,6 +133,46 @@ export interface StageSelectionWorkflow {
    */
 }
 
+/**
+ * Stage config schema for function calls
+ * Follows Swagger pattern: /api/v1/{domain}/workflows/{workflow}/instances/{instanceKey}/functions/{function}
+ */
+export interface StageConfig {
+  /**
+   * Function call level (e.g., "instance")
+   */
+  level: string;
+  
+  /**
+   * Domain for the function call
+   * Example: "discovery"
+   */
+  domain: string;
+  
+  /**
+   * Workflow name
+   * Example: "enviroment"
+   */
+  workflow: string;
+  
+  /**
+   * Instance key (stage key)
+   * Example: "localhost", "pilot"
+   */
+  instanceKey: string;
+  
+  /**
+   * Function name
+   * Example: "enviroment"
+   */
+  function: string;
+  
+  /**
+   * Note: _comment field may exist in JSON for reference/documentation purposes
+   * but is ignored by SDK and applications
+   */
+}
+
 export interface EnvironmentsResponse {
   version: string;
   multiStageMode: MultiStageMode;
@@ -142,13 +182,40 @@ export interface EnvironmentsResponse {
    * When provided, this workflow will be used for stage selection instead of simple dialog
    * The workflow will handle the UI and return the selected stage ID
    */
-  workflow?: StageSelectionWorkflow;
+  'selector-workflow'?: StageSelectionWorkflow;
+  workflow?: StageSelectionWorkflow; // Legacy support
   stages: Array<{
-    id: string;
-    name: string;
+    /**
+     * Stage identifier (replaces 'id')
+     */
+    key: string;
+    
+    /**
+     * Stage display name (replaces 'name')
+     */
+    title: string;
+    
+    /**
+     * Base URL for API calls
+     * May include /api/v1/ suffix
+     */
     baseUrl: string;
+    
+    /**
+     * WebSocket URL
+     */
     wsUrl?: string;
+    
+    /**
+     * MQTT URL
+     */
     mqttUrl?: string;
-    configEndpoint: string;
+    
+    /**
+     * Config object for building function call URLs
+     * Replaces configEndpoint string
+     * Client builds URL from this object following Swagger pattern
+     */
+    config: StageConfig;
   }>;
 }

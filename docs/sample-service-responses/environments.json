@@ -5,7 +5,7 @@
   "selector-workflow": {
     "_comment": "http://localhost:3001/api/v1/discovery/workflows/stage-selector/instances/start",
     "runtime" : "v2",
-    "baseUrl": "http://localhost:3001",
+    "baseUrl": "http://localhost:3001/api/v1/",
     "domain": "discovery",
     "workflow": "stage-selector",
     "version": "1.1"
@@ -13,19 +13,33 @@
   "stages": [
     {
       "key": "localhost",
-      "name": "Local Development",
-      "baseUrl": "http://localhost:3001",
+      "title": "Local Development",
+      "baseUrl": "http://localhost:3001/api/v1/",
       "wsUrl": "ws://localhost:3001",
       "mqttUrl": "mqtt://localhost:1883",
-      "configEndpoint": "http://localhost:3001/client/config"
+      "config" :{
+        "_comment": "http://localhost:3001/api/v1/discovery/workflows/enviroment/instances/localhost/functions/enviroment",
+        "level": "instance",
+        "domain": "discovery",  
+        "workflow": "enviroment",
+        "instanceKey": "localhost",
+        "function": "enviroment"
+      }
     },
     {
       "key": "pilot",
-      "name": "Pilot",
-      "baseUrl": "https://pilot-api.example.com/v1",
+      "title": "Pilot",
+      "baseUrl": "https://pilot-api.example.com",
       "wsUrl": "wss://pilot-ws.example.com/v1",
       "mqttUrl": "mqtts://pilot-mqtt.example.com:8883",
-      "configEndpoint": "https://pilot-api.example.com/v1/client/config"
+      "config" :{
+        "_comment": "https://pilot-api.example.com/discovery/workflows/enviroment/instances/pilot/functions/enviroment",
+        "level": "instance",
+        "domain": "discovery",  
+        "workflow": "enviroment",
+        "instanceKey": "pilot",
+        "function": "enviroment"
+      }
     }
   ]
 }

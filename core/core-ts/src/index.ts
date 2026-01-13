@@ -178,8 +178,8 @@ export class VNextSDK {
       logger.info('Step 2/7: Selecting stage...', { multiStageMode: environments.multiStageMode });
       const selectedStage = await this.selectStage(environments);
       logger.info('Stage selected:', { 
-        id: selectedStage.id, 
-        name: selectedStage.name,
+        key: selectedStage.key, 
+        title: selectedStage.title,
         baseUrl: selectedStage.baseUrl,
       });
       
@@ -196,7 +196,7 @@ export class VNextSDK {
       
       // Step 4: Fetch client config
       logger.info('Step 4/7: Fetching client config...');
-      const clientConfig = await this.fetchClientConfig(selectedStage.baseUrl);
+      const clientConfig = await this.fetchClientConfig(selectedStage);
       logger.debug('Client config fetched:', clientConfig);
       
       // Step 5: Merge client config into SDK config
@@ -260,32 +260,36 @@ export class VNextSDK {
    */
   private async selectStage(environments: any): Promise<any> {
     const multiStageMode = environments.multiStageMode || 'never';
-    logger.debug('Selecting stage:', { 
+      logger.debug('Selecting stage:', { 
       multiStageMode,
       requested: this.options.defaultStage,
       default: environments.defaultStage,
-      available: environments.stages?.map((s: any) => s.id) 
+      available: environments.stages?.map((s: any) => s.key || s.id) 
     });
 
     let stageId: string;
 
     // Handle different multiStageMode values
     if (multiStageMode === 'onStartup') {
-      // Check if backend-driven workflow is provided
-      if (environments.workflow?.baseUrl && environments.workflow?.domain && environments.workflow?.workflow) {
+      // Check if backend-driven workflow is provided (support both 'selector-workflow' and 'workflow' keys)
+      const workflow = environments['selector-workflow'] || environments.workflow;
+      if (workflow?.baseUrl && workflow?.domain && workflow?.workflow) {
         // Use backend-driven workflow for stage selection
         logger.info('onStartup mode: Using backend-driven workflow for stage selection...', {
-          workflowDomain: environments.workflow.domain,
-          workflowName: environments.workflow.workflow,
-          workflowVersion: environments.workflow.version,
-          baseUrl: environments.workflow.baseUrl,
+          workflowDomain: workflow.domain,
+          workflowName: workflow.workflow,
+          workflowVersion: workflow.version,
+          baseUrl: workflow.baseUrl,
         });
-        stageId = await this.selectStageViaWorkflow(environments.workflow, environments.stages);
+        stageId = await this.selectStageViaWorkflow(workflow, environments.stages);
         logger.info('Stage selected via workflow:', stageId);
       } else if (this.options.onStageSelection) {
         // Fallback to callback-based dialog
         logger.info('onStartup mode: Requesting stage selection from user via callback...');
-        const stages = environments.stages?.map((s: any) => ({ id: s.id, name: s.name })) || [];
+        const stages = environments.stages?.map((s: any) => ({ 
+          id: s.key || s.id, // Support both key and id for backward compatibility
+          name: s.title || s.name // Support both title and name for backward compatibility
+        })) || [];
         stageId = await this.options.onStageSelection(stages);
         logger.info('User selected stage:', stageId);
       } else {
@@ -303,12 +307,13 @@ export class VNextSDK {
       logger.warn('Unknown multiStageMode, using default:', { multiStageMode, stageId });
     }
     
-    const stage = environments.stages?.find((s: any) => s.id === stageId);
+    // Support both 'key' and 'id' for backward compatibility
+    const stage = environments.stages?.find((s: any) => (s.key || s.id) === stageId);
     
     if (!stage) {
       logger.error('Stage not found:', { 
         requested: stageId, 
-        available: environments.stages?.map((s: any) => s.id) 
+        available: environments.stages?.map((s: any) => s.key || s.id) 
       });
       throw new Error(`Stage '${stageId}' not found in environments`);
     }
@@ -324,12 +329,19 @@ export class VNextSDK {
    */
   private async selectStageViaWorkflow(
     workflow: { baseUrl: string; domain: string; workflow: string; version: string; runtime?: string },
-    availableStages: Array<{ id: string; name: string }>
+    availableStages: Array<{ key?: string; id?: string; title?: string; name?: string }>
   ): Promise<string> {
     // Build workflow start URL according to Swagger pattern
     // Pattern: /api/v1/{domain}/workflows/{workflow}/instances/start
-    const baseUrl = workflow.baseUrl.replace(/\/$/, ''); // Remove trailing slash
-    const workflowEndpoint = `${baseUrl}/api/v1/${workflow.domain}/workflows/${workflow.workflow}/instances/start`;
+    // baseUrl may already include /api/v1/, so we need to handle both cases
+    let baseUrl = workflow.baseUrl.replace(/\/$/, ''); // Remove trailing slash
+    
+    // If baseUrl already includes /api/v1/, use it as is, otherwise add it
+    if (!baseUrl.includes('/api/v1')) {
+      baseUrl = `${baseUrl}/api/v1`;
+    }
+    
+    const workflowEndpoint = `${baseUrl}/${workflow.domain}/workflows/${workflow.workflow}/instances/start`;
     
     logger.debug('Starting stage selection workflow...', { 
       workflowEndpoint,
@@ -374,7 +386,10 @@ export class VNextSDK {
       if (this.options.onStageSelection) {
         // Pass workflow instance to callback
         // The callback should handle workflow rendering and return selected stage
-        const stages = availableStages.map(s => ({ id: s.id, name: s.name }));
+        const stages = availableStages.map(s => ({ 
+          id: s.key || s.id, // Support both key and id
+          name: s.title || s.name // Support both title and name
+        }));
         const selectedStageId = await this.options.onStageSelection(stages, workflowInstance);
         return selectedStageId;
       } else {
@@ -391,12 +406,33 @@ export class VNextSDK {
 
   /**
    * Fetch client config from endpoint
+   * Uses stage.config object to build URL according to Swagger pattern
    */
-  private async fetchClientConfig(baseUrl: string): Promise<any> {
-    // Build URL: if baseUrl ends with /v1, remove it and add /api/v1, otherwise add /api/v1
-    // This handles both localhost:3001 and https://pilot-api.example.com/v1 cases
-    const normalizedBaseUrl = baseUrl.endsWith('/v1') ? baseUrl.replace(/\/v1$/, '') : baseUrl;
-    const clientConfigUrl = `${normalizedBaseUrl}/api/v1/morph-idm/workflows/client/instances/${this.options.appKey}/functions/client`;
+  private async fetchClientConfig(stage: any): Promise<any> {
+    // Build URL from stage.config object following Swagger pattern
+    // Pattern: {baseUrl}/api/v1/{domain}/workflows/{workflow}/instances/{instanceKey}/functions/{function}
+    let baseUrl = stage.baseUrl.replace(/\/$/, ''); // Remove trailing slash
+    
+    // If baseUrl already includes /api/v1/, use it as is, otherwise add it
+    if (!baseUrl.includes('/api/v1')) {
+      baseUrl = `${baseUrl}/api/v1`;
+    }
+    
+    const config = stage.config || stage.configEndpoint;
+    
+    // Support both new config object and legacy configEndpoint string
+    let clientConfigUrl: string;
+    if (typeof config === 'string') {
+      // Legacy: configEndpoint is a full URL string
+      clientConfigUrl = config;
+    } else if (config && config.domain && config.workflow && config.instanceKey && config.function) {
+      // New: Build URL from config object
+      clientConfigUrl = `${baseUrl}/${config.domain}/workflows/${config.workflow}/instances/${config.instanceKey}/functions/${config.function}`;
+    } else {
+      // Fallback: Use default pattern
+      clientConfigUrl = `${baseUrl}/morph-idm/workflows/client/instances/${this.options.appKey}/functions/client`;
+    }
+    
     logger.debug('Fetching client config from:', clientConfigUrl);
     
     const response = await fetch(clientConfigUrl);
