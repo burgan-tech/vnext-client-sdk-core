@@ -78,6 +78,7 @@ curl http://localhost:3001/features
 - [Router](docs/router.md) - Router management (SDI/MDI modes)
 - [Authentication](docs/authantication.md) - Authentication flows and token management
 - [Workflow Schema](docs/workflow-schema.md) - Backend workflow schema specification
+- [Stage Config Schema](docs/stage-config-schema.md) - Stage configuration and function call URL building
 - [View Managers](docs/view-managers/) - View rendering managers
 - [Vue App README](examples/vue-app/README.md) - Vue example app setup and usage
 

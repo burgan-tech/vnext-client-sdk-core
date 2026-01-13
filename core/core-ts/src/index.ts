@@ -281,9 +281,18 @@ export class VNextSDK {
           workflowVersion: workflow.version,
           baseUrl: workflow.baseUrl,
         });
-        stageId = await this.selectStageViaWorkflow(workflow, environments.stages);
-        logger.info('Stage selected via workflow:', stageId);
-      } else if (this.options.onStageSelection) {
+        try {
+          stageId = await this.selectStageViaWorkflow(workflow, environments.stages);
+          logger.info('Stage selected via workflow:', stageId);
+        } catch (error) {
+          logger.warn('Workflow-based stage selection failed, falling back to callback or default:', error);
+          // Fall through to callback or default
+          stageId = undefined as any;
+        }
+      }
+      
+      // If workflow didn't provide stageId, try callback or default
+      if (!stageId && this.options.onStageSelection) {
         // Fallback to callback-based dialog
         logger.info('onStartup mode: Requesting stage selection from user via callback...');
         const stages = environments.stages?.map((s: any) => ({ 
