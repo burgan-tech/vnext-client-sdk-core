@@ -77,6 +77,7 @@ curl http://localhost:3001/features
 - [Navigation](docs/navigation.md) - Backend-driven navigation system
 - [Router](docs/router.md) - Router management (SDI/MDI modes)
 - [Authentication](docs/authantication.md) - Authentication flows and token management
+- [Workflow Schema](docs/workflow-schema.md) - Backend workflow schema specification
 - [View Managers](docs/view-managers/) - View rendering managers
 - [Vue App README](examples/vue-app/README.md) - Vue example app setup and usage
 
