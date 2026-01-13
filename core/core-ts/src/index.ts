@@ -307,6 +307,12 @@ export class VNextSDK {
           stageId = this.options.defaultStage || environments.defaultStage || 'prod';
         }
       }
+      
+      // Ensure stageId is set (fallback safety)
+      if (!stageId) {
+        logger.warn('onStartup mode: stageId still undefined after all attempts, using defaultStage');
+        stageId = environments.defaultStage || 'prod';
+      }
     } else if (multiStageMode === 'never' || multiStageMode === 'onProfile') {
       // Use default stage (never: always default, onProfile: start with default, can change later)
       stageId = this.options.defaultStage || environments.defaultStage || 'prod';
