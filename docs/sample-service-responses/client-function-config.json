@@ -85,7 +85,8 @@
     },
 
     "logout": {
-      "endpoint": "/auth/logout"
+      "endpoint": "/auth/logout",
+      "autoLogutAtyBackgorud" : "5m"
     },
 
     "tokenTypes": {

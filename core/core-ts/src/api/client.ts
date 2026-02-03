@@ -112,10 +112,17 @@ export class ApiClient {
 
       const data = await this.parseResponse<T>(response);
 
+      // Extract headers from response
+      const headers: Record<string, string> = {};
+      response.headers.forEach((value, key) => {
+        headers[key] = value;
+      });
+
       return {
         data,
         status: response.status,
-        message: response.statusText,
+        statusText: response.statusText,
+        headers,
       };
     } catch (error: any) {
       clearTimeout(timeoutId);

@@ -1,0 +1,539 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "https://amorphie.io/meta/core-transition-data-vocabulary",
+    "$vocabulary": {
+        "https://json-schema.org/draft/2020-12/vocab/core": true,
+        "https://json-schema.org/draft/2020-12/vocab/applicator": true,
+        "https://json-schema.org/draft/2020-12/vocab/unevaluated": true,
+        "https://json-schema.org/draft/2020-12/vocab/validation": true,
+        "https://json-schema.org/draft/2020-12/vocab/meta-data": true,
+        "https://json-schema.org/draft/2020-12/vocab/format-annotation": true,
+        "https://json-schema.org/draft/2020-12/vocab/content": true,
+        "https://amorphie.io/meta/core-transition-data-vocabulary": true
+    },
+    "title": "Amorphie Core Transition Data Vocabulary",
+    "description": "JSON Schema vocabulary for workflow transition data definitions - dynamic data schemas for workflow state transitions with multi-language support, LOV integration, validation rules, and encryption",
+    "type": "object",
+    "properties": {
+        "x-labels": {
+            "type": "object",
+            "description": "Multi-language labels for fields, properties, or schema elements",
+            "additionalProperties": {
+                "type": "string",
+                "minLength": 1,
+                "description": "Label text in the specified language code"
+            },
+            "patternProperties": {
+                "^[a-z]{2}(-[A-Z]{2})?$": {
+                    "type": "string",
+                    "minLength": 1
+                }
+            },
+            "examples": [
+                {
+                    "tr": "Kredi Tutarı",
+                    "en": "Loan Amount",
+                    "ar": "مبلغ القرض"
+                }
+            ]
+        },  
+        "x-errorMessages": {
+            "type": "object",
+            "description": "Multi-language error messages for validation errors",
+            "additionalProperties": {
+                "type": "object",
+                "description": "Error messages for a specific validation error type",
+                "additionalProperties": {
+                    "type": "string",
+                    "minLength": 1,
+                    "description": "Error message in the specified language code"
+                },
+                "patternProperties": {
+                    "^[a-z]{2}(-[A-Z]{2})?$": {
+                        "type": "string",
+                        "minLength": 1
+                    }
+                }
+            },
+            "examples": [
+                {
+                    "required": {
+                        "tr": "Tutar alanı zorunludur",
+                        "en": "Amount field is required"
+                    },
+                    "minimum": {
+                        "tr": "Minimum tutar 1,000 TL olmalıdır",
+                        "en": "Minimum amount should be 1,000 TL"
+                    }
+                }
+            ]
+        },
+        "x-lov": {
+            "type": "object",
+            "description": "List of Values (LOV) integration for dynamic dropdown/select options",
+            "required": [
+                "source"
+            ],
+            "properties": {
+                "source": {
+                    "type": "object",
+                    "description": "LOV source definition referencing an Amorphie function or workflow",
+                    "required": [
+                        "key",
+                        "version",
+                        "domain",
+                        "flow",
+                        "flowVersion"
+                    ],
+                    "properties": {
+                        "key": {
+                            "type": "string",
+                            "description": "Function or workflow key identifier",
+                            "pattern": "^[a-z0-9-]+$",
+                            "examples": [
+                                "get-cities",
+                                "get-countries"
+                            ]
+                        },
+                        "version": {
+                            "type": "string",
+                            "description": "Version in Major.Minor.Patch format",
+                            "pattern": "^\\d+\\.\\d+\\.\\d+$",
+                            "examples": [
+                                "1.0.0",
+                                "1.1.0"
+                            ]
+                        },
+                        "domain": {
+                            "type": "string",
+                            "description": "Domain identifier",
+                            "pattern": "^[a-z0-9-]+$",
+                            "examples": [
+                                "shared",
+                                "core",
+                                "banking"
+                            ]
+                        },
+                        "flow": {
+                            "type": "string",
+                            "description": "Flow/workflow name",
+                            "pattern": "^[a-z0-9-]+$",
+                            "examples": [
+                                "function",
+                                "lov",
+                                "lookup"
+                            ]
+                        },
+                        "flowVersion": {
+                            "type": "string",
+                            "description": "Flow version",
+                            "pattern": "^\\d+\\.\\d+$",
+                            "examples": [
+                                "1.0",
+                                "1.1"
+                            ]
+                        }
+                    },
+                    "additionalProperties": false
+                },
+                "valueField": {
+                    "type": "string",
+                    "description": "JSONPath expression to extract the value field from the LOV response",
+                    "pattern": "^\\$\\.",
+                    "examples": [
+                        "$.response.data.code",
+                        "$.data.id"
+                    ]
+                },
+                "displayField": {
+                    "type": "string",
+                    "description": "JSONPath expression to extract the display label from the LOV response",
+                    "pattern": "^\\$\\.",
+                    "examples": [
+                        "$.response.data.name",
+                        "$.data.label"
+                    ]
+                },
+                "filter": {
+                    "type": "string",
+                    "description": "Optional filter parameters to pass to the LOV source",
+                    "additionalProperties": true
+                }
+            },
+            "additionalProperties": false,
+            "examples": [
+                {
+                    "source": {
+                        "key": "get-cities",
+                        "version": "1.1",
+                        "domain": "shared",
+                        "flow": "function",
+                        "flowVersion": "1.0"
+                    },
+                    "valueField": "$.response.data.code",
+                    "displayField": "$.response.data.name"
+                }
+            ]
+        },
+        "x-enum": {
+            "type": "object",
+            "description": "Localized display names for enum values",
+            "additionalProperties": {
+                "type": "object",
+                "description": "Localized labels for a specific enum value",
+                "additionalProperties": {
+                    "type": "string",
+                    "minLength": 1,
+                    "description": "Display label in the specified language code"
+                },
+                "patternProperties": {
+                    "^[a-z]{2}(-[A-Z]{2})?$": {
+                        "type": "string",
+                        "minLength": 1
+                    }
+                }
+            },
+            "examples": [
+                {
+                    "individual": {
+                        "tr": "Bireysel",
+                        "en": "Individual"
+                    },
+                    "corporate": {
+                        "tr": "Kurumsal",
+                        "en": "Corporate"
+                    }
+                }
+            ]
+        },
+        "x-validation": {
+            "type": "object",
+            "description": "Custom business validation rules",
+            "required": [
+                "rule"
+            ],
+            "properties": {
+                "rule": {
+                    "type": "string",
+                    "description": "Name of the validation rule function",
+                    "minLength": 1,
+                    "examples": [
+                        "validateTurkishTaxId",
+                        "validateIBAN",
+                        "validateEmailDomain"
+                    ]
+                },
+                "parameters": {
+                    "type": "object",
+                    "description": "Parameters to pass to the validation rule function",
+                    "additionalProperties": true,
+                    "examples": [
+                        {
+                            "country": "TR"
+                        }
+                    ]
+                },
+                "errorMessages": {
+                    "type": "object",
+                    "description": "Multi-language error messages for validation failures",
+                    "additionalProperties": {
+                        "type": "string",
+                        "minLength": 1,
+                        "description": "Error message in the specified language code"
+                    },
+                    "patternProperties": {
+                        "^[a-z]{2}(-[A-Z]{2})?$": {
+                            "type": "string",
+                            "minLength": 1
+                        }
+                    },
+                    "examples": [
+                        {
+                            "tr": "Geçerli bir vergi numarası giriniz",
+                            "en": "Please enter a valid tax ID"
+                        }
+                    ]
+                }
+            },
+            "additionalProperties": false,
+            "examples": [
+                {
+                    "rule": "validateTurkishTaxId",
+                    "parameters": {
+                        "country": "TR"
+                    },
+                    "errorMessages": {
+                        "tr": "Geçerli bir vergi numarası giriniz",
+                        "en": "Please enter a valid tax ID"
+                    }
+                }
+            ]
+        },
+        "x-encryption": {
+            "type": "object",
+            "description": "Encryption configuration for sensitive data fields. Defines encryption level and optional parameters for data protection.",
+            "required": [
+                "type"
+            ],
+            "properties": {
+                "type": {
+                    "type": "string",
+                    "description": "Encryption level/type. 'none': No encryption - data is stored and transmitted in plain text. 'transport': Transport-level encryption - data is encrypted in logs and intermediate layers, but stored in plain text in database. 'persisted': Persistent encryption - data is encrypted at database level and remains encrypted at rest.",
+                    "enum": [
+                        "none",
+                        "transport",
+                        "persisted"
+                    ]
+                }
+            },
+            "additionalProperties": false,
+            "examples": [
+                {
+                    "type": "none"
+                },
+                {
+                    "type": "transport"
+                },
+                {
+                    "type": "persisted"
+                }
+            ]
+        },
+        "x-autoBind": {
+            "type": "object",
+            "description": "Automatic data population from client's DataManager. Field value is auto-populated from specified data source without user input (e.g., deviceId, installationId, userId).",
+            "required": [
+                "scope",
+                "context",
+                "key"
+            ],
+            "properties": {
+                "scope": {
+                    "type": "string",
+                    "description": "DataManager scope - where the data is stored",
+                    "enum": [
+                        "inMemory",
+                        "persistentOnLocal",
+                        "persistentOnSecure",
+                        "workflowInstance",
+                        "workflowTransition"
+                    ],
+                    "examples": [
+                        "persistentOnLocal",
+                        "persistentOnSecure",
+                        "inMemory"
+                    ]
+                },
+                "context": {
+                    "type": "string",
+                    "description": "DataManager context - device-wide or user-specific data",
+                    "enum": [
+                        "device",
+                        "user"
+                    ],
+                    "examples": [
+                        "device",
+                        "user"
+                    ]
+                },
+                "key": {
+                    "type": "string",
+                    "description": "Data entry key in DataManager (e.g., 'device/info', 'auth/session', 'user/preferences')",
+                    "minLength": 1,
+                    "examples": [
+                        "device/info",
+                        "auth/session",
+                        "user/preferences"
+                    ]
+                },
+                "dataPath": {
+                    "type": "string",
+                    "description": "Optional path to specific property within the data entry (dot notation for nested properties)",
+                    "examples": [
+                        "deviceId",
+                        "installationId",
+                        "userId",
+                        "applicant.firstName"
+                    ]
+                }
+            },
+            "additionalProperties": false,
+            "examples": [
+                {
+                    "scope": "persistentOnLocal",
+                    "context": "device",
+                    "key": "device/info",
+                    "dataPath": "deviceId"
+                },
+                {
+                    "scope": "persistentOnLocal",
+                    "context": "device",
+                    "key": "device/info",
+                    "dataPath": "installationId"
+                },
+                {
+                    "scope": "persistentOnSecure",
+                    "context": "user",
+                    "key": "auth/session",
+                    "dataPath": "userId"
+                }
+            ]
+        },
+        "x-conditional": {
+            "type": "object",
+            "description": "Conditional field visibility or behavior based on other field values",
+            "properties": {
+                "showIf": {
+                    "type": "object",
+                    "description": "Conditions for showing this field",
+                    "properties": {
+                        "field": {
+                            "type": "string",
+                            "description": "Path to the field to check (supports dot notation)",
+                            "examples": [
+                                "customerType",
+                                "address.country"
+                            ]
+                        },
+                        "operator": {
+                            "type": "string",
+                            "enum": [
+                                "equals",
+                                "notEquals",
+                                "in",
+                                "notIn",
+                                "greaterThan",
+                                "lessThan",
+                                "contains",
+                                "isEmpty",
+                                "isNotEmpty"
+                            ],
+                            "description": "Comparison operator",
+                            "default": "equals"
+                        },
+                        "value": {
+                            "description": "Value(s) to compare against"
+                        }
+                    },
+                    "required": [
+                        "field"
+                    ],
+                    "additionalProperties": false
+                },
+                "hideIf": {
+                    "type": "object",
+                    "description": "Conditions for hiding this field",
+                    "properties": {
+                        "field": {
+                            "type": "string",
+                            "description": "Path to the field to check (supports dot notation)"
+                        },
+                        "operator": {
+                            "type": "string",
+                            "enum": [
+                                "equals",
+                                "notEquals",
+                                "in",
+                                "notIn",
+                                "greaterThan",
+                                "lessThan",
+                                "contains",
+                                "isEmpty",
+                                "isNotEmpty"
+                            ],
+                            "description": "Comparison operator",
+                            "default": "equals"
+                        },
+                        "value": {
+                            "description": "Value(s) to compare against"
+                        }
+                    },
+                    "required": [
+                        "field"
+                    ],
+                    "additionalProperties": false
+                },
+                "enableIf": {
+                    "type": "object",
+                    "description": "Conditions for enabling this field",
+                    "properties": {
+                        "field": {
+                            "type": "string",
+                            "description": "Path to the field to check (supports dot notation)"
+                        },
+                        "operator": {
+                            "type": "string",
+                            "enum": [
+                                "equals",
+                                "notEquals",
+                                "in",
+                                "notIn",
+                                "greaterThan",
+                                "lessThan",
+                                "contains",
+                                "isEmpty",
+                                "isNotEmpty"
+                            ],
+                            "description": "Comparison operator",
+                            "default": "equals"
+                        },
+                        "value": {
+                            "description": "Value(s) to compare against"
+                        }
+                    },
+                    "required": [
+                        "field"
+                    ],
+                    "additionalProperties": false
+                },
+                "disableIf": {
+                    "type": "object",
+                    "description": "Conditions for disabling this field",
+                    "properties": {
+                        "field": {
+                            "type": "string",
+                            "description": "Path to the field to check (supports dot notation)"
+                        },
+                        "operator": {
+                            "type": "string",
+                            "enum": [
+                                "equals",
+                                "notEquals",
+                                "in",
+                                "notIn",
+                                "greaterThan",
+                                "lessThan",
+                                "contains",
+                                "isEmpty",
+                                "isNotEmpty"
+                            ],
+                            "description": "Comparison operator",
+                            "default": "equals"
+                        },
+                        "value": {
+                            "description": "Value(s) to compare against"
+                        }
+                    },
+                    "required": [
+                        "field"
+                    ],
+                    "additionalProperties": false
+                }
+            },
+            "additionalProperties": false
+        }
+    },
+    "additionalProperties": true,
+    "$defs": {
+        "languageCode": {
+            "type": "string",
+            "pattern": "^[a-z]{2}(-[A-Z]{2})?$",
+            "description": "ISO 639-1 language code with optional ISO 3166-1 country code",
+            "examples": [
+                "en",
+                "tr",
+                "ar"
+            ]
+        }
+    }
+}

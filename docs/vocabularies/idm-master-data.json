@@ -1,0 +1,67 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "https://amorphie.io/meta/idm-vocabulary",
+    "$vocabulary": {
+        "https://json-schema.org/draft/2020-12/vocab/core": true,
+        "https://json-schema.org/draft/2020-12/vocab/validation": true,
+        "https://amorphie.io/meta/amorphie-vocabulary": true,
+        "https://amorphie.io/meta/idm-vocabulary": true
+    },
+    "title": "Amorphie IDM JSON Schema Vocabulary",
+    "description": "Identity Management specific vocabulary extending Amorphie core vocabulary with role-based access control capabilities",
+    "type": "object",
+    "properties": {
+        "x-roles": {
+            "type": "array",
+            "description": "Role-based access control for properties - defines which roles can access this field. If not specified, all roles have access by default (no restrictions).",
+            "items": {
+                "type": "object",
+                "required": [
+                    "role",
+                    "allowance"
+                ],
+                "properties": {
+                    "role": {
+                        "type": "string",
+                        "description": "Role identifier (e.g., morph-idm.maker, morph-idm.approver)",
+                        "minLength": 1,
+                        "pattern": "^[a-z0-9.-]+$",
+                        "examples": [
+                            "morph-idm.maker",
+                            "morph-idm.approver",
+                            "morph-idm.viewer"
+                        ]
+                    },
+                    "allowance": {
+                        "type": "string",
+                        "description": "Access permission for this role",
+                        "enum": [
+                            "allow",
+                            "deny"
+                        ],
+                        "default": "allow"
+                    }
+                },
+                "additionalProperties": false
+            },
+            "minItems": 1,
+            "examples": [
+                [
+                    {
+                        "role": "morph-idm.maker",
+                        "allowance": "allow"
+                    },
+                    {
+                        "role": "morph-idm.approver",
+                        "allowance": "allow"
+                    },
+                    {
+                        "role": "morph-idm.viewer",
+                        "allowance": "allow"
+                    }
+                ]
+            ]
+        }
+    },
+    "additionalProperties": true
+}

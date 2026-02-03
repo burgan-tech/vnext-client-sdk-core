@@ -1,0 +1,20 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "https://vnext.io/schemas/core/device-register-start.json",
+    "title": "Device Register Start",
+    "description": "Device registration initiation data. Contains device identification, hardware info, and optional marketing attribution data captured on app launch.",
+    "type": "object",
+    "properties": {
+      "deviceId": {
+        "type": "string",
+        "description": "Device specific identifier"
+      },
+      "installiationId": {
+        "type": "string",
+        "description": "Application setup id",
+        "format": "uuid"
+      }
+    },
+    "required": [],
+    "additionalProperties": false
+  }

@@ -1,0 +1,218 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "https://amorphie.io/meta/core-master-data-vocabulary",
+    "$vocabulary": {
+        "https://json-schema.org/draft/2020-12/vocab/core": true,
+        "https://json-schema.org/draft/2020-12/vocab/applicator": true,
+        "https://json-schema.org/draft/2020-12/vocab/unevaluated": true,
+        "https://json-schema.org/draft/2020-12/vocab/validation": true,
+        "https://json-schema.org/draft/2020-12/vocab/meta-data": true,
+        "https://json-schema.org/draft/2020-12/vocab/format-annotation": true,
+        "https://json-schema.org/draft/2020-12/vocab/content": true,
+        "https://amorphie.io/meta/core-master-data-vocabulary": true
+    },
+    "title": "Amorphie Core Master Data Vocabulary",
+    "description": "JSON Schema vocabulary for master data definitions - static/reference data schemas with multi-language support, LOV integration, validation rules, and encryption",
+    "type": "object",
+    "properties": {
+        "x-labels": {
+            "type": "object",
+            "description": "Multi-language labels for fields, properties, or schema elements",
+            "additionalProperties": {
+                "type": "string",
+                "minLength": 1,
+                "description": "Label text in the specified language code"
+            },
+            "patternProperties": {
+                "^[a-z]{2}(-[A-Z]{2})?$": {
+                    "type": "string",
+                    "minLength": 1
+                }
+            },
+            "examples": [
+                {
+                    "tr": "Kredi Tutarı",
+                    "en": "Loan Amount",
+                    "ar": "مبلغ القرض"
+                }
+            ]
+        },
+        "x-lov": {
+            "type": "object",
+            "description": "List of Values (LOV) integration for dynamic dropdown/select options",
+            "required": [
+                "source"
+            ],
+            "properties": {
+                "source": {
+                    "type": "object",
+                    "description": "LOV source definition referencing an Amorphie function or workflow",
+                    "required": [
+                        "key",
+                        "version",
+                        "domain",
+                        "flow",
+                        "flowVersion"
+                    ],
+                    "properties": {
+                        "key": {
+                            "type": "string",
+                            "description": "Function or workflow key identifier",
+                            "pattern": "^[a-z0-9-]+$",
+                            "examples": [
+                                "get-cities",
+                                "get-countries"
+                            ]
+                        },
+                        "version": {
+                            "type": "string",
+                            "description": "Version in Major.Minor.Patch format",
+                            "pattern": "^\\d+\\.\\d+\\.\\d+$",
+                            "examples": [
+                                "1.0.0",
+                                "1.1.0"
+                            ]
+                        },
+                        "domain": {
+                            "type": "string",
+                            "description": "Domain identifier",
+                            "pattern": "^[a-z0-9-]+$",
+                            "examples": [
+                                "shared",
+                                "core",
+                                "banking"
+                            ]
+                        },
+                        "flow": {
+                            "type": "string",
+                            "description": "Flow/workflow name",
+                            "pattern": "^[a-z0-9-]+$",
+                            "examples": [
+                                "function",
+                                "lov",
+                                "lookup"
+                            ]
+                        },
+                        "flowVersion": {
+                            "type": "string",
+                            "description": "Flow version",
+                            "pattern": "^\\d+\\.\\d+$",
+                            "examples": [
+                                "1.0",
+                                "1.1"
+                            ]
+                        }
+                    },
+                    "additionalProperties": false
+                },
+                "valueField": {
+                    "type": "string",
+                    "description": "JSONPath expression to extract the value field from the LOV response",
+                    "pattern": "^\\$\\.",
+                    "examples": [
+                        "$.response.data.code",
+                        "$.data.id"
+                    ]
+                },
+                "displayField": {
+                    "type": "string",
+                    "description": "JSONPath expression to extract the display label from the LOV response",
+                    "pattern": "^\\$\\.",
+                    "examples": [
+                        "$.response.data.name",
+                        "$.data.label"
+                    ]
+                },
+                "filter": {
+                    "type": "string",
+                    "description": "Optional filter parameters to pass to the LOV source",
+                    "additionalProperties": true
+                }
+            },
+            "additionalProperties": false,
+            "examples": [
+                {
+                    "source": {
+                        "key": "get-cities",
+                        "version": "1.1",
+                        "domain": "shared",
+                        "flow": "function",
+                        "flowVersion": "1.0"
+                    },
+                    "valueField": "$.response.data.code",
+                    "displayField": "$.response.data.name"
+                }
+            ]
+        },
+        "x-enum": {
+            "type": "object",
+            "description": "Localized display names for enum values",
+            "additionalProperties": {
+                "type": "object",
+                "description": "Localized labels for a specific enum value",
+                "additionalProperties": {
+                    "type": "string",
+                    "minLength": 1,
+                    "description": "Display label in the specified language code"
+                },
+                "patternProperties": {
+                    "^[a-z]{2}(-[A-Z]{2})?$": {
+                        "type": "string",
+                        "minLength": 1
+                    }
+                }
+            },
+            "examples": [
+                {
+                    "individual": {
+                        "tr": "Bireysel",
+                        "en": "Individual"
+                    },
+                    "corporate": {
+                        "tr": "Kurumsal",
+                        "en": "Corporate"
+                    }
+                }
+            ]
+        },
+        "x-encryption": {
+            "type": "object",
+            "description": "Encryption configuration for sensitive master data fields.",
+            "required": [
+                "type"
+            ],
+            "properties": {
+                "type": {
+                    "type": "string",
+                    "description": "Encryption level/type. 'none': No encryption - data is stored in plain text. 'persisted': Persistent encryption - data is encrypted at database level and remains encrypted at rest.",
+                    "enum": [
+                        "none",
+                        "persisted"
+                    ]
+                }
+            },
+            "additionalProperties": false,
+            "examples": [
+                {
+                    "type": "none"
+                },
+                {
+                    "type": "persisted"
+                }
+            ]
+        }
+    },
+    "additionalProperties": true,
+    "$defs": {
+        "languageCode": {
+            "type": "string",
+            "pattern": "^[a-z]{2}(-[A-Z]{2})?$",
+            "description": "ISO 639-1 language code with optional ISO 3166-1 country code",
+            "examples": [
+                "en",
+                "tr",
+                "ar"
+            ]
+        }
+    }
+}

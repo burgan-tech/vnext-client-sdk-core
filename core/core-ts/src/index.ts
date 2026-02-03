@@ -267,7 +267,7 @@ export class VNextSDK {
       available: environments.stages?.map((s: any) => s.key || s.id) 
     });
 
-    let stageId: string;
+    let stageId: string | undefined;
 
     // Handle different multiStageMode values
     if (multiStageMode === 'onStartup') {
@@ -439,8 +439,8 @@ export class VNextSDK {
         // Pass workflow instance to callback
         // The callback should handle workflow rendering and return selected stage
         const stages = availableStages.map(s => ({ 
-          id: s.key || s.id, // Support both key and id
-          name: s.title || s.name // Support both title and name
+          id: (s.key || s.id || 'unknown') as string, // Support both key and id
+          name: (s.title || s.name || 'Unknown') as string // Support both title and name
         }));
         const selectedStageId = await this.options.onStageSelection(stages, workflowInstance);
         return selectedStageId;
