@@ -37,16 +37,173 @@ DataManager'daki state'lere erişim tek boyutlu bir **DataContext** sistemi kull
 
 ### DataContext Enum
 
-| Context | Storage | Açıklama |
-|---------|---------|----------|
-| `device` | Local Persistent | Cihaz bilgileri (deviceId, installationId, settings) - tüm kullanıcılar için ortak |
-| `user` | **Secure Persistent** | Kullanıcı verileri (profile, tokens, preferences) - şifreli depolama |
-| `scope` | **Secure Persistent** | İşlem yapılan müşteri/kapsam verileri - şifreli depolama |
-| `workflowInstance` | In-Memory | İş akışı instance verisi (geçici) |
-| `workflowTransition` | In-Memory | Form/transition verisi (geçici) |
-| `artifact` | Local Persistent | Render içerikleri, JSON dosyaları, UI şablonları (TTL ile yönetilir) |
+| Context | Storage | Encryption | Açıklama |
+|---------|---------|------------|----------|
+| `device` | Local Persistent | ✅ Şifreli | Cihaz bilgileri (deviceId, installationId, settings) |
+| `user` | Local Persistent | ✅ Şifreli | Kullanıcı verileri (profile, tokens, preferences) |
+| `scope` | Local Persistent | ✅ Şifreli | İşlem yapılan müşteri/kapsam verileri |
+| `workflowInstance` | In-Memory | ❌ | İş akışı instance verisi (geçici) |
+| `workflowTransition` | In-Memory | ❌ | Form/transition verisi (geçici) |
+| `artifact` | Local Persistent | ❌ | Render içerikleri, JSON dosyaları (TTL ile, hassas değil) |
 
 > **⚠️ Storage Otomatik Belirlenir**: DataManager, context'e göre hangi storage kullanılacağını otomatik belirler. Geliştiricinin storage türünü belirtmesine gerek yoktur.
+
+## 🔐 Güvenlik: Secure Storage Encryption
+
+Secure Persistent storage'daki veriler (user, scope, device context'leri) şifrelenir. Şifreleme anahtarı **backend tarafından sağlanır** ve **asla persist edilmez**.
+
+### Encryption Key Yönetimi
+
+**Temel Prensipler:**
+- ❌ Key uygulamada hardcoded değil (hijack koruması)
+- ❌ Key persist edilmez (sadece memory'de)
+- ✅ Key, Device Register API'den alınır
+- ✅ Backend, deviceId + installationId kombinasyonuna göre key üretir/döner
+
+**Primary Key = deviceId + installationId**
+
+| Senaryo | deviceId | installationId | encryptionKey | Sonuç |
+|---------|----------|----------------|---------------|-------|
+| İlk kurulum | D123 | I-001 | KEY-A | Yeni key üretilir |
+| Normal kullanım | D123 | I-001 | KEY-A | Mevcut key döner |
+| **Yeniden kurulum** | D123 | **I-002** | **KEY-B** | Yeni key! Eski veriler erişilemez |
+| Farklı cihaz | D456 | I-003 | KEY-C | Yeni key |
+
+> **🛡️ Güvenlik:** Uygulama silinip yeniden kurulduğunda `installationId` değişir, yeni encryption key üretilir. Eski encrypted veriler artık decrypt edilemez - temiz başlangıç garantisi.
+
+### Encryption Lifecycle
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│ 1. APP START                                                    │
+├─────────────────────────────────────────────────────────────────┤
+│ DataManager başlar → Secure storage LOCKED (key yok)            │
+│ Device/User/Scope context'lerine erişim BLOCKED                 │
+└─────────────────────────────────────────────────────────────────┘
+                              ↓
+┌─────────────────────────────────────────────────────────────────┐
+│ 2. DEVICE REGISTER                                              │
+├─────────────────────────────────────────────────────────────────┤
+│ POST /device-register { deviceId, installationId, ... }         │
+│ Response: { deviceToken, encryptionKey }                        │
+│                                                                 │
+│ AuthManager veya SDK:                                           │
+│   dataManager.unlockSecureStorage(encryptionKey)                │
+└─────────────────────────────────────────────────────────────────┘
+                              ↓
+┌─────────────────────────────────────────────────────────────────┐
+│ 3. UNLOCKED STATE                                               │
+├─────────────────────────────────────────────────────────────────┤
+│ Secure storage UNLOCKED → Tüm context'lere erişim OK            │
+│ Key sadece memory'de tutulur                                    │
+└─────────────────────────────────────────────────────────────────┘
+                              ↓
+┌─────────────────────────────────────────────────────────────────┐
+│ 4. APP CLOSE / LOGOUT                                           │
+├─────────────────────────────────────────────────────────────────┤
+│ dataManager.lockSecureStorage() (opsiyonel, logout için)        │
+│ App kapanınca key memory'den silinir                            │
+│ Tekrar açılınca → Device Register gerekli                       │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### Secure Storage Methods
+
+**TypeScript:**
+```typescript
+// Device Register sonrası çağrılır
+dataManager.unlockSecureStorage(encryptionKey: string): void;
+
+// Secure storage durumu kontrolü
+dataManager.isSecureStorageUnlocked(): boolean;
+
+// Logout veya güvenlik için manuel kilitleme (opsiyonel)
+dataManager.lockSecureStorage(): void;
+```
+
+**Flutter (Dart):**
+```dart
+// Device Register sonrası çağrılır
+dataManager.unlockSecureStorage(String encryptionKey);
+
+// Secure storage durumu kontrolü
+bool dataManager.isSecureStorageUnlocked();
+
+// Logout veya güvenlik için manuel kilitleme (opsiyonel)
+dataManager.lockSecureStorage();
+```
+
+### Kullanım Örneği
+
+**TypeScript:**
+```typescript
+// SDK initialization flow
+async function initializeApp() {
+  // 1. Device register
+  const response = await authManager.deviceRegister({
+    deviceId: getDeviceId(),
+    installationId: getInstallationId(),
+    platform: "web"
+  });
+  
+  // 2. Secure storage'ı unlock et
+  dataManager.unlockSecureStorage(response.encryptionKey);
+  
+  // 3. Artık tüm context'lere erişilebilir
+  const userProfile = dataManager.getData(DataContext.user, "profile");
+  const deviceSettings = dataManager.getData(DataContext.device, "settings");
+}
+
+// Logout flow
+function logout() {
+  // Secure storage'ı kilitle (key memory'den silinir)
+  dataManager.lockSecureStorage();
+  
+  // Kullanıcı verilerini temizle (opsiyonel)
+  dataManager.clearData(DataContext.user);
+  dataManager.clearData(DataContext.scope);
+}
+```
+
+**Flutter (Dart):**
+```dart
+// SDK initialization flow
+Future<void> initializeApp() async {
+  // 1. Device register
+  final response = await authManager.deviceRegister(
+    deviceId: getDeviceId(),
+    installationId: getInstallationId(),
+    platform: "ios"
+  );
+  
+  // 2. Secure storage'ı unlock et
+  dataManager.unlockSecureStorage(response.encryptionKey);
+  
+  // 3. Artık tüm context'lere erişilebilir
+  final userProfile = dataManager.getData(DataContext.user, "profile");
+  final deviceSettings = dataManager.getData(DataContext.device, "settings");
+}
+
+// Logout flow
+void logout() {
+  // Secure storage'ı kilitle (key memory'den silinir)
+  dataManager.lockSecureStorage();
+  
+  // Kullanıcı verilerini temizle (opsiyonel)
+  dataManager.clearData(DataContext.user);
+  dataManager.clearData(DataContext.scope);
+}
+```
+
+### Güvenlik Avantajları
+
+| Tehdit | Koruma |
+|--------|--------|
+| App hijack (kod inceleme) | ✅ Key hardcoded değil, bulunamaz |
+| Cihaz çalınması | ✅ Key memory'de, app restart gerekli, device register ile yeni key |
+| Yeniden kurulum | ✅ installationId değişir, yeni key, eski veriler erişilemez |
+| Fraud (device klonlama) | ✅ installationId farklı olur |
+| Memory dump | ⚠️ Uygulama açıkken teorik risk (native secure enclave ile azaltılabilir) |
 
 ### Dinamik Key Değişkenleri
 
@@ -754,23 +911,25 @@ dataManager.importData(DataContext.user, userBackup, overwrite: false);
 
 ```typescript
 /**
- * DataContext - Veri bağlamını ve otomatik storage türünü belirler
+ * DataContext - Veri bağlamını ve storage türünü belirler
  * 
- * Storage kararları otomatik yapılır:
- * - device: Local Persistent (şifrelenmemiş)
- * - user: Secure Persistent (şifreli)
- * - scope: Secure Persistent (şifreli)
- * - workflowInstance: In-Memory (geçici)
- * - workflowTransition: In-Memory (geçici)
- * - artifact: Local Persistent (TTL ile yönetilir)
+ * Storage ve Encryption:
+ * - device: Local Persistent + Encrypted (tek key ile)
+ * - user: Local Persistent + Encrypted (tek key ile)
+ * - scope: Local Persistent + Encrypted (tek key ile)
+ * - workflowInstance: In-Memory (şifrelenmez, geçici)
+ * - workflowTransition: In-Memory (şifrelenmez, geçici)
+ * - artifact: Local Persistent (şifrelenmez, hassas değil, TTL ile)
+ * 
+ * ⚠️ Encryption key Device Register'dan alınır ve memory'de tutulur
  */
 enum DataContext {
-  device,             // Cihaz verileri - Local Persistent
-  user,               // Kullanıcı verileri - Secure Persistent
-  scope,              // İşlem yapılan müşteri/kapsam - Secure Persistent
+  device,             // Cihaz verileri - Local Persistent + Encrypted
+  user,               // Kullanıcı verileri - Local Persistent + Encrypted
+  scope,              // İşlem yapılan müşteri/kapsam - Local Persistent + Encrypted
   workflowInstance,   // İş akışı instance - In-Memory
   workflowTransition, // Form/transition verisi - In-Memory
-  artifact            // Render içerikleri, JSON dosyaları - Local Persistent (TTL)
+  artifact            // Render içerikleri, JSON - Local Persistent (no encryption)
 }
 
 enum BindingMode {
@@ -780,6 +939,18 @@ enum BindingMode {
 }
 
 interface DataManager {
+  // ===== SECURE STORAGE MANAGEMENT =====
+  
+  // Device Register sonrası çağrılır - encryption key ile secure storage açılır
+  // Key backend'den alınır, sadece memory'de tutulur (persist edilmez!)
+  unlockSecureStorage(encryptionKey: string): void;
+  
+  // Secure storage durumu kontrolü
+  isSecureStorageUnlocked(): boolean;
+  
+  // Logout veya güvenlik için manuel kilitleme (key memory'den silinir)
+  lockSecureStorage(): void;
+  
   // ===== ACTIVE CONTEXT MANAGEMENT =====
   
   // Dinamik değişkenler için aktif kullanıcı ve scope ayarları
@@ -880,22 +1051,24 @@ interface DataManager {
 ### **Flutter (Dart) Interface**
 
 ```dart
-/// DataContext - Veri bağlamını ve otomatik storage türünü belirler
+/// DataContext - Veri bağlamını ve storage türünü belirler
 /// 
-/// Storage kararları otomatik yapılır:
-/// - device: Local Persistent (şifrelenmemiş)
-/// - user: Secure Persistent (şifreli)
-/// - scope: Secure Persistent (şifreli)
-/// - workflowInstance: In-Memory (geçici)
-/// - workflowTransition: In-Memory (geçici)
-/// - artifact: Local Persistent (TTL ile yönetilir)
+/// Storage ve Encryption:
+/// - device: Local Persistent + Encrypted (tek key ile)
+/// - user: Local Persistent + Encrypted (tek key ile)
+/// - scope: Local Persistent + Encrypted (tek key ile)
+/// - workflowInstance: In-Memory (şifrelenmez, geçici)
+/// - workflowTransition: In-Memory (şifrelenmez, geçici)
+/// - artifact: Local Persistent (şifrelenmez, hassas değil, TTL ile)
+/// 
+/// ⚠️ Encryption key Device Register'dan alınır ve memory'de tutulur
 enum DataContext {
-  device,             // Cihaz verileri - Local Persistent
-  user,               // Kullanıcı verileri - Secure Persistent
-  scope,              // İşlem yapılan müşteri/kapsam - Secure Persistent
+  device,             // Cihaz verileri - Local Persistent + Encrypted
+  user,               // Kullanıcı verileri - Local Persistent + Encrypted
+  scope,              // İşlem yapılan müşteri/kapsam - Local Persistent + Encrypted
   workflowInstance,   // İş akışı instance - In-Memory
   workflowTransition, // Form/transition verisi - In-Memory
-  artifact            // Render içerikleri, JSON dosyaları - Local Persistent (TTL)
+  artifact            // Render içerikleri, JSON - Local Persistent (no encryption)
 }
 
 enum BindingMode {
@@ -905,6 +1078,18 @@ enum BindingMode {
 }
 
 class DataManager {
+  // ===== SECURE STORAGE MANAGEMENT =====
+  
+  // Device Register sonrası çağrılır - encryption key ile secure storage açılır
+  // Key backend'den alınır, sadece memory'de tutulur (persist edilmez!)
+  void unlockSecureStorage(String encryptionKey);
+  
+  // Secure storage durumu kontrolü
+  bool isSecureStorageUnlocked();
+  
+  // Logout veya güvenlik için manuel kilitleme (key memory'den silinir)
+  void lockSecureStorage();
+  
   // ===== ACTIVE CONTEXT MANAGEMENT =====
   
   // Dinamik değişkenler için aktif kullanıcı ve scope ayarları

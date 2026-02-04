@@ -8,14 +8,16 @@
 
 ## 📍 DataContext ve Storage Mapping
 
-| DataContext | Storage | Açıklama |
-|-------------|---------|----------|
-| `device` | Local Persistent | Cihaz verileri (şifrelenmemiş) |
-| `user` | Secure Persistent | Kullanıcı verileri (şifreli) |
-| `scope` | Secure Persistent | İşlem yapılan müşteri/kapsam (şifreli) |
-| `workflowInstance` | In-Memory | İş akışı instance verisi (geçici) |
-| `workflowTransition` | In-Memory | Form/transition verisi (geçici) |
-| `artifact` | Local Persistent | Render içerikleri, JSON dosyaları (TTL ile yönetilir) |
+| DataContext | Storage | Encryption | Açıklama |
+|-------------|---------|------------|----------|
+| `device` | Local Persistent | ✅ Şifreli | Cihaz verileri |
+| `user` | Local Persistent | ✅ Şifreli | Kullanıcı verileri |
+| `scope` | Local Persistent | ✅ Şifreli | İşlem yapılan müşteri/kapsam |
+| `workflowInstance` | In-Memory | ❌ | İş akışı instance verisi (geçici) |
+| `workflowTransition` | In-Memory | ❌ | Form/transition verisi (geçici) |
+| `artifact` | Local Persistent | ❌ | Render içerikleri, JSON (TTL ile, hassas değil) |
+
+> **🔐 Encryption Key:** Device Register API'den alınır, sadece memory'de tutulur. `deviceId + installationId` kombinasyonuna göre backend tarafından üretilir.
 
 ---
 
