@@ -1,14 +1,40 @@
 # AutoBind Data Sources
 
-`x-autoBind` property'si için kullanılabilecek client-side veri kaynaklarının dokümantasyonu. Bu veriler client SDK tarafından yönetilir ve transition schema'larında otomatik olarak doldurulabilir.
+`x-autoBind` property'si için kullanılabilecek client-side veri kaynaklarının dokümantasyonu. Bu veriler client SDK DataManager tarafından yönetilir ve transition schema'larında otomatik olarak doldurulabilir.
+
+> **📝 Not:** Storage türü `DataContext`'e göre otomatik belirlenir. Geliştirici storage belirtmez.
 
 ---
 
-## 📱 Device-Level Data
+## 📍 DataContext ve Storage Mapping
 
-Device seviyesindeki veriler tüm kullanıcılar için ortaktır ve cihaza özgüdür.
+| DataContext | Storage | Açıklama |
+|-------------|---------|----------|
+| `device` | Local Persistent | Cihaz verileri (şifrelenmemiş) |
+| `user` | Secure Persistent | Kullanıcı verileri (şifreli) |
+| `scope` | Secure Persistent | İşlem yapılan müşteri/kapsam (şifreli) |
+| `workflowInstance` | In-Memory | İş akışı instance verisi (geçici) |
+| `workflowTransition` | In-Memory | Form/transition verisi (geçici) |
+| `artifact` | Local Persistent | Render içerikleri, JSON dosyaları (TTL ile yönetilir) |
 
-### device/info
+---
+
+## 🔑 Dinamik Key Değişkenleri
+
+Key'lerde iki dinamik değişken kullanılabilir:
+
+| Değişken | Açıklama | Örnek Değer |
+|----------|----------|-------------|
+| `$ActiveUser` | Login olmuş kullanıcı (çalışan, temsilci) | `"employee123"` |
+| `$ActiveScope` | İşlem yapılan müşteri/kapsam | `"C987654321"` |
+
+---
+
+## 📱 Device-Level Data (`DataContext.device`)
+
+Device seviyesindeki veriler tüm kullanıcılar için ortaktır ve cihaza özgüdür. **Storage: Local Persistent (otomatik)**
+
+### info
 Cihaz tanımlama bilgileri.
 
 | dataPath | Tip | Açıklama | Örnek |
@@ -19,16 +45,12 @@ Cihaz tanımlama bilgileri.
 | `osVersion` | string | İşletim sistemi versiyonu | `"14.0"`, `"Windows 11"` |
 | `appVersion` | string | Uygulama versiyonu | `"1.2.3"` |
 
-**Scope:** `persistentOnLocal`  
-**Context:** `device`
-
 **Örnek x-autoBind:**
 ```json
 {
   "x-autoBind": {
-    "scope": "persistentOnLocal",
     "context": "device",
-    "key": "device/info",
+    "key": "info",
     "dataPath": "deviceId"
   }
 }
@@ -36,7 +58,7 @@ Cihaz tanımlama bilgileri.
 
 ---
 
-### device/capabilities
+### capabilities
 Cihaz yetenekleri ve özellikleri.
 
 | dataPath | Tip | Açıklama | Örnek |
@@ -47,12 +69,9 @@ Cihaz yetenekleri ve özellikleri.
 | `cameraAvailable` | boolean | Kamera erişimi | `true` |
 | `locationAvailable` | boolean | Konum erişimi | `true` |
 
-**Scope:** `inMemory`  
-**Context:** `device`
-
 ---
 
-### device/network
+### network
 Ağ durumu bilgileri.
 
 | dataPath | Tip | Açıklama | Örnek |
@@ -61,12 +80,9 @@ Ağ durumu bilgileri.
 | `connectionType` | string | Bağlantı türü | `"wifi"`, `"cellular"`, `"ethernet"` |
 | `effectiveType` | string | Efektif bağlantı hızı | `"4g"`, `"3g"`, `"slow-2g"` |
 
-**Scope:** `inMemory`  
-**Context:** `device`
-
 ---
 
-### device/locale
+### locale
 Cihaz dil ve bölge ayarları.
 
 | dataPath | Tip | Açıklama | Örnek |
@@ -76,14 +92,11 @@ Cihaz dil ve bölge ayarları.
 | `timezone` | string | Zaman dilimi | `"Europe/Istanbul"` |
 | `locale` | string | Tam locale | `"tr-TR"`, `"en-US"` |
 
-**Scope:** `inMemory`  
-**Context:** `device`
-
 ---
 
-## 👤 User-Level Data
+## 👤 User-Level Data (`DataContext.user`)
 
-User seviyesindeki veriler oturum açmış kullanıcıya özgüdür ve şifrelenmiş olarak saklanır.
+User seviyesindeki veriler oturum açmış kullanıcıya özgüdür. **Storage: Secure Persistent (şifreli, otomatik)**
 
 ### auth/session
 Aktif oturum bilgileri.
@@ -95,14 +108,10 @@ Aktif oturum bilgileri.
 | `tokenType` | string | Token seviyesi | `"device"`, `"1fa"`, `"2fa"` |
 | `sessionId` | string | Oturum ID | `"s9876543210"` |
 
-**Scope:** `persistentOnSecure`  
-**Context:** `user`
-
 **Örnek x-autoBind:**
 ```json
 {
   "x-autoBind": {
-    "scope": "persistentOnSecure",
     "context": "user",
     "key": "auth/session",
     "dataPath": "userId"
@@ -112,7 +121,7 @@ Aktif oturum bilgileri.
 
 ---
 
-### user/profile
+### profile
 Kullanıcı profil bilgileri.
 
 | dataPath | Tip | Açıklama | Örnek |
@@ -123,12 +132,9 @@ Kullanıcı profil bilgileri.
 | `phone` | string | Telefon | `"+905301234567"` |
 | `avatar` | string | Profil resmi URL | `"https://..."` |
 
-**Scope:** `persistentOnSecure`  
-**Context:** `user`
-
 ---
 
-### user/preferences
+### preferences
 Kullanıcı tercihleri.
 
 | dataPath | Tip | Açıklama | Örnek |
@@ -137,17 +143,41 @@ Kullanıcı tercihleri.
 | `language` | string | Dil tercihi | `"tr"`, `"en"` |
 | `notifications` | boolean | Bildirim tercihi | `true` |
 
-**Scope:** `persistentOnSecure`  
-**Context:** `user`
+---
+
+## 🎯 Scope-Level Data (`DataContext.scope`)
+
+Scope seviyesindeki veriler işlem yapılan müşteri/kapsam için tutulur (backoffice senaryoları). **Storage: Secure Persistent (şifreli, otomatik)**
+
+### customer/$ActiveScope/profile
+İşlem yapılan müşterinin profili.
+
+| dataPath | Tip | Açıklama | Örnek |
+|----------|-----|----------|-------|
+| `customerId` | string | Müşteri numarası | `"C987654321"` |
+| `firstName` | string | Müşteri adı | `"Mehmet"` |
+| `lastName` | string | Müşteri soyadı | `"Yılmaz"` |
+| `segment` | string | Müşteri segmenti | `"retail"`, `"corporate"` |
+
+**Örnek x-autoBind:**
+```json
+{
+  "x-autoBind": {
+    "context": "scope",
+    "key": "customer/$ActiveScope/profile",
+    "dataPath": "customerId"
+  }
+}
+```
 
 ---
 
-## 🔄 Workflow-Level Data
+## 🔄 Workflow-Level Data (`DataContext.workflowInstance`)
 
-Aktif workflow instance'ından veri çekme.
+Aktif workflow instance'ından veri çekme. **Storage: In-Memory + Cache (otomatik)**
 
-### workflowInstance (dynamic key)
-Aktif iş akışı verisi.
+### {domain}/{instanceId}
+Aktif iş akışı verisi (dynamic key).
 
 | dataPath | Tip | Açıklama | Örnek |
 |----------|-----|----------|-------|
@@ -155,16 +185,11 @@ Aktif iş akışı verisi.
 | `applicant.tckn` | string | TC Kimlik No | `"12345678901"` |
 | `applicationNo` | number | Başvuru numarası | `345345534534` |
 
-**Scope:** `workflowInstance`  
-**Context:** `user`  
-**Key:** `{domain}/{instanceId}` (dynamic)
-
 **Örnek x-autoBind:**
 ```json
 {
   "x-autoBind": {
-    "scope": "workflowInstance",
-    "context": "user",
+    "context": "workflowInstance",
     "key": "loan-application/317749d0-cfff-428d-8a11-20c2d2eff9e3",
     "dataPath": "applicant.tckn"
   }
@@ -183,27 +208,24 @@ Aktif iş akışı verisi.
     "deviceId": {
       "type": "string",
       "x-autoBind": {
-        "scope": "persistentOnLocal",
         "context": "device",
-        "key": "device/info",
+        "key": "info",
         "dataPath": "deviceId"
       }
     },
     "installationId": {
       "type": "string",
       "x-autoBind": {
-        "scope": "persistentOnLocal",
         "context": "device",
-        "key": "device/info",
+        "key": "info",
         "dataPath": "installationId"
       }
     },
     "platform": {
       "type": "string",
       "x-autoBind": {
-        "scope": "persistentOnLocal",
         "context": "device",
-        "key": "device/info",
+        "key": "info",
         "dataPath": "platform"
       }
     }
@@ -220,7 +242,6 @@ Aktif iş akışı verisi.
     "userId": {
       "type": "string",
       "x-autoBind": {
-        "scope": "persistentOnSecure",
         "context": "user",
         "key": "auth/session",
         "dataPath": "userId"
@@ -229,7 +250,6 @@ Aktif iş akışı verisi.
     "sessionId": {
       "type": "string",
       "x-autoBind": {
-        "scope": "persistentOnSecure",
         "context": "user",
         "key": "auth/session",
         "dataPath": "sessionId"
@@ -246,11 +266,48 @@ Aktif iş akışı verisi.
 }
 ```
 
+### Backoffice - Customer Action with Dynamic Variables
+```json
+{
+  "type": "object",
+  "properties": {
+    "operatorId": {
+      "type": "string",
+      "description": "İşlemi yapan çalışan",
+      "x-autoBind": {
+        "context": "user",
+        "key": "auth/session",
+        "dataPath": "userId"
+      }
+    },
+    "customerId": {
+      "type": "string",
+      "description": "İşlem yapılan müşteri",
+      "x-autoBind": {
+        "context": "scope",
+        "key": "customer/$ActiveScope/profile",
+        "dataPath": "customerId"
+      }
+    },
+    "customerName": {
+      "type": "string",
+      "x-autoBind": {
+        "context": "scope",
+        "key": "customer/$ActiveScope/profile",
+        "dataPath": "firstName"
+      }
+    }
+  }
+}
+```
+
 ---
 
 ## ⚠️ Güvenlik Notları
 
-1. **Sensitive Data:** `persistentOnSecure` scope'undaki veriler encrypted storage'da tutulur.
+1. **Automatic Encryption:** `DataContext.user` ve `DataContext.scope` verileri otomatik olarak secure storage'da şifreli tutulur.
 2. **User Context:** `DataContext.user` verileri sadece oturum açmış kullanıcı için erişilebilir.
-3. **No UI Display:** `x-autoBind` alanları genellikle form'da gösterilmez, arka planda otomatik doldurulur.
-4. **Backend Validation:** AutoBind verileri backend tarafında mutlaka doğrulanmalıdır.
+3. **Scope Context:** `DataContext.scope` verileri `$ActiveScope` ile belirlenen müşteri/kapsam için geçerlidir.
+4. **No UI Display:** `x-autoBind` alanları genellikle form'da gösterilmez, arka planda otomatik doldurulur.
+5. **Backend Validation:** AutoBind verileri backend tarafında mutlaka doğrulanmalıdır - client tarafı güvenilir kaynak değildir.
+6. **Dynamic Variables:** `$ActiveUser` ve `$ActiveScope` değişkenleri runtime'da SDK tarafından resolve edilir.

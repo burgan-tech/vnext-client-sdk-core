@@ -301,49 +301,40 @@
         },
         "x-autoBind": {
             "type": "object",
-            "description": "Automatic data population from client's DataManager. Field value is auto-populated from specified data source without user input (e.g., deviceId, installationId, userId).",
+            "description": "Automatic data population from client's DataManager. Field value is auto-populated from specified data source without user input. Storage is automatically determined by context: device=Local Persistent, user/scope=Secure Persistent, workflowInstance/workflowTransition=In-Memory, artifact=Local Persistent with TTL.",
             "required": [
-                "scope",
                 "context",
                 "key"
             ],
             "properties": {
-                "scope": {
-                    "type": "string",
-                    "description": "DataManager scope - where the data is stored",
-                    "enum": [
-                        "inMemory",
-                        "persistentOnLocal",
-                        "persistentOnSecure",
-                        "workflowInstance",
-                        "workflowTransition"
-                    ],
-                    "examples": [
-                        "persistentOnLocal",
-                        "persistentOnSecure",
-                        "inMemory"
-                    ]
-                },
                 "context": {
                     "type": "string",
-                    "description": "DataManager context - device-wide or user-specific data",
+                    "description": "DataManager context - determines both data ownership and automatic storage type. device: Local Persistent. user: Secure Persistent. scope: Secure Persistent (active customer/scope for backoffice). workflowInstance: In-Memory. workflowTransition: In-Memory. artifact: Local Persistent with TTL.",
                     "enum": [
                         "device",
-                        "user"
+                        "user",
+                        "scope",
+                        "workflowInstance",
+                        "workflowTransition",
+                        "artifact"
                     ],
                     "examples": [
                         "device",
-                        "user"
+                        "user",
+                        "scope",
+                        "workflowInstance"
                     ]
                 },
                 "key": {
                     "type": "string",
-                    "description": "Data entry key in DataManager (e.g., 'device/info', 'auth/session', 'user/preferences')",
+                    "description": "Data entry key in DataManager. Supports dynamic variables: $ActiveUser (logged-in user), $ActiveScope (active customer/scope for backoffice scenarios).",
                     "minLength": 1,
                     "examples": [
-                        "device/info",
+                        "info",
                         "auth/session",
-                        "user/preferences"
+                        "preferences",
+                        "customer/$ActiveScope/profile",
+                        "loan-application/317749d0-cfff-428d-8a11-20c2d2eff9e3"
                     ]
                 },
                 "dataPath": {
@@ -353,29 +344,37 @@
                         "deviceId",
                         "installationId",
                         "userId",
-                        "applicant.firstName"
+                        "applicant.firstName",
+                        "firstName"
                     ]
                 }
             },
             "additionalProperties": false,
             "examples": [
                 {
-                    "scope": "persistentOnLocal",
                     "context": "device",
-                    "key": "device/info",
+                    "key": "info",
                     "dataPath": "deviceId"
                 },
                 {
-                    "scope": "persistentOnLocal",
                     "context": "device",
-                    "key": "device/info",
+                    "key": "info",
                     "dataPath": "installationId"
                 },
                 {
-                    "scope": "persistentOnSecure",
                     "context": "user",
                     "key": "auth/session",
                     "dataPath": "userId"
+                },
+                {
+                    "context": "scope",
+                    "key": "customer/$ActiveScope/profile",
+                    "dataPath": "customerId"
+                },
+                {
+                    "context": "workflowInstance",
+                    "key": "loan-application/317749d0-cfff-428d-8a11-20c2d2eff9e3",
+                    "dataPath": "applicant.tckn"
                 }
             ]
         },
