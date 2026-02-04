@@ -71,6 +71,62 @@ Secure Persistent storage'daki veriler (user, scope, device context'leri) şifre
 
 > **🛡️ Güvenlik:** Uygulama silinip yeniden kurulduğunda `installationId` değişir, yeni encryption key üretilir. Eski encrypted veriler artık decrypt edilemez - temiz başlangıç garantisi.
 
+### Backend Key Derivation (Disaster Recovery)
+
+Backend, encryption key'leri **DB'de saklamaz**. Bunun yerine **Key Derivation Function (KDF)** kullanarak her seferinde hesaplar:
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│ BACKEND - Key Derivation                                        │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│   HKDF(masterSecret, deviceId + installationId)                 │
+│                        ↓                                        │
+│                  encryptionKey                                  │
+│                                                                 │
+│   • Master Secret → HSM'de güvende (asla değişmez)              │
+│   • DB'de key saklanmaz (her seferinde hesaplanır)              │
+│   • Deterministic: Aynı input = Aynı output                     │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+**Avantajları:**
+
+| Özellik | Açıklama |
+|---------|----------|
+| ✅ DB'de key yok | Key saklanmaz, hesaplanır - DB breach'de key çalınamaz |
+| ✅ Disaster Recovery | Master Secret korunduğu sürece tüm key'ler recover edilebilir |
+| ✅ Deterministic | Aynı deviceId + installationId = Her zaman aynı key |
+| ✅ Basit | Version yönetimi, legacy key yok - tek formül |
+
+**Disaster Recovery Senaryosu:**
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│ SENARYO: Backend DB tamamen silindi/crash                       │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│ 1. Master Secret HSM'de güvende ✅                              │
+│                                                                 │
+│ 2. Client device register geldi:                                │
+│    { deviceId: "D123", installationId: "I-001" }                │
+│                                                                 │
+│ 3. Backend key derive etti:                                     │
+│    HKDF(masterSecret, "D123" + "I-001") → KEY-A                 │
+│                                                                 │
+│ 4. Aynı key! Client encrypted verilerini decrypt edebilir ✅    │
+│                                                                 │
+│ ⚡ DB'de hiçbir şey saklanmamıştı, ama key aynı!                │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+**Özet:**
+- `deviceId + installationId` değişmedi → Aynı key → Veriler erişilebilir
+- `installationId` değişti (yeniden kurulum) → Farklı key → Temiz başlangıç
+- Master Secret korunduğu sürece → Her şey recover edilebilir
+
 ### Encryption Lifecycle
 
 ```
