@@ -309,20 +309,22 @@
             "properties": {
                 "context": {
                     "type": "string",
-                    "description": "DataManager context - determines both data ownership and automatic storage type. device: Local Persistent. user: Secure Persistent. scope: Secure Persistent (active customer/scope for backoffice). workflowInstance: In-Memory. workflowTransition: In-Memory. artifact: Local Persistent with TTL.",
+                    "description": "DataManager context - determines both data ownership and automatic storage type. device: Local Persistent + Encrypted. user: Secure Persistent + Encrypted. scope: Secure Persistent + Encrypted. workflowInstance: In-Memory. workflowTransition: In-Memory. artifact: Local Persistent with TTL. secureMemory: In-Memory ONLY (never persisted, for encryption keys).",
                     "enum": [
                         "device",
                         "user",
                         "scope",
                         "workflowInstance",
                         "workflowTransition",
-                        "artifact"
+                        "artifact",
+                        "secureMemory"
                     ],
                     "examples": [
                         "device",
                         "user",
                         "scope",
-                        "workflowInstance"
+                        "workflowInstance",
+                        "secureMemory"
                     ]
                 },
                 "key": {

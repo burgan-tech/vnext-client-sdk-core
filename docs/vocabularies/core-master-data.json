@@ -211,18 +211,20 @@
             "properties": {
                 "context": {
                     "type": "string",
-                    "description": "DataManager context for storing the data. device: Local Persistent + Encrypted. user: Local Persistent + Encrypted. scope: Local Persistent + Encrypted. workflowInstance: In-Memory. artifact: Local Persistent (no encryption, TTL supported).",
+                    "description": "DataManager context for storing the data. device: Local Persistent + Encrypted. user: Local Persistent + Encrypted. scope: Local Persistent + Encrypted. workflowInstance: In-Memory. artifact: Local Persistent (no encryption, TTL supported). secureMemory: In-Memory ONLY (never persisted, for encryption keys/certificates).",
                     "enum": [
                         "device",
                         "user",
                         "scope",
                         "workflowInstance",
-                        "artifact"
+                        "artifact",
+                        "secureMemory"
                     ],
                     "examples": [
                         "workflowInstance",
                         "user",
-                        "artifact"
+                        "artifact",
+                        "secureMemory"
                     ]
                 },
                 "key": {
@@ -278,6 +280,10 @@
                     "context": "workflowInstance",
                     "key": "loan-application/$instanceId",
                     "dataPath": "applicant"
+                },
+                {
+                    "context": "secureMemory",
+                    "key": "encryption/key"
                 }
             ]
         }

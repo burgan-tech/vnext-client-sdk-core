@@ -45,8 +45,11 @@ DataManager'daki state'lere erişim tek boyutlu bir **DataContext** sistemi kull
 | `workflowInstance` | In-Memory | ❌ | İş akışı instance verisi (geçici) |
 | `workflowTransition` | In-Memory | ❌ | Form/transition verisi (geçici) |
 | `artifact` | Local Persistent | ❌ | Render içerikleri, JSON dosyaları (TTL ile, hassas değil) |
+| **`secureMemory`** | **In-Memory** | ❌ | **Hassas runtime verileri (encryption key, sertifika). ASLA persist edilmez!** |
 
 > **⚠️ Storage Otomatik Belirlenir**: DataManager, context'e göre hangi storage kullanılacağını otomatik belirler. Geliştiricinin storage türünü belirtmesine gerek yoktur.
+
+> **🔐 secureMemory**: Encryption key gibi hassas veriler için özel context. Sadece runtime'da var, app kapanınca kaybolur. `x-autoStore` ile uyumlu - Device Register response'u otomatik yazılabilir.
 
 ## 🔐 Güvenlik: Secure Storage Encryption
 
@@ -127,66 +130,83 @@ Backend, encryption key'leri **DB'de saklamaz**. Bunun yerine **Key Derivation F
 - `installationId` değişti (yeniden kurulum) → Farklı key → Temiz başlangıç
 - Master Secret korunduğu sürece → Her şey recover edilebilir
 
-### Encryption Lifecycle
+### Encryption Lifecycle (secureMemory ile)
+
+Encryption key artık **`secureMemory` context'ine** yazılır - özel unlock metodları yerine tutarlı `setData/getData` API kullanılır.
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │ 1. APP START                                                    │
 ├─────────────────────────────────────────────────────────────────┤
-│ DataManager başlar → Secure storage LOCKED (key yok)            │
+│ DataManager başlar → secureMemory boş (key yok)                 │
 │ Device/User/Scope context'lerine erişim BLOCKED                 │
 └─────────────────────────────────────────────────────────────────┘
                               ↓
 ┌─────────────────────────────────────────────────────────────────┐
-│ 2. DEVICE REGISTER                                              │
+│ 2. DEVICE REGISTER (x-autoStore ile otomatik)                   │
 ├─────────────────────────────────────────────────────────────────┤
 │ POST /device-register { deviceId, installationId, ... }         │
 │ Response: { deviceToken, encryptionKey }                        │
 │                                                                 │
-│ AuthManager veya SDK:                                           │
-│   dataManager.unlockSecureStorage(encryptionKey)                │
+│ Backend Schema (x-autoStore):                                   │
+│   "encryptionKey": {                                            │
+│     "x-autoStore": {                                            │
+│       "context": "secureMemory",                                │
+│       "key": "encryption/key"                                   │
+│     }                                                           │
+│   }                                                             │
+│                                                                 │
+│ SDK otomatik olarak:                                            │
+│   dataManager.setData(secureMemory, "encryption/key", key)      │
 └─────────────────────────────────────────────────────────────────┘
                               ↓
 ┌─────────────────────────────────────────────────────────────────┐
 │ 3. UNLOCKED STATE                                               │
 ├─────────────────────────────────────────────────────────────────┤
-│ Secure storage UNLOCKED → Tüm context'lere erişim OK            │
-│ Key sadece memory'de tutulur                                    │
+│ secureMemory'de key var → Tüm context'lere erişim OK            │
+│ Key sadece memory'de (secureMemory asla persist edilmez)        │
+│                                                                 │
+│ DataManager encryption key'i buradan okur:                      │
+│   dataManager.getData(secureMemory, "encryption/key")           │
 └─────────────────────────────────────────────────────────────────┘
                               ↓
 ┌─────────────────────────────────────────────────────────────────┐
 │ 4. APP CLOSE / LOGOUT                                           │
 ├─────────────────────────────────────────────────────────────────┤
-│ dataManager.lockSecureStorage() (opsiyonel, logout için)        │
-│ App kapanınca key memory'den silinir                            │
+│ Logout için:                                                    │
+│   dataManager.deleteData(secureMemory, "encryption/key")        │
+│                                                                 │
+│ App kapanınca → secureMemory tamamen silinir (memory-only)      │
 │ Tekrar açılınca → Device Register gerekli                       │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-### Secure Storage Methods
+### Secure Storage API (Tutarlı setData/getData)
+
+Artık özel `unlockSecureStorage()` metoduna gerek yok - tutarlı API!
 
 **TypeScript:**
 ```typescript
-// Device Register sonrası çağrılır
-dataManager.unlockSecureStorage(encryptionKey: string): void;
+// Encryption key yazma (Device Register sonrası)
+dataManager.setData(DataContext.secureMemory, "encryption/key", encryptionKey);
 
 // Secure storage durumu kontrolü
-dataManager.isSecureStorageUnlocked(): boolean;
+const isUnlocked = dataManager.getData(DataContext.secureMemory, "encryption/key") !== undefined;
 
-// Logout veya güvenlik için manuel kilitleme (opsiyonel)
-dataManager.lockSecureStorage(): void;
+// Logout - key'i sil (opsiyonel, app kapanınca zaten silinir)
+dataManager.deleteData(DataContext.secureMemory, "encryption/key");
 ```
 
 **Flutter (Dart):**
 ```dart
-// Device Register sonrası çağrılır
-dataManager.unlockSecureStorage(String encryptionKey);
+// Encryption key yazma (Device Register sonrası)
+dataManager.setData(DataContext.secureMemory, "encryption/key", encryptionKey);
 
 // Secure storage durumu kontrolü
-bool dataManager.isSecureStorageUnlocked();
+final isUnlocked = dataManager.getData(DataContext.secureMemory, "encryption/key") != null;
 
-// Logout veya güvenlik için manuel kilitleme (opsiyonel)
-dataManager.lockSecureStorage();
+// Logout - key'i sil (opsiyonel, app kapanınca zaten silinir)
+dataManager.deleteData(DataContext.secureMemory, "encryption/key");
 ```
 
 ### Kullanım Örneği
@@ -195,15 +215,16 @@ dataManager.lockSecureStorage();
 ```typescript
 // SDK initialization flow
 async function initializeApp() {
-  // 1. Device register
+  // 1. Device register - x-autoStore ile encryptionKey otomatik secureMemory'ye yazılır
   const response = await authManager.deviceRegister({
     deviceId: getDeviceId(),
     installationId: getInstallationId(),
     platform: "web"
   });
   
-  // 2. Secure storage'ı unlock et
-  dataManager.unlockSecureStorage(response.encryptionKey);
+  // 2. Key otomatik olarak secureMemory'ye yazıldı (x-autoStore sayesinde)
+  // Manuel yazmak isterseniz:
+  // dataManager.setData(DataContext.secureMemory, "encryption/key", response.encryptionKey);
   
   // 3. Artık tüm context'lere erişilebilir
   const userProfile = dataManager.getData(DataContext.user, "profile");
@@ -212,8 +233,8 @@ async function initializeApp() {
 
 // Logout flow
 function logout() {
-  // Secure storage'ı kilitle (key memory'den silinir)
-  dataManager.lockSecureStorage();
+  // secureMemory'yi temizle (key silinir)
+  dataManager.clearData(DataContext.secureMemory);
   
   // Kullanıcı verilerini temizle (opsiyonel)
   dataManager.clearData(DataContext.user);
@@ -225,15 +246,16 @@ function logout() {
 ```dart
 // SDK initialization flow
 Future<void> initializeApp() async {
-  // 1. Device register
+  // 1. Device register - x-autoStore ile encryptionKey otomatik secureMemory'ye yazılır
   final response = await authManager.deviceRegister(
     deviceId: getDeviceId(),
     installationId: getInstallationId(),
     platform: "ios"
   );
   
-  // 2. Secure storage'ı unlock et
-  dataManager.unlockSecureStorage(response.encryptionKey);
+  // 2. Key otomatik olarak secureMemory'ye yazıldı (x-autoStore sayesinde)
+  // Manuel yazmak isterseniz:
+  // dataManager.setData(DataContext.secureMemory, "encryption/key", response.encryptionKey);
   
   // 3. Artık tüm context'lere erişilebilir
   final userProfile = dataManager.getData(DataContext.user, "profile");
@@ -242,8 +264,8 @@ Future<void> initializeApp() async {
 
 // Logout flow
 void logout() {
-  // Secure storage'ı kilitle (key memory'den silinir)
-  dataManager.lockSecureStorage();
+  // secureMemory'yi temizle (key silinir)
+  dataManager.clearData(DataContext.secureMemory);
   
   // Kullanıcı verilerini temizle (opsiyonel)
   dataManager.clearData(DataContext.user);
@@ -976,8 +998,9 @@ dataManager.importData(DataContext.user, userBackup, overwrite: false);
  * - workflowInstance: In-Memory (şifrelenmez, geçici)
  * - workflowTransition: In-Memory (şifrelenmez, geçici)
  * - artifact: Local Persistent (şifrelenmez, hassas değil, TTL ile)
+ * - secureMemory: In-Memory ONLY (asla persist edilmez, encryption key için)
  * 
- * ⚠️ Encryption key Device Register'dan alınır ve memory'de tutulur
+ * ⚠️ Encryption key Device Register'dan alınır ve secureMemory'de tutulur
  */
 enum DataContext {
   device,             // Cihaz verileri - Local Persistent + Encrypted
@@ -985,7 +1008,8 @@ enum DataContext {
   scope,              // İşlem yapılan müşteri/kapsam - Local Persistent + Encrypted
   workflowInstance,   // İş akışı instance - In-Memory
   workflowTransition, // Form/transition verisi - In-Memory
-  artifact            // Render içerikleri, JSON - Local Persistent (no encryption)
+  artifact,           // Render içerikleri, JSON - Local Persistent (no encryption)
+  secureMemory        // Hassas runtime verileri (encryption key) - In-Memory ONLY
 }
 
 enum BindingMode {
@@ -995,18 +1019,6 @@ enum BindingMode {
 }
 
 interface DataManager {
-  // ===== SECURE STORAGE MANAGEMENT =====
-  
-  // Device Register sonrası çağrılır - encryption key ile secure storage açılır
-  // Key backend'den alınır, sadece memory'de tutulur (persist edilmez!)
-  unlockSecureStorage(encryptionKey: string): void;
-  
-  // Secure storage durumu kontrolü
-  isSecureStorageUnlocked(): boolean;
-  
-  // Logout veya güvenlik için manuel kilitleme (key memory'den silinir)
-  lockSecureStorage(): void;
-  
   // ===== ACTIVE CONTEXT MANAGEMENT =====
   
   // Dinamik değişkenler için aktif kullanıcı ve scope ayarları
@@ -1116,15 +1128,17 @@ interface DataManager {
 /// - workflowInstance: In-Memory (şifrelenmez, geçici)
 /// - workflowTransition: In-Memory (şifrelenmez, geçici)
 /// - artifact: Local Persistent (şifrelenmez, hassas değil, TTL ile)
+/// - secureMemory: In-Memory ONLY (asla persist edilmez, encryption key için)
 /// 
-/// ⚠️ Encryption key Device Register'dan alınır ve memory'de tutulur
+/// ⚠️ Encryption key Device Register'dan alınır ve secureMemory'de tutulur
 enum DataContext {
   device,             // Cihaz verileri - Local Persistent + Encrypted
   user,               // Kullanıcı verileri - Local Persistent + Encrypted
   scope,              // İşlem yapılan müşteri/kapsam - Local Persistent + Encrypted
   workflowInstance,   // İş akışı instance - In-Memory
   workflowTransition, // Form/transition verisi - In-Memory
-  artifact            // Render içerikleri, JSON - Local Persistent (no encryption)
+  artifact,           // Render içerikleri, JSON - Local Persistent (no encryption)
+  secureMemory        // Hassas runtime verileri (encryption key) - In-Memory ONLY
 }
 
 enum BindingMode {
@@ -1134,18 +1148,6 @@ enum BindingMode {
 }
 
 class DataManager {
-  // ===== SECURE STORAGE MANAGEMENT =====
-  
-  // Device Register sonrası çağrılır - encryption key ile secure storage açılır
-  // Key backend'den alınır, sadece memory'de tutulur (persist edilmez!)
-  void unlockSecureStorage(String encryptionKey);
-  
-  // Secure storage durumu kontrolü
-  bool isSecureStorageUnlocked();
-  
-  // Logout veya güvenlik için manuel kilitleme (key memory'den silinir)
-  void lockSecureStorage();
-  
   // ===== ACTIVE CONTEXT MANAGEMENT =====
   
   // Dinamik değişkenler için aktif kullanıcı ve scope ayarları
