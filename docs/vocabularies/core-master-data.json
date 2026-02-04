@@ -200,6 +200,86 @@
                     "type": "persisted"
                 }
             ]
+        },
+        "x-autoStore": {
+            "type": "object",
+            "description": "Automatic storage of backend response data to client's DataManager. When data matching this schema is received from backend, it is automatically stored in DataManager at the specified context and key. This is the reverse of x-autoBind (which reads from DataManager for submission).",
+            "required": [
+                "context",
+                "key"
+            ],
+            "properties": {
+                "context": {
+                    "type": "string",
+                    "description": "DataManager context for storing the data. device: Local Persistent + Encrypted. user: Local Persistent + Encrypted. scope: Local Persistent + Encrypted. workflowInstance: In-Memory. artifact: Local Persistent (no encryption, TTL supported).",
+                    "enum": [
+                        "device",
+                        "user",
+                        "scope",
+                        "workflowInstance",
+                        "artifact"
+                    ],
+                    "examples": [
+                        "workflowInstance",
+                        "user",
+                        "artifact"
+                    ]
+                },
+                "key": {
+                    "type": "string",
+                    "description": "Storage key in DataManager. Supports dynamic variables: $instanceId (workflow instance ID), $ActiveUser (logged-in user), $ActiveScope (active customer/scope).",
+                    "minLength": 1,
+                    "examples": [
+                        "loan-application/$instanceId",
+                        "profile",
+                        "customer/$ActiveScope/details",
+                        "views/loan-form"
+                    ]
+                },
+                "dataPath": {
+                    "type": "string",
+                    "description": "Optional nested path within the key to store the data (dot notation)",
+                    "examples": [
+                        "applicant",
+                        "loan.terms",
+                        "response.data"
+                    ]
+                },
+                "ttl": {
+                    "type": "integer",
+                    "description": "Optional time-to-live in milliseconds (mainly for artifact context)",
+                    "minimum": 0,
+                    "examples": [
+                        3600000,
+                        86400000
+                    ]
+                }
+            },
+            "additionalProperties": false,
+            "examples": [
+                {
+                    "context": "workflowInstance",
+                    "key": "loan-application/$instanceId"
+                },
+                {
+                    "context": "user",
+                    "key": "profile"
+                },
+                {
+                    "context": "scope",
+                    "key": "customer/$ActiveScope/details"
+                },
+                {
+                    "context": "artifact",
+                    "key": "views/loan-form",
+                    "ttl": 3600000
+                },
+                {
+                    "context": "workflowInstance",
+                    "key": "loan-application/$instanceId",
+                    "dataPath": "applicant"
+                }
+            ]
         }
     },
     "additionalProperties": true,
