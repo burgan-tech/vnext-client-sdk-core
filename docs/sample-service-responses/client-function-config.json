@@ -103,10 +103,6 @@
         "expiry": "5m",
         "refreshable": true,
         "refreshStrategy": "rotating"
-      },
-      "3fa": {
-        "expiry": "2m",
-        "refreshable": true
       }
     }
   },

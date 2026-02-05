@@ -1,0 +1,203 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://amorphie.io/schemas/environment/environments",
+  "title": "Environments Configuration",
+  "description": "Uygulama başlatıldığında hangi environment (stage) ile çalışacağını belirleyen konfigürasyon. Multi-stage desteği ve backend-driven stage selection workflow içerir.",
+  "type": "object",
+  "required": ["version", "multiStageMode", "defaultStage", "stages"],
+  "properties": {
+    "version": {
+      "type": "string",
+      "description": "Environment konfigürasyon versiyonu (semver)",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$",
+      "examples": ["1.0.0", "1.1.0"]
+    },
+    "multiStageMode": {
+      "type": "string",
+      "description": "Multi-stage davranış modu",
+      "enum": ["never", "onStartup", "onProfile"],
+      "default": "never",
+      "x-enumDescriptions": {
+        "never": "Her zaman defaultStage kullanılır, kullanıcı değiştiremez",
+        "onStartup": "Uygulama başlangıcında stage seçim dialog/workflow gösterilir",
+        "onProfile": "Uygulama default ile başlar, profil sayfasından değiştirilebilir"
+      }
+    },
+    "defaultStage": {
+      "type": "string",
+      "description": "Varsayılan stage key'i. stages array'indeki bir key ile eşleşmeli.",
+      "minLength": 1,
+      "examples": ["localhost", "pilot", "prod"]
+    },
+    "selector-workflow": {
+      "$ref": "#/$defs/workflowReference",
+      "description": "Stage seçimi için backend-driven workflow tanımı. multiStageMode='onStartup' olduğunda kullanılır."
+    },
+    "stages": {
+      "type": "array",
+      "description": "Kullanılabilir environment (stage) listesi",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/stage"
+      }
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "workflowReference": {
+      "type": "object",
+      "description": "Amorphie workflow referansı. Client bu bilgilerle workflow URL'ini oluşturur.",
+      "required": ["baseUrl", "domain", "workflow"],
+      "properties": {
+        "runtime": {
+          "type": "string",
+          "description": "Workflow runtime versiyonu",
+          "examples": ["v1", "v2"]
+        },
+        "baseUrl": {
+          "type": "string",
+          "description": "API base URL (trailing slash opsiyonel)",
+          "format": "uri",
+          "examples": ["http://localhost:3001/api/v1/", "https://api.example.com/"]
+        },
+        "domain": {
+          "type": "string",
+          "description": "Workflow domain'i",
+          "pattern": "^[a-z0-9-]+$",
+          "examples": ["discovery", "morph-idm", "loan"]
+        },
+        "workflow": {
+          "type": "string",
+          "description": "Workflow adı",
+          "pattern": "^[a-z0-9-]+$",
+          "examples": ["stage-selector", "login", "device-register"]
+        },
+        "version": {
+          "type": "string",
+          "description": "Workflow versiyonu",
+          "pattern": "^\\d+\\.\\d+$",
+          "examples": ["1.0", "1.1", "2.0"]
+        }
+      },
+      "additionalProperties": false
+    },
+    "stage": {
+      "type": "object",
+      "description": "Bir environment (stage) tanımı",
+      "required": ["key", "title", "baseUrl"],
+      "properties": {
+        "key": {
+          "type": "string",
+          "description": "Stage benzersiz tanımlayıcısı. defaultStage ile eşleşir.",
+          "pattern": "^[a-z0-9-]+$",
+          "minLength": 1,
+          "examples": ["localhost", "pilot", "uat", "prod"]
+        },
+        "title": {
+          "type": "string",
+          "description": "Stage görünen adı (UI'da gösterilir)",
+          "minLength": 1,
+          "examples": ["Local Development", "Pilot", "UAT", "Production"]
+        },
+        "baseUrl": {
+          "type": "string",
+          "description": "API base URL",
+          "format": "uri",
+          "examples": ["http://localhost:3001/api/v1/", "https://api.example.com/"]
+        },
+        "wsUrl": {
+          "type": "string",
+          "description": "WebSocket URL (opsiyonel)",
+          "format": "uri",
+          "examples": ["ws://localhost:3001", "wss://ws.example.com"]
+        },
+        "mqttUrl": {
+          "type": "string",
+          "description": "MQTT broker URL (opsiyonel)",
+          "format": "uri",
+          "examples": ["mqtt://localhost:1883", "mqtts://mqtt.example.com:8883"]
+        },
+        "config": {
+          "$ref": "#/$defs/stageConfig",
+          "description": "Client config endpoint tanımı"
+        }
+      },
+      "additionalProperties": false
+    },
+    "stageConfig": {
+      "type": "object",
+      "description": "Stage'e özel client config endpoint tanımı. Client bu bilgilerle config URL'ini oluşturur.",
+      "required": ["level", "domain", "workflow", "function"],
+      "properties": {
+        "level": {
+          "type": "string",
+          "description": "Config endpoint seviyesi",
+          "enum": ["instance", "function"],
+          "x-enumDescriptions": {
+            "instance": "Instance-level: /{domain}/workflows/{workflow}/instances/{instanceKey}/functions/{function}",
+            "function": "Function-level: /{domain}/workflows/{workflow}/functions/{function}"
+          }
+        },
+        "domain": {
+          "type": "string",
+          "description": "Config workflow domain'i",
+          "pattern": "^[a-z0-9-]+$",
+          "examples": ["discovery", "morph-idm"]
+        },
+        "workflow": {
+          "type": "string",
+          "description": "Config workflow adı",
+          "pattern": "^[a-z0-9-]+$",
+          "examples": ["enviroment", "client-config"]
+        },
+        "instanceKey": {
+          "type": "string",
+          "description": "Instance key (level='instance' olduğunda gerekli)",
+          "examples": ["localhost", "pilot", "web-app"]
+        },
+        "function": {
+          "type": "string",
+          "description": "Function adı",
+          "pattern": "^[a-z0-9-]+$",
+          "examples": ["enviroment", "config", "client"]
+        }
+      },
+      "additionalProperties": false,
+      "if": {
+        "properties": { "level": { "const": "instance" } }
+      },
+      "then": {
+        "required": ["level", "domain", "workflow", "instanceKey", "function"]
+      }
+    }
+  },
+  "examples": [
+    {
+      "version": "1.0.0",
+      "multiStageMode": "onStartup",
+      "defaultStage": "localhost",
+      "selector-workflow": {
+        "runtime": "v2",
+        "baseUrl": "http://localhost:3001/api/v1/",
+        "domain": "discovery",
+        "workflow": "stage-selector",
+        "version": "1.1"
+      },
+      "stages": [
+        {
+          "key": "localhost",
+          "title": "Local Development",
+          "baseUrl": "http://localhost:3001/api/v1/",
+          "wsUrl": "ws://localhost:3001",
+          "config": {
+            "level": "instance",
+            "domain": "discovery",
+            "workflow": "enviroment",
+            "instanceKey": "localhost",
+            "function": "enviroment"
+          }
+        }
+      ]
+    }
+  ]
+}

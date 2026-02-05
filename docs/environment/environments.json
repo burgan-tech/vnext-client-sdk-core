@@ -3,7 +3,6 @@
   "multiStageMode": "onStartup",
   "defaultStage": "localhost",
   "selector-workflow": {
-    "_comment": "http://localhost:3001/api/v1/discovery/workflows/stage-selector/instances/start",
     "runtime" : "v2",
     "baseUrl": "http://localhost:3001/api/v1/",
     "domain": "discovery",
@@ -18,7 +17,6 @@
       "wsUrl": "ws://localhost:3001",
       "mqttUrl": "mqtt://localhost:1883",
       "config" :{
-        "_comment": "http://localhost:3001/api/v1/discovery/workflows/enviroment/instances/localhost/functions/enviroment",
         "level": "instance",
         "domain": "discovery",  
         "workflow": "enviroment",
@@ -33,7 +31,6 @@
       "wsUrl": "wss://pilot-ws.example.com/v1",
       "mqttUrl": "mqtts://pilot-mqtt.example.com:8883",
       "config" :{
-        "_comment": "https://pilot-api.example.com/discovery/workflows/enviroment/instances/pilot/functions/enviroment",
         "level": "instance",
         "domain": "discovery",  
         "workflow": "enviroment",
