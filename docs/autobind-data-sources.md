@@ -10,13 +10,15 @@
 
 | DataContext | Storage | Encryption | Açıklama |
 |-------------|---------|------------|----------|
-| `device` | Local Persistent | ✅ Şifreli | Cihaz verileri |
+| `device` | Local Persistent | ❌ | Cihaz verileri (bootstrap için şifresiz) |
 | `user` | Local Persistent | ✅ Şifreli | Kullanıcı verileri |
 | `scope` | Local Persistent | ✅ Şifreli | İşlem yapılan müşteri/kapsam |
 | `workflowInstance` | In-Memory | ❌ | İş akışı instance verisi (geçici) |
 | `workflowTransition` | In-Memory | ❌ | Form/transition verisi (geçici) |
 | `artifact` | Local Persistent | ❌ | Render içerikleri, JSON (TTL ile, hassas değil) |
-| **`secureMemory`** | **In-Memory** | ❌ | **Hassas runtime verileri (encryption key). ASLA persist edilmez!** |
+| `secureMemory` | In-Memory | ❌ | Hassas runtime verileri (encryption key). ASLA persist edilmez! |
+
+> **🐔🥚 Bootstrap:** `device` context şifrelenmez çünkü Device Register için `deviceId` ve `installationId` gerekli. Key almadan bu bilgileri okuyamazdık → döngü!
 
 > **🔐 Encryption Key:** Device Register API'den alınır ve `secureMemory` context'ine yazılır (`x-autoStore` ile otomatik). `deviceId + installationId` kombinasyonuna göre backend tarafından üretilir.
 
@@ -63,7 +65,9 @@ Secure storage'ı açmak için kullanılan şifreleme anahtarı.
 
 ## 📱 Device-Level Data (`DataContext.device`)
 
-Device seviyesindeki veriler tüm kullanıcılar için ortaktır ve cihaza özgüdür. **Storage: Local Persistent (otomatik)**
+Device seviyesindeki veriler tüm kullanıcılar için ortaktır ve cihaza özgüdür. **Storage: Local Persistent (şifresiz - bootstrap için)**
+
+> **⚠️ Not:** `device` context şifrelenmez. `deviceId` ve `installationId` Device Register için gerekli olduğundan, key almadan okunabilmeli.
 
 ### info
 Cihaz tanımlama bilgileri.
@@ -336,11 +340,12 @@ Aktif iş akışı verisi (dynamic key).
 
 ## ⚠️ Güvenlik Notları
 
-1. **Automatic Encryption:** `DataContext.device`, `DataContext.user` ve `DataContext.scope` verileri otomatik olarak secure storage'da şifreli tutulur.
-2. **secureMemory Context:** `DataContext.secureMemory` verileri **asla persist edilmez** - sadece runtime'da memory'de tutulur. Encryption key burada saklanır.
-3. **User Context:** `DataContext.user` verileri sadece oturum açmış kullanıcı için erişilebilir.
-4. **Scope Context:** `DataContext.scope` verileri `$ActiveScope` ile belirlenen müşteri/kapsam için geçerlidir.
-5. **No UI Display:** `x-autoBind` alanları genellikle form'da gösterilmez, arka planda otomatik doldurulur.
-6. **Backend Validation:** AutoBind verileri backend tarafında mutlaka doğrulanmalıdır - client tarafı güvenilir kaynak değildir.
-7. **Dynamic Variables:** `$ActiveUser` ve `$ActiveScope` değişkenleri runtime'da SDK tarafından resolve edilir.
-8. **App Restart:** App kapanınca `secureMemory` silinir → Tekrar açılınca Device Register gerekir → Encryption key yeniden alınır.
+1. **Automatic Encryption:** `DataContext.user` ve `DataContext.scope` verileri otomatik olarak şifreli tutulur.
+2. **device Context Şifresiz:** `DataContext.device` şifrelenmez - bootstrap için gerekli (`deviceId`, `installationId`). Hassas veri burada tutulmamalı!
+3. **secureMemory Context:** `DataContext.secureMemory` verileri **asla persist edilmez** - sadece runtime'da memory'de tutulur. Encryption key burada saklanır.
+4. **User Context:** `DataContext.user` verileri sadece oturum açmış kullanıcı için erişilebilir.
+5. **Scope Context:** `DataContext.scope` verileri `$ActiveScope` ile belirlenen müşteri/kapsam için geçerlidir.
+6. **No UI Display:** `x-autoBind` alanları genellikle form'da gösterilmez, arka planda otomatik doldurulur.
+7. **Backend Validation:** AutoBind verileri backend tarafında mutlaka doğrulanmalıdır - client tarafı güvenilir kaynak değildir.
+8. **Dynamic Variables:** `$ActiveUser` ve `$ActiveScope` değişkenleri runtime'da SDK tarafından resolve edilir.
+9. **App Restart:** App kapanınca `secureMemory` silinir → Tekrar açılınca Device Register gerekir → Encryption key yeniden alınır.

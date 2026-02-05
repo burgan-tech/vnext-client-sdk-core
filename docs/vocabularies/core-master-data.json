@@ -211,7 +211,7 @@
             "properties": {
                 "context": {
                     "type": "string",
-                    "description": "DataManager context for storing the data. device: Local Persistent + Encrypted. user: Local Persistent + Encrypted. scope: Local Persistent + Encrypted. workflowInstance: In-Memory. artifact: Local Persistent (no encryption, TTL supported). secureMemory: In-Memory ONLY (never persisted, for encryption keys/certificates).",
+                    "description": "DataManager context for storing the data. device: Local Persistent (NO encryption - bootstrap). user: Local Persistent + Encrypted. scope: Local Persistent + Encrypted. workflowInstance: In-Memory. artifact: Local Persistent (no encryption, TTL supported). secureMemory: In-Memory ONLY (never persisted, for encryption keys).",
                     "enum": [
                         "device",
                         "user",
