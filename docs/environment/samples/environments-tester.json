@@ -1,12 +1,11 @@
 {
-  "version": "1.0.0",
   "multiStageMode": "onStartup",
   "defaultStage": "localhost",
   "selector-workflow": {
     "runtime" : "v2",
     "baseUrl": "http://localhost:3001/api/v1/",
     "domain": "discovery",
-    "workflow": "stage-selector",
+    "workflow": "enviroment-selector",
     "version": "1.1"
   },
   "stages": [

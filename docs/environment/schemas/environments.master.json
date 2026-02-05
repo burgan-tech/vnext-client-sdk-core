@@ -4,14 +4,8 @@
   "title": "Environments Configuration",
   "description": "Uygulama başlatıldığında hangi environment (stage) ile çalışacağını belirleyen konfigürasyon. Multi-stage desteği ve backend-driven stage selection workflow içerir.",
   "type": "object",
-  "required": ["version", "multiStageMode", "defaultStage", "stages"],
+  "required": ["multiStageMode", "defaultStage", "stages"],
   "properties": {
-    "version": {
-      "type": "string",
-      "description": "Environment konfigürasyon versiyonu (semver)",
-      "pattern": "^\\d+\\.\\d+\\.\\d+$",
-      "examples": ["1.0.0", "1.1.0"]
-    },
     "multiStageMode": {
       "type": "string",
       "description": "Multi-stage davranış modu",
@@ -173,7 +167,6 @@
   },
   "examples": [
     {
-      "version": "1.0.0",
       "multiStageMode": "onStartup",
       "defaultStage": "localhost",
       "selector-workflow": {

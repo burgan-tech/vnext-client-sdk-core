@@ -1,0 +1,20 @@
+{
+  "multiStageMode": "never",
+  "defaultStage": "prod",
+  "stages": [
+    {
+      "key": "prod",
+      "title": "Production",
+      "baseUrl": "https://api.burgan.com.tr/api/v1/",
+      "wsUrl": "wss://ws.burgan.com.tr",
+      "mqttUrl": "mqtts://mqtt.burgan.com.tr:8883",
+      "config": {
+        "level": "instance",
+        "domain": "discovery",
+        "workflow": "enviroment",
+        "instanceKey": "mobile-app",
+        "function": "enviroment"
+      }
+    }
+  ]
+}
