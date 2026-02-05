@@ -53,6 +53,20 @@ DataManager'daki state'lere erişim tek boyutlu bir **DataContext** sistemi kull
 
 > **🔐 secureMemory**: Encryption key gibi hassas veriler için özel context. Sadece runtime'da var, app kapanınca kaybolur. `x-autoStore` ile uyumlu - Device Register response'u otomatik yazılabilir.
 
+### Token Storage Stratejisi
+
+Token'ların hangi context'te tutulacağı **backend config'den** belirlenir. Genel strateji:
+
+| Token | Ömür | Context | Açıklama |
+|-------|------|---------|----------|
+| Device Token | Uzun | `device` | Bootstrap için, şifresiz ama sadece device tanımlama |
+| 1FA Token | 90 gün | `user` | Uzun ömürlü, şifreli persist gerekli |
+| 2FA Token | 5 dk | `secureMemory` | Kısa ömürlü, volatile yeterli |
+| Access Token | Kısa | `secureMemory` | Kısa ömürlü, volatile |
+| Refresh Token | Orta | `user` | Şifreli persist gerekli |
+
+> **📝 TODO:** Token context mapping'i `client-function-config.json`'da `tokenStorage` objesi ile tanımlanacak. Her token tipi için `context` ve `key` belirlenecek.
+
 ## 🔐 Güvenlik: Secure Storage Encryption
 
 Secure Persistent storage'daki veriler (`user` ve `scope` context'leri) şifrelenir. Şifreleme anahtarı **backend tarafından sağlanır** ve **asla persist edilmez** (`secureMemory`'de tutulur).
