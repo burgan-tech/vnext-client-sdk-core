@@ -199,9 +199,7 @@ Encryption key artık **`secureMemory` context'ine** yazılır - özel unlock me
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-### Secure Storage API (Tutarlı setData/getData)
-
-Artık özel `unlockSecureStorage()` metoduna gerek yok - tutarlı API!
+### Secure Storage API
 
 **TypeScript:**
 ```typescript
