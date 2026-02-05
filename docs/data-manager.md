@@ -37,17 +37,25 @@ DataManager'daki state'lere erişim tek boyutlu bir **DataContext** sistemi kull
 
 ### DataContext Enum
 
-| Context | Storage | Encryption | Açıklama |
-|---------|---------|------------|----------|
-| `device` | Local Persistent | ❌ | Cihaz bilgileri (deviceId, installationId). Bootstrap için şifresiz! |
-| `user` | Local Persistent | ✅ Şifreli | Kullanıcı verileri (profile, tokens, preferences) |
-| `scope` | Local Persistent | ✅ Şifreli | İşlem yapılan müşteri/kapsam verileri |
+| Context | Storage Altyapısı | Encryption | Açıklama |
+|---------|-------------------|------------|----------|
+| `device` | **Secure Storage** | ❌ | Cihaz bilgileri (deviceId, installationId). Bootstrap için şifresiz! |
+| `user` | **Secure Storage** | ✅ Şifreli | Kullanıcı verileri (profile, tokens, preferences) |
+| `scope` | **Secure Storage** | ✅ Şifreli | İşlem yapılan müşteri/kapsam verileri |
 | `workflowInstance` | In-Memory | ❌ | İş akışı instance verisi (geçici) |
 | `workflowTransition` | In-Memory | ❌ | Form/transition verisi (geçici) |
-| `artifact` | Local Persistent | ❌ | Render içerikleri, JSON dosyaları (TTL ile, hassas değil) |
+| `artifact` | **Local Storage** | ❌ | Render içerikleri, JSON dosyaları (TTL ile, cache) |
 | `secureMemory` | In-Memory | ❌ | Hassas runtime verileri (encryption key). ASLA persist edilmez! |
 
-> **⚠️ Storage Otomatik Belirlenir**: DataManager, context'e göre hangi storage kullanılacağını otomatik belirler. Geliştiricinin storage türünü belirtmesine gerek yoktur.
+### Storage Altyapıları
+
+| Altyapı | Açıklama | Platform Örnekleri |
+|---------|----------|-------------------|
+| **Secure Storage** | Platform-native güvenli storage. App sandbox içinde, diğer app'ler erişemez. | iOS Keychain, Android EncryptedSharedPreferences |
+| **Local Storage** | Normal persistent storage. Cache için uygun, hassas veri için değil. | Web localStorage, Android SharedPreferences, iOS UserDefaults |
+| **In-Memory** | RAM'de tutulur, persist edilmez. App kapanınca silinir. | JavaScript Map/Object, Dart Map |
+
+> **⚠️ Storage Otomatik Belirlenir**: DataManager, context'e göre hangi storage altyapısını kullanacağını otomatik belirler. Geliştiricinin belirtmesine gerek yoktur.
 
 > **🐔🥚 Bootstrap Problemi**: `device` context şifrelenmez çünkü Device Register için `deviceId` ve `installationId` gerekli. Bu bilgiler olmadan encryption key alınamaz. Hassas veriler `user` ve `scope` context'lerinde şifreli tutulur.
 
@@ -1005,27 +1013,31 @@ dataManager.importData(DataContext.user, userBackup, overwrite: false);
 
 ```typescript
 /**
- * DataContext - Veri bağlamını ve storage türünü belirler
+ * DataContext - Veri bağlamını ve storage altyapısını belirler
  * 
- * Storage ve Encryption:
- * - device: Local Persistent (şifrelenmez - bootstrap için gerekli)
- * - user: Local Persistent + Encrypted (tek key ile)
- * - scope: Local Persistent + Encrypted (tek key ile)
- * - workflowInstance: In-Memory (şifrelenmez, geçici)
- * - workflowTransition: In-Memory (şifrelenmez, geçici)
- * - artifact: Local Persistent (şifrelenmez, hassas değil, TTL ile)
- * - secureMemory: In-Memory ONLY (asla persist edilmez, encryption key için)
+ * Storage Altyapıları:
+ * - Secure Storage: iOS Keychain, Android EncryptedSharedPreferences (güvenli)
+ * - Local Storage: localStorage, SharedPreferences, UserDefaults (cache için)
+ * - In-Memory: RAM (persist edilmez)
+ * 
+ * Context → Storage Mapping:
+ * - device: Secure Storage (şifrelenmez - bootstrap için gerekli)
+ * - user: Secure Storage + Encrypted
+ * - scope: Secure Storage + Encrypted
+ * - workflowInstance: In-Memory
+ * - workflowTransition: In-Memory
+ * - artifact: Local Storage (cache, TTL ile)
+ * - secureMemory: In-Memory ONLY (asla persist edilmez)
  * 
  * ⚠️ Encryption key Device Register'dan alınır ve secureMemory'de tutulur
- * ⚠️ device context şifrelenmez (deviceId/installationId bootstrap için gerekli)
  */
 enum DataContext {
-  device,             // Cihaz verileri - Local Persistent (NO encryption - bootstrap)
-  user,               // Kullanıcı verileri - Local Persistent + Encrypted
-  scope,              // İşlem yapılan müşteri/kapsam - Local Persistent + Encrypted
+  device,             // Cihaz verileri - Secure Storage (NO encryption - bootstrap)
+  user,               // Kullanıcı verileri - Secure Storage + Encrypted
+  scope,              // İşlem yapılan müşteri/kapsam - Secure Storage + Encrypted
   workflowInstance,   // İş akışı instance - In-Memory
   workflowTransition, // Form/transition verisi - In-Memory
-  artifact,           // Render içerikleri, JSON - Local Persistent (no encryption)
+  artifact,           // Render içerikleri, JSON - Local Storage (cache)
   secureMemory        // Hassas runtime verileri (encryption key) - In-Memory ONLY
 }
 
@@ -1136,26 +1148,30 @@ interface DataManager {
 ### **Flutter (Dart) Interface**
 
 ```dart
-/// DataContext - Veri bağlamını ve storage türünü belirler
+/// DataContext - Veri bağlamını ve storage altyapısını belirler
 /// 
-/// Storage ve Encryption:
-/// - device: Local Persistent (şifrelenmez - bootstrap için gerekli)
-/// - user: Local Persistent + Encrypted (tek key ile)
-/// - scope: Local Persistent + Encrypted (tek key ile)
-/// - workflowInstance: In-Memory (şifrelenmez, geçici)
-/// - workflowTransition: In-Memory (şifrelenmez, geçici)
-/// - artifact: Local Persistent (şifrelenmez, hassas değil, TTL ile)
-/// - secureMemory: In-Memory ONLY (asla persist edilmez, encryption key için)
+/// Storage Altyapıları:
+/// - Secure Storage: iOS Keychain, Android EncryptedSharedPreferences (güvenli)
+/// - Local Storage: localStorage, SharedPreferences, UserDefaults (cache için)
+/// - In-Memory: RAM (persist edilmez)
+/// 
+/// Context → Storage Mapping:
+/// - device: Secure Storage (şifrelenmez - bootstrap için gerekli)
+/// - user: Secure Storage + Encrypted
+/// - scope: Secure Storage + Encrypted
+/// - workflowInstance: In-Memory
+/// - workflowTransition: In-Memory
+/// - artifact: Local Storage (cache, TTL ile)
+/// - secureMemory: In-Memory ONLY (asla persist edilmez)
 /// 
 /// ⚠️ Encryption key Device Register'dan alınır ve secureMemory'de tutulur
-/// ⚠️ device context şifrelenmez (deviceId/installationId bootstrap için gerekli)
 enum DataContext {
-  device,             // Cihaz verileri - Local Persistent (NO encryption - bootstrap)
-  user,               // Kullanıcı verileri - Local Persistent + Encrypted
-  scope,              // İşlem yapılan müşteri/kapsam - Local Persistent + Encrypted
+  device,             // Cihaz verileri - Secure Storage (NO encryption - bootstrap)
+  user,               // Kullanıcı verileri - Secure Storage + Encrypted
+  scope,              // İşlem yapılan müşteri/kapsam - Secure Storage + Encrypted
   workflowInstance,   // İş akışı instance - In-Memory
   workflowTransition, // Form/transition verisi - In-Memory
-  artifact,           // Render içerikleri, JSON - Local Persistent (no encryption)
+  artifact,           // Render içerikleri, JSON - Local Storage (cache)
   secureMemory        // Hassas runtime verileri (encryption key) - In-Memory ONLY
 }
 

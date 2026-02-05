@@ -8,15 +8,23 @@
 
 ## 📍 DataContext ve Storage Mapping
 
-| DataContext | Storage | Encryption | Açıklama |
-|-------------|---------|------------|----------|
-| `device` | Local Persistent | ❌ | Cihaz verileri (bootstrap için şifresiz) |
-| `user` | Local Persistent | ✅ Şifreli | Kullanıcı verileri |
-| `scope` | Local Persistent | ✅ Şifreli | İşlem yapılan müşteri/kapsam |
+| DataContext | Storage Altyapısı | Encryption | Açıklama |
+|-------------|-------------------|------------|----------|
+| `device` | **Secure Storage** | ❌ | Cihaz verileri (bootstrap için şifresiz) |
+| `user` | **Secure Storage** | ✅ Şifreli | Kullanıcı verileri |
+| `scope` | **Secure Storage** | ✅ Şifreli | İşlem yapılan müşteri/kapsam |
 | `workflowInstance` | In-Memory | ❌ | İş akışı instance verisi (geçici) |
 | `workflowTransition` | In-Memory | ❌ | Form/transition verisi (geçici) |
-| `artifact` | Local Persistent | ❌ | Render içerikleri, JSON (TTL ile, hassas değil) |
+| `artifact` | **Local Storage** | ❌ | Render içerikleri, JSON (cache, TTL ile) |
 | `secureMemory` | In-Memory | ❌ | Hassas runtime verileri (encryption key). ASLA persist edilmez! |
+
+### Storage Altyapıları
+
+| Altyapı | Açıklama | Platform Örnekleri |
+|---------|----------|-------------------|
+| **Secure Storage** | Platform-native güvenli storage. App sandbox içinde. | iOS Keychain, Android EncryptedSharedPreferences |
+| **Local Storage** | Normal persistent storage. Cache için uygun. | Web localStorage, Android SharedPreferences, iOS UserDefaults |
+| **In-Memory** | RAM'de tutulur, persist edilmez. | JavaScript Map, Dart Map |
 
 > **🐔🥚 Bootstrap:** `device` context şifrelenmez çünkü Device Register için `deviceId` ve `installationId` gerekli. Key almadan bu bilgileri okuyamazdık → döngü!
 
@@ -65,9 +73,9 @@ Secure storage'ı açmak için kullanılan şifreleme anahtarı.
 
 ## 📱 Device-Level Data (`DataContext.device`)
 
-Device seviyesindeki veriler tüm kullanıcılar için ortaktır ve cihaza özgüdür. **Storage: Local Persistent (şifresiz - bootstrap için)**
+Device seviyesindeki veriler tüm kullanıcılar için ortaktır ve cihaza özgüdür. **Storage: Secure Storage (şifresiz - bootstrap için)**
 
-> **⚠️ Not:** `device` context şifrelenmez. `deviceId` ve `installationId` Device Register için gerekli olduğundan, key almadan okunabilmeli.
+> **⚠️ Not:** `device` context Secure Storage'da tutulur ama şifrelenmez. `deviceId` ve `installationId` Device Register için gerekli olduğundan, key almadan okunabilmeli.
 
 ### info
 Cihaz tanımlama bilgileri.
