@@ -146,3 +146,14 @@ Client/SDK must:
 - Pass `version` as query parameter
 - Ignore `_comment` field completely
 - Handle missing workflow gracefully (fallback to default behavior)
+
+
+
+"widget" {
+  "type" :"neo-textbox"
+  "args":{
+    "dataBind" : "applicant.firstName",
+    "binding" : "twoWay",
+    "default": "Guest"
+  }
+}

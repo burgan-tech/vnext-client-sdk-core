@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://amorphie.io/schemas/environment/environments",
   "title": "Environments Configuration",
-  "description": "Uygulama başlatıldığında hangi environment (stage) ile çalışacağını belirleyen konfigürasyon. Multi-stage desteği ve backend-driven stage selection workflow içerir.",
+  "description": "Uygulama başlatıldığında hangi environment (stage) ile çalışacağını ve authentication yapılandırmasını belirleyen konfigürasyon.",
   "type": "object",
   "required": ["multiStageMode", "defaultStage", "stages"],
   "properties": {
@@ -13,7 +13,7 @@
       "default": "never",
       "x-enumDescriptions": {
         "never": "Her zaman defaultStage kullanılır, kullanıcı değiştiremez",
-        "onStartup": "Uygulama başlangıcında stage seçim dialog/workflow gösterilir",
+        "onStartup": "Uygulama başlangıcında stage seçim workflow gösterilir",
         "onProfile": "Uygulama default ile başlar, profil sayfasından değiştirilebilir"
       }
     },
@@ -24,7 +24,7 @@
       "examples": ["localhost", "pilot", "prod"]
     },
     "selector-workflow": {
-      "$ref": "#/$defs/workflowReference",
+      "$ref": "#/$defs/functionEndpoint",
       "description": "Stage seçimi için backend-driven workflow tanımı. multiStageMode='onStartup' olduğunda kullanılır."
     },
     "stages": {
@@ -37,22 +37,47 @@
     }
   },
   "additionalProperties": false,
+
   "$defs": {
-    "workflowReference": {
+    "requiredToken": {
       "type": "object",
-      "description": "Amorphie workflow referansı. Client bu bilgilerle workflow URL'ini oluşturur.",
-      "required": ["baseUrl", "domain", "workflow"],
+      "description": "Endpoint çağrısı için gerekli token tanımı",
+      "required": ["provider", "token"],
+      "properties": {
+        "provider": {
+          "type": "string",
+          "description": "Auth provider key'i",
+          "examples": ["morph-idm", "edevlet", "burgan-yatirim"]
+        },
+        "token": {
+          "type": "string",
+          "description": "Token tipi",
+          "examples": ["device", "1fa", "2fa", "access", "session"]
+        }
+      },
+      "additionalProperties": false
+    },
+
+    "functionEndpoint": {
+      "type": "object",
+      "description": "Amorphie function endpoint tanımı. Client bu bilgilerle URL oluşturur.",
+      "required": ["level", "domain", "workflow", "function"],
       "properties": {
         "runtime": {
           "type": "string",
           "description": "Workflow runtime versiyonu",
-          "examples": ["v1", "v2"]
+          "enum": ["v1", "v2"],
+          "default": "v2"
         },
-        "baseUrl": {
+        "level": {
           "type": "string",
-          "description": "API base URL (trailing slash opsiyonel)",
-          "format": "uri",
-          "examples": ["http://localhost:3001/api/v1/", "https://api.example.com/"]
+          "description": "Endpoint seviyesi",
+          "enum": ["instance", "workflow", "domain"],
+          "x-enumDescriptions": {
+            "instance": "/{domain}/workflows/{workflow}/instances/{key}/functions/{function}",
+            "workflow": "/{domain}/workflows/{workflow}/functions/{function}",
+            "domain": "/{domain}/functions/{function}"
+          }
         },
         "domain": {
           "type": "string",
@@ -64,96 +89,29 @@
           "type": "string",
           "description": "Workflow adı",
           "pattern": "^[a-z0-9-]+$",
-          "examples": ["stage-selector", "login", "device-register"]
+          "examples": ["enviroment", "mobile-login", "device-register"]
         },
-        "version": {
-          "type": "string",
-          "description": "Workflow versiyonu",
-          "pattern": "^\\d+\\.\\d+$",
-          "examples": ["1.0", "1.1", "2.0"]
-        }
-      },
-      "additionalProperties": false
-    },
-    "stage": {
-      "type": "object",
-      "description": "Bir environment (stage) tanımı",
-      "required": ["key", "title", "baseUrl"],
-      "properties": {
         "key": {
           "type": "string",
-          "description": "Stage benzersiz tanımlayıcısı. defaultStage ile eşleşir.",
-          "pattern": "^[a-z0-9-]+$",
-          "minLength": 1,
-          "examples": ["localhost", "pilot", "uat", "prod"]
-        },
-        "title": {
-          "type": "string",
-          "description": "Stage görünen adı (UI'da gösterilir)",
-          "minLength": 1,
-          "examples": ["Local Development", "Pilot", "UAT", "Production"]
-        },
-        "baseUrl": {
-          "type": "string",
-          "description": "API base URL",
-          "format": "uri",
-          "examples": ["http://localhost:3001/api/v1/", "https://api.example.com/"]
-        },
-        "wsUrl": {
-          "type": "string",
-          "description": "WebSocket URL (opsiyonel)",
-          "format": "uri",
-          "examples": ["ws://localhost:3001", "wss://ws.example.com"]
-        },
-        "mqttUrl": {
-          "type": "string",
-          "description": "MQTT broker URL (opsiyonel)",
-          "format": "uri",
-          "examples": ["mqtt://localhost:1883", "mqtts://mqtt.example.com:8883"]
-        },
-        "config": {
-          "$ref": "#/$defs/stageConfig",
-          "description": "Client config endpoint tanımı"
-        }
-      },
-      "additionalProperties": false
-    },
-    "stageConfig": {
-      "type": "object",
-      "description": "Stage'e özel client config endpoint tanımı. Client bu bilgilerle config URL'ini oluşturur.",
-      "required": ["level", "domain", "workflow", "function"],
-      "properties": {
-        "level": {
-          "type": "string",
-          "description": "Config endpoint seviyesi",
-          "enum": ["instance", "function"],
-          "x-enumDescriptions": {
-            "instance": "Instance-level: /{domain}/workflows/{workflow}/instances/{instanceKey}/functions/{function}",
-            "function": "Function-level: /{domain}/workflows/{workflow}/functions/{function}"
-          }
-        },
-        "domain": {
-          "type": "string",
-          "description": "Config workflow domain'i",
-          "pattern": "^[a-z0-9-]+$",
-          "examples": ["discovery", "morph-idm"]
-        },
-        "workflow": {
-          "type": "string",
-          "description": "Config workflow adı",
-          "pattern": "^[a-z0-9-]+$",
-          "examples": ["enviroment", "client-config"]
-        },
-        "instanceKey": {
-          "type": "string",
           "description": "Instance key (level='instance' olduğunda gerekli)",
-          "examples": ["localhost", "pilot", "web-app"]
+          "examples": ["localhost", "pilot", "mobile-app"]
         },
         "function": {
           "type": "string",
           "description": "Function adı",
           "pattern": "^[a-z0-9-]+$",
-          "examples": ["enviroment", "config", "client"]
+          "examples": ["enviroment", "config"]
+        },
+        "requiredToken": {
+          "type": "array",
+          "description": "Bu endpoint'i çağırmak için gerekli token'lar (öncelik sırasına göre)",
+          "items": { "$ref": "#/$defs/requiredToken" },
+          "examples": [
+            [
+              { "provider": "morph-idm", "token": "1fa" },
+              { "provider": "morph-idm", "token": "device" }
+            ]
+          ]
         }
       },
       "additionalProperties": false,
@@ -161,36 +119,238 @@
         "properties": { "level": { "const": "instance" } }
       },
       "then": {
-        "required": ["level", "domain", "workflow", "instanceKey", "function"]
+        "required": ["level", "domain", "workflow", "key", "function"]
       }
-    }
-  },
-  "examples": [
-    {
-      "multiStageMode": "onStartup",
-      "defaultStage": "localhost",
-      "selector-workflow": {
-        "runtime": "v2",
-        "baseUrl": "http://localhost:3001/api/v1/",
-        "domain": "discovery",
-        "workflow": "stage-selector",
-        "version": "1.1"
+    },
+
+    "grantFlow": {
+      "type": "object",
+      "description": "Token almak için çalıştırılacak workflow",
+      "required": ["runtime", "domain", "workflow"],
+      "properties": {
+        "runtime": {
+          "type": "string",
+          "enum": ["v1", "v2"],
+          "default": "v2"
+        },
+        "domain": {
+          "type": "string",
+          "pattern": "^[a-z0-9-]+$"
+        },
+        "workflow": {
+          "type": "string",
+          "pattern": "^[a-z0-9-]+$"
+        },
+        "requiredToken": {
+          "type": "array",
+          "description": "Bu akışı başlatmak için gerekli token'lar",
+          "items": { "$ref": "#/$defs/requiredToken" }
+        }
       },
-      "stages": [
-        {
-          "key": "localhost",
-          "title": "Local Development",
-          "baseUrl": "http://localhost:3001/api/v1/",
-          "wsUrl": "ws://localhost:3001",
-          "config": {
-            "level": "instance",
-            "domain": "discovery",
-            "workflow": "enviroment",
-            "instanceKey": "localhost",
-            "function": "enviroment"
+      "additionalProperties": false
+    },
+
+    "tokenType": {
+      "type": "object",
+      "description": "Bir token tipinin tanımı",
+      "required": ["expiry"],
+      "properties": {
+        "expiry": {
+          "type": "string",
+          "description": "Token geçerlilik süresi",
+          "examples": ["infinite", "90d", "5m", "1h"]
+        },
+        "grantFlow": {
+          "oneOf": [
+            { "$ref": "#/$defs/grantFlow" },
+            { "type": "null" }
+          ],
+          "description": "Token almak için workflow. null ise otomatik alınır (örn: 1fa, 2fa sonrası)"
+        },
+        "refresh": {
+          "oneOf": [
+            {
+              "type": "object",
+              "required": ["endpoint", "strategy"],
+              "properties": {
+                "endpoint": { "type": "string" },
+                "strategy": { "type": "string", "enum": ["rotating", "static"] },
+                "beforeExpiry": { "type": "string", "description": "Expire'dan ne kadar önce refresh", "examples": ["1m", "30s"] }
+              }
+            },
+            { "type": "null" }
+          ],
+          "description": "Token refresh ayarları"
+        },
+        "logout": {
+          "oneOf": [
+            {
+              "type": "object",
+              "properties": {
+                "endpoint": { "type": "string" },
+                "autoLogoutAtBackground": { "type": "string", "description": "Background'da kalma süresi sonrası logout", "examples": ["5m"] },
+                "autoLogoutAtInactivity": { "type": "string", "description": "İnaktivite süresi sonrası logout", "examples": ["15m"] }
+              }
+            },
+            { "type": "null" }
+          ],
+          "description": "Logout ayarları"
+        }
+      },
+      "additionalProperties": false
+    },
+
+    "authProviderNative": {
+      "type": "object",
+      "description": "Native (morph-idm) auth provider",
+      "required": ["key", "type", "tokenTypes"],
+      "properties": {
+        "key": { "type": "string", "const": "morph-idm" },
+        "type": { "type": "string", "const": "native" },
+        "tokenTypes": {
+          "type": "object",
+          "description": "Token tipleri tanımları",
+          "properties": {
+            "device": { "$ref": "#/$defs/tokenType" },
+            "1fa": { "$ref": "#/$defs/tokenType" },
+            "2fa": { "$ref": "#/$defs/tokenType" }
+          },
+          "additionalProperties": { "$ref": "#/$defs/tokenType" }
+        }
+      },
+      "additionalProperties": false
+    },
+
+    "authProviderOAuth2": {
+      "type": "object",
+      "description": "OAuth2 auth provider (e-devlet, Google, vb.)",
+      "required": ["key", "type", "authorizationUrl", "tokenUrl", "clientId"],
+      "properties": {
+        "key": { "type": "string", "examples": ["edevlet", "google"] },
+        "type": { "type": "string", "const": "oauth2" },
+        "authorizationUrl": { "type": "string", "format": "uri" },
+        "tokenUrl": { "type": "string", "format": "uri" },
+        "clientId": { "type": "string" },
+        "scopes": { "type": "array", "items": { "type": "string" } },
+        "pkce": { "type": "boolean", "default": true },
+        "tokenTypes": {
+          "type": "object",
+          "properties": {
+            "access": { "$ref": "#/$defs/tokenType" },
+            "refresh": { "$ref": "#/$defs/tokenType" }
+          }
+        },
+        "tokenExchange": {
+          "type": "object",
+          "description": "External token'ı core token'a çevirmek için endpoint",
+          "properties": {
+            "endpoint": { "type": "string" }
           }
         }
-      ]
+      },
+      "additionalProperties": false
+    },
+
+    "authProviderApp2App": {
+      "type": "object",
+      "description": "App2App auth provider (native app açma)",
+      "required": ["key", "type", "scheme"],
+      "properties": {
+        "key": { "type": "string", "examples": ["burgan-yatirim"] },
+        "type": { "type": "string", "const": "app2app" },
+        "scheme": { "type": "string", "description": "Deep link scheme", "examples": ["burganyatirim://auth"] },
+        "fallbackUrl": { "type": "string", "format": "uri", "description": "App yüklü değilse yönlendirilecek URL" },
+        "callbackScheme": { "type": "string", "description": "Geri dönüş scheme'i" },
+        "tokenTypes": {
+          "type": "object",
+          "properties": {
+            "session": { "$ref": "#/$defs/tokenType" }
+          }
+        },
+        "tokenExchange": {
+          "type": "object",
+          "properties": {
+            "endpoint": { "type": "string" }
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+
+    "authProviderWebview": {
+      "type": "object",
+      "description": "Webview auth provider (embedded login)",
+      "required": ["key", "type", "url"],
+      "properties": {
+        "key": { "type": "string", "examples": ["fxtrade"] },
+        "type": { "type": "string", "const": "webview" },
+        "url": { "type": "string", "format": "uri" },
+        "callbackPattern": { "type": "string" },
+        "tokenTypes": {
+          "type": "object",
+          "properties": {
+            "session": { "$ref": "#/$defs/tokenType" }
+          }
+        },
+        "tokenExchange": {
+          "type": "object",
+          "properties": {
+            "endpoint": { "type": "string" }
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+
+    "stage": {
+      "type": "object",
+      "description": "Bir environment (stage) tanımı",
+      "required": ["key", "title", "baseUrl", "authProviders"],
+      "properties": {
+        "key": {
+          "type": "string",
+          "description": "Stage benzersiz tanımlayıcısı",
+          "pattern": "^[a-z0-9-]+$",
+          "examples": ["localhost", "pilot", "prod"]
+        },
+        "title": {
+          "type": "string",
+          "description": "Stage görünen adı (UI'da gösterilir)",
+          "examples": ["Local Development", "Pilot", "Production"]
+        },
+        "baseUrl": {
+          "type": "string",
+          "description": "API base URL",
+          "format": "uri"
+        },
+        "wsUrl": {
+          "type": "string",
+          "description": "WebSocket URL",
+          "format": "uri"
+        },
+        "mqttUrl": {
+          "type": "string",
+          "description": "MQTT broker URL",
+          "format": "uri"
+        },
+        "configEndpoint": {
+          "$ref": "#/$defs/functionEndpoint",
+          "description": "Client config endpoint tanımı"
+        },
+        "authProviders": {
+          "type": "array",
+          "description": "Auth provider'lar listesi",
+          "items": {
+            "oneOf": [
+              { "$ref": "#/$defs/authProviderNative" },
+              { "$ref": "#/$defs/authProviderOAuth2" },
+              { "$ref": "#/$defs/authProviderApp2App" },
+              { "$ref": "#/$defs/authProviderWebview" }
+            ]
+          }
+        }
+      },
+      "additionalProperties": false
     }
-  ]
+  }
 }

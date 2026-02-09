@@ -1,0 +1,177 @@
+{
+  "theme": "retail",
+  "api": {
+    "timeout": 30000
+  },
+  "realtime": {
+    "core": {
+      "websocket": {
+        "enabled": true,
+        "reconnect": {
+          "enabled": true,
+          "maxAttempts": 5,
+          "delay": 1000
+        }
+      },
+      "mqtt": {
+        "enabled": true,
+        "options": {
+          "keepAlive": 60,
+          "cleanSession": true,
+          "qos": 1,
+          "topicPrefix": "vnext/client/"
+        },
+        "reconnect": {
+          "enabled": true,
+          "maxAttempts": 10,
+          "delay": 2000
+        }
+      }
+    },
+    "external": [
+      {
+        "key": "stockIndex",
+        "type": "mqtt",
+        "url": "mqtts://mqtt.acme.com:8883",
+        "enabled": true,
+        "options": {
+          "keepAlive": 60,
+          "cleanSession": true,
+          "qos": 1,
+          "topicPrefix": "stocks/"
+        },
+        "reconnect": {
+          "enabled": true,
+          "maxAttempts": 10,
+          "delay": 2000
+        }
+      }
+    ]
+  },
+  "initialization": [
+    {
+      "order": 100,
+      "type": "logger",
+      "execution": {
+        "timeout": 5000,
+        "onError": "continue"
+      },
+      "config": {
+        "mode": "verbose",
+        "reportEndpoint": {
+          "domain": "discovery",
+          "workflow": "errors",
+          "requiredToken": [
+            { "provider": "morph-idm", "token": "2fa" },
+            { "provider": "morph-idm", "token": "1fa" },
+            { "provider": "morph-idm", "token": "device" }
+          ]
+        }
+      }
+    },
+    {
+      "order": 200,
+      "type": "genericSdk",
+      "execution": {
+        "timeout": 10000,
+        "onError": "continue"
+      },
+      "config": {
+        "name": "firebase",
+        "options": {}
+      }
+    },
+    {
+      "order": 300,
+      "type": "analytics",
+      "execution": {
+        "timeout": 5000,
+        "onError": "continue"
+      },
+      "config": {
+        "enabled": true,
+        "provider": "posthog"
+      }
+    },
+    {
+      "order": 300,
+      "type": "logger",
+      "execution": {
+        "timeout": 5000,
+        "onError": "continue"
+      },
+      "config": {
+        "enabled": true,
+        "provider": "sentry",
+        "args": {
+          "dsn": "https://<your-dsn>@sentry.io/<your-project>"
+        }
+      }
+    },
+    {
+      "order": 400,
+      "type": "workflow",
+      "execution": {
+        "timeout": 30000,
+        "onError": "break"
+      },
+      "config": {
+        "runtime": "v2",
+        "key": "device-register",
+        "domain": "morph-idm",
+        "workflow": "workflow",
+        "requiredToken": [
+          { "provider": "morph-idm", "token": "1fa" },
+          { "provider": "morph-idm", "token": "device" }
+        ]
+      }
+    }
+  ],
+  "navigation": {
+    "endpoint": {
+      "runtime": "v2",
+      "level": "instance",
+      "domain": "discovery",
+      "workflow": "navigation",
+      "key": "mobile-app",
+      "function": "evaluate",
+      "requiredToken": [
+        { "provider": "morph-idm", "token": "1fa" },
+        { "provider": "morph-idm", "token": "device" }
+      ]
+    }
+  },
+  "router": {
+    "defaultMode": "mdi",
+    "allowChangeMode": true,
+    "_comment": "Router mode: 'sdi' (Single Document Interface) or 'mdi' (Multi Document Interface). defaultMode uygulamanın başlangıç modunu belirler. allowChangeMode true ise kullanıcı modu değiştirebilir ve seçim kalıcı olur. ÖNEMLİ: Device ve 1FA token seviyelerinde router her zaman SDI modunda çalışır (override). Bu mode ayarı sadece 2FA+ token seviyeleri için geçerlidir."
+  },
+  "deepLinking": {
+    "incoming": {
+      "enabled": true,
+      "whitelist": {
+        "schemes": [
+          "vnextapp"
+        ],
+        "domains": [
+          "app.example.com",
+          "*.example.com"
+        ]
+      }
+    },
+    "outgoing": {
+      "enabled": true,
+      "whitelist": {
+        "schemes": [
+          "burganyatirim",
+          "vnextapp"
+        ],
+        "domains": [
+          "app.example.com",
+          "partner.example.com",
+          "*.partner.com"
+        ]
+      }
+    }
+  }
+}

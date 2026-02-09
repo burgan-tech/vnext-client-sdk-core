@@ -2,6 +2,18 @@
   "homepage": "account-list",
   "items": [
     {
+      "requiredFeatures": {
+        "features": [
+          {
+            "name": "nfc",
+            "type": "generic"
+          },
+          {
+            "name": "enverify",
+            "type": "generic"
+          }
+        ]
+      },
       "type": "group",
       "version": "v1",
       "key": "account-overview",

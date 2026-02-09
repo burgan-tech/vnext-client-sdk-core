@@ -1,41 +1,201 @@
 {
-  "multiStageMode": "onStartup",
-  "defaultStage": "localhost",
-  "selector-workflow": {
-    "runtime" : "v2",
-    "baseUrl": "http://localhost:3001/api/v1/",
-    "domain": "discovery",
-    "workflow": "enviroment-selector",
-    "version": "1.1"
-  },
-  "stages": [
-    {
-      "key": "localhost",
-      "title": "Local Development",
-      "baseUrl": "http://localhost:3001/api/v1/",
-      "wsUrl": "ws://localhost:3001",
-      "mqttUrl": "mqtt://localhost:1883",
-      "config" :{
-        "level": "instance",
-        "domain": "discovery",  
-        "workflow": "enviroment",
-        "instanceKey": "localhost",
-        "function": "enviroment"
-      }
+    "multiStageMode": "onStartup",
+    "defaultStage": "localhost",
+    "selector-workflow": {
+        "runtime": "v2",
+        "baseUrl": "http://localhost:3001/api/v1/",
+        "domain": "discovery",
+        "workflow": "enviroment-selector",
+        "requiredToken": [
+            {
+                "provider": "morph-idm",
+                "token": "1fa"
+            },
+            {
+                "provider": "morph-idm",
+                "token": "device"
+            }
+        ]
     },
-    {
-      "key": "pilot",
-      "title": "Pilot",
-      "baseUrl": "https://pilot-api.example.com",
-      "wsUrl": "wss://pilot-ws.example.com/v1",
-      "mqttUrl": "mqtts://pilot-mqtt.example.com:8883",
-      "config" :{
-        "level": "instance",
-        "domain": "discovery",  
-        "workflow": "enviroment",
-        "instanceKey": "pilot",
-        "function": "enviroment"
-      }
-    }
-  ]
+    "stages": [
+        {
+            "key": "localhost",
+            "title": "Local Development",
+            "baseUrl": "http://localhost:3001/api/v1/",
+            "wsUrl": "ws://localhost:3001",
+            "mqttUrl": "mqtt://localhost:1883",
+            "configEndpoint": {
+                "runtime": "v2",
+                "level": "instance",
+                "domain": "discovery",
+                "workflow": "enviroment",
+                "key": "localhost",
+                "function": "enviroment",
+                "requiredToken": [
+                    { "provider": "morph-idm", "token": "1fa" },
+                    { "provider": "morph-idm", "token": "device" }
+                ]
+            },
+            "authProviders": [
+                {
+                    "key": "morph-idm",
+                    "type": "native",
+                    "tokenTypes": {
+                        "device": {
+                            "expiry": "infinite",
+                            "refresh": null,
+                            "logout": null
+                        },
+                        "1fa": {
+                            "expiry": "1d",
+                            "refresh": null,
+                            "logout": {
+                                "endpoint": "/auth/logout/1fa"
+                            }
+                        },
+                        "2fa": {
+                            "expiry": "1m",
+                            "refresh": {
+                                "endpoint": "/auth/token/refresh",
+                                "strategy": "rotating",
+                                "beforeExpiry": "15s"
+                            },
+                            "logout": {
+                                "endpoint": "/auth/logout",
+                                "autoLogoutAtBackground": "1m",
+                                "autoLogoutAtInactivity": "5m"
+                            }
+                        }
+                    }
+                },
+                {
+                    "key": "edevlet",
+                    "type": "oauth2",
+                    "authorizationUrl": "https://giristest.turkiye.gov.tr/OAuth2/authorize",
+                    "tokenUrl": "https://giristest.turkiye.gov.tr/OAuth2/token",
+                    "clientId": "{{clientId}}",
+                    "scopes": [
+                        "profile",
+                        "tcno"
+                    ],
+                    "pkce": true,
+                    "tokenTypes": {
+                        "access": {
+                            "expiry": "1h"
+                        },
+                        "refresh": {
+                            "expiry": "7d"
+                        }
+                    },
+                    "tokenExchange": {
+                        "endpoint": "/auth/exchange/edevlet"
+                    }
+                },
+                {
+                    "key": "burgan-yatirim",
+                    "type": "app2app",
+                    "scheme": "burganyatirim://auth",
+                    "fallbackUrl": "https://play.google.com/store/apps/details?id=com.burgan.yatirim",
+                    "callbackScheme": "vnextapp://auth/callback/burgan-yatirim",
+                    "tokenTypes": {
+                        "session": {
+                            "expiry": "30m"
+                        }
+                    },
+                    "tokenExchange": {
+                        "endpoint": "/auth/exchange/burgan-yatirim"
+                    }
+                },
+                {
+                    "key": "fxtrade",
+                    "type": "webview",
+                    "url": "https://fxtrade-test.burgan.com.tr/login",
+                    "callbackPattern": "vnextapp://auth/callback/fxtrade",
+                    "tokenTypes": {
+                        "session": {
+                            "expiry": "1h"
+                        }
+                    },
+                    "tokenExchange": {
+                        "endpoint": "/auth/exchange/fxtrade"
+                    }
+                }
+            ]
+        },
+        {
+            "key": "pilot",
+            "title": "Pilot",
+            "baseUrl": "https://pilot-api.example.com",
+            "wsUrl": "wss://pilot-ws.example.com/v1",
+            "mqttUrl": "mqtts://pilot-mqtt.example.com:8883",
+            "configEndpoint": {
+                "runtime": "v2",
+                "level": "instance",
+                "domain": "discovery",
+                "workflow": "enviroment",
+                "key": "pilot",
+                "function": "enviroment",
+                "requiredToken": [
+                    { "provider": "morph-idm", "token": "1fa" },
+                    { "provider": "morph-idm", "token": "device" }
+                ]
+            },
+            "authProviders": [
+                {
+                    "key": "morph-idm",
+                    "type": "native",
+                    "tokenTypes": {
+                        "device": {
+                            "expiry": "infinite",
+                            "refresh": null,
+                            "logout": null
+                        },
+                        "1fa": {
+                            "expiry": "30d",
+                            "refresh": null,
+                            "logout": {
+                                "endpoint": "/auth/logout/1fa"
+                            }
+                        },
+                        "2fa": {
+                            "expiry": "3m",
+                            "refresh": {
+                                "endpoint": "/auth/token/refresh",
+                                "strategy": "rotating",
+                                "beforeExpiry": "30s"
+                            },
+                            "logout": {
+                                "endpoint": "/auth/logout",
+                                "autoLogoutAtBackground": "3m",
+                                "autoLogoutAtInactivity": "10m"
+                            }
+                        }
+                    }
+                },
+                {
+                    "key": "edevlet",
+                    "type": "oauth2",
+                    "authorizationUrl": "https://giris.turkiye.gov.tr/OAuth2/authorize",
+                    "tokenUrl": "https://giris.turkiye.gov.tr/OAuth2/token",
+                    "clientId": "{{clientId}}",
+                    "scopes": [
+                        "profile",
+                        "tcno"
+                    ],
+                    "pkce": true,
+                    "tokenTypes": {
+                        "access": {
+                            "expiry": "1h"
+                        },
+                        "refresh": {
+                            "expiry": "7d"
+                        }
+                    },
+                    "tokenExchange": {
+                        "endpoint": "/auth/exchange/edevlet"
+                    }
+                }
+            ]
+        }
+    ]
 }

@@ -8,13 +8,96 @@
       "baseUrl": "https://api.burgan.com.tr/api/v1/",
       "wsUrl": "wss://ws.burgan.com.tr",
       "mqttUrl": "mqtts://mqtt.burgan.com.tr:8883",
-      "config": {
+      "configEndpoint": {
+        "runtime": "v2",
         "level": "instance",
         "domain": "discovery",
         "workflow": "enviroment",
-        "instanceKey": "mobile-app",
-        "function": "enviroment"
-      }
+        "key": "mobile-app",
+        "function": "enviroment",
+        "requiredToken": [
+          { "provider": "morph-idm", "token": "1fa" },
+          { "provider": "morph-idm", "token": "device" }
+        ]
+      },
+      "authProviders": [
+        {
+          "key": "morph-idm",
+          "type": "native",
+          "tokenTypes": {
+            "device": {
+              "expiry": "infinite",
+              "grantFlow": {
+                "runtime": "v2",
+                "domain": "morph-idm",
+                "workflow": "device-login",
+                "requiredToken": []
+              },
+              "refresh": null,
+              "logout": null
+            },
+            "1fa": {
+              "expiry": "90d",
+              "grantFlow": null,
+              "refresh": null,
+              "logout": {
+                "endpoint": "/auth/logout/1fa"
+              }
+            },
+            "2fa": {
+              "expiry": "5m",
+              "grantFlow": {
+                "runtime": "v2",
+                "domain": "morph-idm",
+                "workflow": "mobile-login",
+                "requiredToken": [
+                  {
+                    "provider": "morph-idm",
+                    "token": "1fa"
+                  },
+                  {
+                    "provider": "morph-idm",
+                    "token": "device"
+                  }
+                ]
+              },
+              "refresh": {
+                "endpoint": "/auth/token/refresh",
+                "strategy": "rotating",
+                "beforeExpiry": "1m"
+              },
+              "logout": {
+                "endpoint": "/auth/logout",
+                "autoLogoutAtBackground": "5m",
+                "autoLogoutAtInactivity": "15m"
+              }
+            }
+          }
+        },
+        {
+          "key": "edevlet",
+          "type": "oauth2",
+          "authorizationUrl": "https://giris.turkiye.gov.tr/OAuth2/authorize",
+          "tokenUrl": "https://giris.turkiye.gov.tr/OAuth2/token",
+          "clientId": "{{clientId}}",
+          "scopes": [
+            "profile",
+            "tcno"
+          ],
+          "pkce": true,
+          "tokenTypes": {
+            "access": {
+              "expiry": "1h"
+            },
+            "refresh": {
+              "expiry": "7d"
+            }
+          },
+          "tokenExchange": {
+            "endpoint": "/auth/exchange/edevlet"
+          }
+        }
+      ]
     }
   ]
 }
