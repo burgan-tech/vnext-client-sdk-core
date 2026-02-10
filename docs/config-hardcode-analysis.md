@@ -36,34 +36,25 @@ Bu durumda config'deki tüm değerler aslında **backend tarafından dinamik ren
 
 ## ✅ Config Dinamik Oluşturuluyor - Hardcode Yok!
 
-### 1. Token Type Özellikleri (Dinamik ✅)
+### 1. Auth Provider Konfigürasyonları (Dinamik ✅)
 ```json
-"tokenTypes": {
-  "device": { ... },  // ✅ Backend dinamik oluşturuyor
-  "1fa": { ... },     // ✅ Kullanıcı/cihaz bazlı
-  "2fa": { ... },     // ✅ Dinamik render
-  "3fa": { ... }      // ✅ Backend'e göre değişir
+"authProviders": {
+  "morph-idm-device": { ... },  // ✅ Backend dinamik oluşturuyor
+  "morph-idm-1fa": { ... },     // ✅ Kullanıcı/cihaz bazlı
+  "morph-idm-2fa": { ... }      // ✅ Dinamik render
 }
 ```
 
 **Durum:**
 - ✅ Her request'te backend token sahibine, uygulamaya, cihaza göre config oluşturuyor
-- ✅ Token type özellikleri (expiry, refreshable, homepage) dinamik
-- ✅ Yeni token type eklemek için backend config'i günceller, kod değişmez
+- ✅ Provider ve token konfigürasyonları (expiry, storage, grantFlow) dinamik
+- ✅ Yeni provider eklemek için backend config'i günceller, kod değişmez
 
 **Değerlendirme:** ✅ **Tamamen backend-driven** - Her request'te dinamik oluşturuluyor
 
 ### 2. Homepage ID'leri (Dinamik ✅)
-```json
-"tokenTypes": {
-  "device": {
-    "homepage": "device-homepage"  // ✅ Backend dinamik belirliyor
-  },
-  "1fa": {
-    "homepage": "user-homepage"   // ✅ Kullanıcı bazlı
-  }
-}
-```
+
+Homepage bilgisi artık token seviyelerine göre değil, backend response'larından dinamik belirleniyor.
 
 **Durum:**
 - ✅ Homepage ID'leri backend tarafından dinamik belirleniyor
@@ -105,19 +96,24 @@ Bu durumda config'deki tüm değerler aslında **backend tarafından dinamik ren
 
 **Değerlendirme:** ✅ **Tamamen backend-driven** - Dinamik oluşturuluyor
 
-### 5. Feature Flags (Dinamik ✅)
+### 5. Deep Linking (Dinamik ✅)
 ```json
-"features": {
-  "biometric": { "enabled": true },  // ✅ Backend dinamik belirliyor
-  "pushNotifications": { "enabled": true },  // ✅ Kullanıcı/cihaz bazlı
-  "deepLinking": { "enabled": true }  // ✅ Dinamik
+"deepLinking": {
+  "incoming": {
+    "schemes": ["myapp", "myapp-dev"],
+    "domains": ["*.example.com"]
+  },
+  "outgoing": {
+    "schemes": ["tel", "mailto"],
+    "domains": ["*.trusted.com"]
+  }
 }
 ```
 
 **Durum:**
-- ✅ Feature flag'ler backend tarafından dinamik belirleniyor
+- ✅ Deep linking whitelist'leri backend tarafından dinamik belirleniyor
 - ✅ Token sahibine, uygulamaya, cihaza göre değişebilir
-- ✅ Her request'te farklı feature set'i olabilir
+- ✅ Her request'te farklı incoming/outgoing kuralları olabilir
 
 **Değerlendirme:** ✅ **Tamamen backend-driven** - Dinamik oluşturuluyor
 
@@ -149,14 +145,14 @@ Bu durumda config'deki tüm değerler aslında **backend tarafından dinamik ren
    
 3. Backend → Dinamik config döner:
    {
-     "tokenTypes": {
-       "1fa": {
-         "expiry": "90d",  // Bu kullanıcı için 90 gün
-         "homepage": "user-homepage"  // Bu kullanıcı için bu homepage
-       }
+     "initialization": [...],
+     "deepLinking": {
+       "incoming": { "schemes": [...], "domains": [...] },
+       "outgoing": { "schemes": [...], "domains": [...] }
      },
-     "features": {
-       "biometric": { "enabled": true }  // Bu cihaz için enabled
+     "router": {
+       "defaultMode": "mdi",
+       "allowChangeMode": true
      }
    }
 ```
@@ -183,9 +179,9 @@ Bu durumda config'deki tüm değerler aslında **backend tarafından dinamik ren
 ### ✅ Genel Durum: %100 Backend-Driven!
 
 **Config Dinamik Oluşturuluyor:**
-1. ✅ Token type özellikleri → Backend dinamik belirliyor (token sahibine göre)
+1. ✅ Auth provider konfigürasyonları → Backend dinamik belirliyor (token sahibine göre)
 2. ✅ Initialization workflow ID'leri → Backend dinamik belirliyor (uygulamaya göre)
-3. ✅ Feature flags → Backend dinamik belirliyor (cihaza göre)
+3. ✅ Deep linking kuralları → Backend dinamik belirliyor (cihaza göre)
 4. ✅ Homepage ID'leri → Backend dinamik belirliyor (kullanıcı bazlı)
 
 **Hardcode Yok!** Her şey backend tarafından her request'te dinamik oluşturuluyor.

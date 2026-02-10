@@ -11,7 +11,7 @@ Environment configuration'dan gelen `authProviders` yapılandırmasını parse e
 **Lifecycle Entegrasyonu:**
 - AuthorizationManager, environment config alındıktan sonra initialize edilir (lifecycle.md - step 200: Environment.Config.Loaded)
 - Config'den `authProviders` array'i parse edilir ve her provider için token type'ları yönetilir
-- Device token grant flow'u otomatik başlatılır (step 300: Auth-Manager.Init)
+- Device token grant flow'u otomatik başlatılır (step 300: AuthorizationManager.Init)
 - Token refresh ve auto-logout mekanizmaları background'da çalışır
 
 ## 🚀 Temel Sunduğu Hizmetler

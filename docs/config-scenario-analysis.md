@@ -8,21 +8,20 @@
 - ✅ **Device Dashboard**: `dashboards.device` tanımlı
 - ✅ **API Endpoint**: `api.baseUrl` var
 
-### 2. Basic Test - 1FA Login
-- ✅ **1FA Flow**: `auth.flows.1fa` → `login-1fa` workflow
-- ✅ **Upgrade Flow**: `auth.flows.upgrade.deviceTo1fa` var
-- ✅ **1FA Dashboard**: `dashboards.1fa` tanımlı
+### 2. Basic Test - Login
+- ✅ **Login Flow**: `morph-idm-2fa.grantFlow` → login workflow
+- ✅ **Grant Flow**: Her provider kendi `grantFlow` tanımına sahip
+- ✅ **Dashboard**: Backend response'dan dinamik belirleniyor
 
 ### 3. Basic Test - Warm Start
-- ✅ **Token Refresh**: `auth.tokenRefresh` endpoint var
-- ✅ **Token Strategy**: `rotating` tanımlı
-- ✅ **1FA Dashboard**: Restore sonrası gösterilecek dashboard var
+- ✅ **Token Refresh**: `morph-idm-2fa.tokenTypes.refresh` endpoint tanımlı
+- ✅ **Token Strategy**: `rotating` strategy tanımlı
+- ✅ **Dashboard**: Restore sonrası gösterilecek dashboard backend'den belirleniyor
 
 ### 4. Deep Link Senaryoları
-- ✅ **Deep Linking**: `features.deepLinking` enabled, scheme/domains tanımlı
-- ✅ **1FA Flow**: Login için workflow var
-- ✅ **2FA Flow**: Upgrade için workflow var
-- ✅ **Upgrade Flows**: `deviceTo1fa` ve `1faTo2fa` tanımlı
+- ✅ **Deep Linking**: `deepLinking.incoming/outgoing` whitelist'leri tanımlı
+- ✅ **Login Flow**: `morph-idm-2fa.grantFlow` tanımlı
+- ✅ **Auth Providers**: Her seviye ayrı provider (`morph-idm-device`, `morph-idm-1fa`, `morph-idm-2fa`)
 
 ### 5. Realtime Communication
 - ✅ **WebSocket**: `realtime.websocket` enabled
@@ -38,24 +37,16 @@
 
 **Config Durumu:**
 - ❌ Config'de step-up otomatik başlatma bilgisi yok
-- ✅ Workflow ID'leri var (`auth.flows.upgrade.*`)
+- ✅ Her provider kendi `grantFlow` tanımına sahip
 - ⚠️ **Çözüm:** SDK, 403 response'dan `authorization_flow` alıp otomatik başlatacak (config'de olmasına gerek yok)
 
 ### 2. Dashboard Eşleştirmesi
-**Senaryo:** Token tipine göre dashboard gösterilir (device → device-dashboard, 1FA → 1fa-dashboard)
+**Senaryo:** Token tipine göre dashboard gösterilir
 
 **Config Durumu:**
-- ⚠️ `dashboards` static tanımlı (1fa/2fa hardcoded)
-- ⚠️ `_comment` ile revize notu var
-- ⚠️ **Sorun:** OAuth2'de 1fa/2fa yok, token claim'lerine göre dinamik olmalı
-
-**Öneri:**
-```json
-"dashboards": {
-  "mapping": "token.claims.dashboard_id",  // Backend token'da gönderir
-  "fallback": "device-dashboard"
-}
-```
+- ✅ Auth provider'lar ayrı tanımlandığı için (`morph-idm-device`, `morph-idm-1fa`, `morph-idm-2fa`) aktif token seviyesi net
+- ✅ Homepage bilgisi backend response'dan dinamik geliyor
+- ⚠️ Dashboard mapping stratejisi henüz kesinleşmedi
 
 ### 3. Navigation Endpoint
 **Senaryo:** Navigation backend'den gelir (user, scope, subject'e göre)
@@ -83,9 +74,8 @@
 **Senaryo:** Tüm içerik backend'den lokalize gelir
 
 **Config Durumu:**
-- ⚠️ `localization` config var ama gereksiz
-- ⚠️ `_comment` ile revize notu var
-- ⚠️ **Sorun:** Accept-Language header ile çözülmeli, ayrı endpoint'e gerek yok
+- ✅ `localization` config kaldırıldı
+- ✅ Accept-Language header ile çözülüyor, ayrı endpoint'e gerek yok
 
 ---
 
@@ -121,15 +111,15 @@
 
 | Kategori | Durum | Açıklama |
 |----------|-------|----------|
-| **Auth Flows** | ✅ Uyumlu | Workflow ID'leri tanımlı |
-| **Dashboards** | ⚠️ Revize Gerekli | 1fa/2fa hardcoded, dinamik olmalı |
+| **Auth Providers** | ✅ Uyumlu | Her seviye ayrı provider, grantFlow tanımlı |
+| **Dashboards** | ⚠️ Devam Ediyor | Backend response'dan dinamik belirleniyor |
 | **Initialization** | ✅ Uyumlu | Device register/auth sıralı |
-| **Deep Linking** | ✅ Uyumlu | Feature enabled, scheme tanımlı |
+| **Deep Linking** | ✅ Uyumlu | incoming/outgoing whitelist tanımlı |
 | **Navigation** | ✅ Uyumlu | Backend-driven endpoint var |
 | **Realtime** | ✅ Uyumlu | WebSocket + MQTT enabled |
-| **DataManager** | ✅ Uyumlu | Config gereksiz (SDK default) |
+| **DataManager** | ✅ Uyumlu | AuthorizationManager'dan activeUser/activeScope alınır |
 | **Config Endpoint** | 🔴 Eksik | Config'in nereden çekileceği yok! |
-| **Localization** | ⚠️ Revize Gerekli | Accept-Language ile çözülmeli |
+| **Localization** | ✅ Çözüldü | Accept-Language header ile çözülüyor |
 
 ---
 
@@ -142,15 +132,11 @@
    }
    ```
 
-2. **Dashboard mapping'i dinamikleştir:**
-   - Token claim'lerine göre eşleştirme
-   - Backend token'da `dashboard_id` göndersin
+2. **Dashboard mapping stratejisi:**
+   - Auth provider seviyesine göre otomatik eşleştirme veya backend'den dinamik
+   - AuthorizationManager aktif provider bilgisini sağlıyor
 
-3. **Localization config'i kaldır:**
-   - Accept-Language header kullan
-   - Backend tüm response'ları lokalize döner
-
-4. **Step-up mekanizması:**
+3. **Step-up mekanizması:**
    - Config'de olmasına gerek yok
    - SDK otomatik handle edecek (authantication.md'de dokümante)
 
@@ -166,5 +152,4 @@
 
 **Aksiyonlar:**
 1. Config endpoint ekle
-2. Dashboard mapping'i revize et (ileride)
-3. Localization config'i kaldır (ileride)
+2. Dashboard mapping stratejisini kesinleştir (ileride)

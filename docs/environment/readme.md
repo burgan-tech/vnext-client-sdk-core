@@ -26,51 +26,69 @@ Her endpoint/workflow için hangi token'ların gerektiğini belirtir. Array sır
 
 ```json
 "requiredToken": [
-  { "provider": "morph-idm", "token": "1fa" },
-  { "provider": "morph-idm", "token": "device" }
+  { "provider": "morph-idm-1fa", "token": "access" },
+  { "provider": "morph-idm-device", "token": "access" }
 ]
 ```
 
-**Mantık:** İlk token varsa onu kullan, yoksa sonrakine bak.
+**Mantık:** İlk token varsa onu kullan, yoksa sonrakine bak. `provider` ayrı auth provider key'idir, `token` ise `access` veya `refresh` token tipini belirtir.
 
 ### Auth Providers
 
-Unified auth provider modeli - tüm provider'lar aynı yapıda:
+Unified auth provider modeli — her authentication seviyesi ayrı bir provider olarak tanımlanır:
 
-| Type | Açıklama | Örnek |
-|------|----------|-------|
-| `native` | Core framework (morph-idm) | device, 1fa, 2fa token'ları |
-| `oauth2` | OAuth2/OIDC provider | e-devlet, Google |
-| `app2app` | Native app açma | Burgan Yatırım |
-| `webview` | Embedded webview login | FXTrade |
+| Type | Açıklama | Örnek Provider Key |
+|------|----------|-------------------|
+| `oauth2` | Core framework (morph-idm) | `morph-idm-device`, `morph-idm-1fa`, `morph-idm-2fa` |
+| `oauth2` | OAuth2/OIDC external provider | `edevlet` |
+| `app2app` | Native app açma | `burgan-yatirim` |
+| `webview` | Embedded webview login | `fxtrade` |
 
-### Token Types ve Grant Flow
+> **Not:** morph-idm provider'ları da `oauth2` tipindedir. Amorphie altyapısı OAuth2 protokolü üzerine kuruludur.
 
-Her token tipinin kendi yaşam döngüsü vardır:
+### Provider Yapısı ve Token Types
+
+Her provider kendi `grantFlow`, `logout` ve `tokenTypes` konfigürasyonuna sahiptir:
 
 ```json
-"tokenTypes": {
-  "device": {
-    "expiry": "infinite",
-    "grantFlow": { "workflow": "device-login", "requiredToken": [] },
-    "refresh": null,
-    "logout": null
+"morph-idm-2fa": {
+  "type": "oauth2",
+  "grantFlow": {
+    "domain": "morph-idm",
+    "workflow": "mobile-login"
   },
-  "2fa": {
-    "expiry": "5m",
-    "grantFlow": { "workflow": "mobile-login", "requiredToken": [...] },
-    "refresh": { "endpoint": "/auth/token/refresh", "strategy": "rotating" },
-    "logout": { "endpoint": "/auth/logout", "autoLogoutAtBackground": "5m" }
+  "logout": {
+    "endpoint": { "domain": "morph-idm", "workflow": "logout" },
+    "autoLogoutAtBackground": "5m",
+    "autoLogoutAtInactivity": "10m"
+  },
+  "tokenTypes": {
+    "access": {
+      "expiry": "5m",
+      "storage": { "context": "device", "key": "morph-idm-2fa-access-token" }
+    },
+    "refresh": {
+      "expiry": "30m",
+      "endpoint": { "domain": "morph-idm", "workflow": "token", "function": "refresh" },
+      "strategy": "rotating",
+      "beforeExpiry": "1m",
+      "storage": { "context": "device", "key": "morph-idm-2fa-refresh-token" }
+    }
+  },
+  "identityClaims": {
+    "user": "act",
+    "scope": "sub"
   }
 }
 ```
 
-| Alan | Açıklama |
-|------|----------|
-| `expiry` | Token geçerlilik süresi |
-| `grantFlow` | Token almak için çalıştırılacak workflow (null ise otomatik alınır) |
-| `refresh` | Token yenileme ayarları |
-| `logout` | Logout ve auto-logout ayarları |
+| Alan | Seviye | Açıklama |
+|------|--------|----------|
+| `grantFlow` | Provider | Token almak için çalıştırılacak workflow |
+| `logout` | Provider | Logout ve auto-logout ayarları |
+| `tokenTypes.access` | Token | Access token konfigürasyonu (expiry, storage) |
+| `tokenTypes.refresh` | Token | Refresh token konfigürasyonu (expiry, endpoint, strategy, storage) |
+| `identityClaims` | Provider | JWT claim → identity mapping (user, scope) |
 
 ---
 
@@ -99,7 +117,7 @@ Her token tipinin kendi yaşam döngüsü vardır:
 ┌─────────────────────────────────────────────────────────────┐
 │  3. Device Token Alma                                       │
 ├─────────────────────────────────────────────────────────────┤
-│  device.grantFlow.workflow çalıştırılır                     │
+│  morph-idm-device.grantFlow workflow çalıştırılır            │
 │  → Device token alınır (infinite expiry)                    │
 └─────────────────────────────────────────────────────────────┘
                            │
@@ -108,14 +126,14 @@ Her token tipinin kendi yaşam döngüsü vardır:
 │  4. Client Config Alma                                      │
 ├─────────────────────────────────────────────────────────────┤
 │  configEndpoint çağrılır (device token ile)                 │
-│  → initialization, features, realtime config alınır         │
+│  → initialization, deepLinking, realtime config alınır      │
 └─────────────────────────────────────────────────────────────┘
                            │
                            ▼
 ┌─────────────────────────────────────────────────────────────┐
 │  5. Login (gerekirse)                                       │
 ├─────────────────────────────────────────────────────────────┤
-│  2fa.grantFlow.workflow çalıştırılır                        │
+│  morph-idm-2fa.grantFlow workflow çalıştırılır               │
 │  → 1FA + 2FA token alınır                                   │
 └─────────────────────────────────────────────────────────────┘
 ```

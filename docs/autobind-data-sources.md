@@ -38,14 +38,14 @@ Key'lerde iki dinamik değişken kullanılabilir:
 
 | Değişken | Açıklama | Örnek Değer | Resolve Mekanizması |
 |----------|----------|-------------|---------------------|
-| `$ActiveUser` | Login olmuş kullanıcı (çalışan, temsilci) | `"employee123"` | `DataManager.setActiveUser()` ile set edilir, `DataManager.getActiveUser()` ile okunur |
-| `$ActiveScope` | İşlem yapılan müşteri/kapsam | `"C987654321"` | `DataManager.setActiveScope()` ile set edilir, `DataManager.getActiveScope()` ile okunur |
+| `$ActiveUser` | Login olmuş kullanıcı (çalışan, temsilci) | `"employee123"` | `AuthorizationManager.activeUser` — aktif 2FA token'ındaki `identityClaims.user` (JWT `act` claim) |
+| `$ActiveScope` | İşlem yapılan müşteri/kapsam | `"C987654321"` | `AuthorizationManager.activeScope` — aktif 2FA token'ındaki `identityClaims.scope` (JWT `sub` claim) |
 
 **Resolve Mekanizması:**
 - SDK, `x-autoBind` çalıştığında key içindeki `$ActiveUser` ve `$ActiveScope` değişkenlerini otomatik olarak resolve eder
-- `$ActiveUser` → `DataManager.getActiveUser()` değeri ile replace edilir
-- `$ActiveScope` → `DataManager.getActiveScope()` değeri ile replace edilir
-- Eğer değişken set edilmemişse (undefined/null), key resolve edilemez ve hata oluşur
+- `$ActiveUser` → `AuthorizationManager.activeUser` değeri ile replace edilir
+- `$ActiveScope` → `AuthorizationManager.activeScope` değeri ile replace edilir
+- Eğer değişken set edilmemişse (undefined/null — örneğin 2FA oturumu yoksa), key resolve edilemez ve hata oluşur
 
 ---
 
@@ -429,7 +429,7 @@ Scope seviyesindeki veriler işlem yapılan müşteri/kapsam için tutulur (back
 }
 ```
 
-> **📝 Not:** `$ActiveScope` değişkeni `DataManager.getActiveScope()` ile resolve edilir. Backoffice'de müşteri seçildiğinde `DataManager.setActiveScope(customerId)` ile set edilir.
+> **📝 Not:** `$ActiveScope` değişkeni `AuthorizationManager.activeScope` ile resolve edilir. Değer, aktif 2FA token'ındaki JWT `sub` claim'inden otomatik çıkarılır.
 
 ---
 
@@ -678,7 +678,7 @@ Navigation config'leri (TTL ile cache'lenir).
 5. **Scope Context:** `DataContext.scope` verileri `$ActiveScope` ile belirlenen müşteri/kapsam için geçerlidir.
 6. **No UI Display:** `x-autoBind` alanları genellikle form'da gösterilmez, arka planda otomatik doldurulur.
 7. **Backend Validation:** AutoBind verileri backend tarafında mutlaka doğrulanmalıdır - client tarafı güvenilir kaynak değildir.
-8. **Dynamic Variables:** `$ActiveUser` ve `$ActiveScope` değişkenleri runtime'da SDK tarafından resolve edilir (`DataManager.getActiveUser()` ve `DataManager.getActiveScope()`).
+8. **Dynamic Variables:** `$ActiveUser` ve `$ActiveScope` değişkenleri runtime'da SDK tarafından resolve edilir (`AuthorizationManager.activeUser` ve `AuthorizationManager.activeScope` — aktif 2FA token JWT claim'lerinden).
 9. **App Restart:** App kapanınca `secureMemory` silinir → Tekrar açılınca Device Register gerekir → Encryption key yeniden alınır.
 
 ---

@@ -62,9 +62,9 @@
           "domain": "discovery",
           "workflow": "errors",
           "requiredToken": [
-            { "provider": "morph-idm", "token": "2fa" },
-            { "provider": "morph-idm", "token": "1fa" },
-            { "provider": "morph-idm", "token": "device" }
+            { "provider": "morph-idm-2fa", "token": "access" },
+            { "provider": "morph-idm-1fa", "token": "access" },
+            { "provider": "morph-idm-device", "token": "access" }
           ]
         }
       }
@@ -121,8 +121,8 @@
         "domain": "morph-idm",
         "workflow": "workflow",
         "requiredToken": [
-          { "provider": "morph-idm", "token": "1fa" },
-          { "provider": "morph-idm", "token": "device" }
+          { "provider": "morph-idm-1fa", "token": "access" },
+          { "provider": "morph-idm-device", "token": "access" }
         ]
       }
     }
@@ -136,8 +136,8 @@
       "key": "mobile-app",
       "function": "evaluate",
       "requiredToken": [
-        { "provider": "morph-idm", "token": "1fa" },
-        { "provider": "morph-idm", "token": "device" }
+        { "provider": "morph-idm-1fa", "token": "access" },
+        { "provider": "morph-idm-device", "token": "access" }
       ]
     }
   },

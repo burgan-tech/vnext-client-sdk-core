@@ -10,7 +10,7 @@ Uygulama içerisinde sayfa geçişlerini, navigasyon history'sini ve workspace y
 
 **Lifecycle Entegrasyonu:**
 - Router, cold start sırasında initialize edilir (lifecycle.md - step 350: Router.Init)
-- Config'den `router.mode` (SDI/MDI) alınır ve router bu moda göre initialize edilir
+- Config'den `router.defaultMode` (SDI/MDI) alınır ve router bu moda göre initialize edilir
 - Step 400'de navigation'dan homepage key'i alınır ve router ile gösterilir
 - Warm start'ta router zaten initialize edilmiş durumda, sadece state restore yapılır
 
@@ -56,15 +56,16 @@ Router çalışma modunu şu öncelik sırasına göre belirler:
 
 1. **Token Seviyesi Override**: Device ve 1FA token seviyelerinde router **her zaman SDI modunda** çalışır (override). MDI mode sadece 2FA+ token seviyelerinde anlamlıdır.
 2. **User Preference**: Kullanıcı profil ayarlarından seçim (izin verilen client'larda, sadece 2FA+ için) - **Uygulama restart gerektirir**
-3. **Client Configuration**: `client-function-config.json` içindeki `router.mode` ayarı (sadece 2FA+ token seviyeleri için geçerli)
+3. **Client Configuration**: Client config içindeki `router.defaultMode` ayarı (sadece 2FA+ token seviyeleri için geçerli)
 4. **Platform Default**: Platform bazlı varsayılan (web: MDI, mobile: SDI) - sadece 2FA+ için
 
 **Config Örneği:**
 ```json
 {
   "router": {
-    "mode": "mdi",
-    "_comment": "Router mode: 'sdi' (Single Document Interface) or 'mdi' (Multi Document Interface). MDI mode özellikle kurumsal müşteriler ve backoffice çalışanları için kritiktir. User preference'dan değiştirilirse uygulama restart gerektirir. ÖNEMLİ: Device ve 1FA token seviyelerinde router her zaman SDI modunda çalışır (override). Bu mode ayarı sadece 2FA+ token seviyeleri için geçerlidir."
+    "defaultMode": "mdi",
+    "allowChangeMode": true,
+    "_comment": "Router mode: 'sdi' (Single Document Interface) or 'mdi' (Multi Document Interface). defaultMode uygulamanın başlangıç modunu belirler. allowChangeMode true ise kullanıcı modu değiştirebilir ve seçim kalıcı olur. ÖNEMLİ: Device ve 1FA token seviyelerinde router her zaman SDI modunda çalışır (override). Bu mode ayarı sadece 2FA+ token seviyeleri için geçerlidir."
   }
 }
 ```

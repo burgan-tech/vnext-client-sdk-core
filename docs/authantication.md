@@ -73,7 +73,7 @@ Eğer bir üst seviye güvenlik lazımsa ise dönüş auth için gereken akış 
 ### Otomatik Token Injection
 
 SDK, tüm API request'lerine otomatik olarak mevcut token'ı ekler:
-- Request interceptor, `AuthManager`'dan token alır
+- Request interceptor, `AuthorizationManager`'dan token alır
 - `Authorization: Bearer <accessToken>` header'ını ekler
 - Token yoksa veya expired ise header eklenmez (veya uygulama hatası alır)
 
@@ -104,7 +104,7 @@ SDK, auth hatalarını şu şekilde handle eder:
 
 ### Event Sistemi
 
-AuthManager aşağıdaki event'leri emit eder:
+AuthorizationManager aşağıdaki event'leri emit eder:
 
 - `authenticated`: Başarılı authentication sonrası
 - `authenticationFailed`: Authentication başarısız olduğunda
@@ -126,7 +126,7 @@ AuthManager aşağıdaki event'leri emit eder:
 ### ⚠️ Eksik Özellikler (SDK'da implement edilmesi gerekenler)
 
 1. **Otomatik Token Injection Interceptor**
-   - Request interceptor'da AuthManager'dan token alıp header'a ekleme
+   - Request interceptor'da AuthorizationManager'dan token alıp header'a ekleme
    - Token expired kontrolü request öncesi
 
 2. **401 Error Handling**
