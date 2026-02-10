@@ -259,6 +259,24 @@
           "description": "Protokol tipi. Tüm provider'lar OAuth2 tabanlıdır.",
           "const": "oauth2"
         },
+        "identityClaims": {
+          "type": "object",
+          "description": "JWT token claim'lerinden identity bilgisi çıkarmak için mapping. Tanımlıysa bu provider identity kaynağıdır. Tanımlı olmayan provider'lar (device, edevlet vb.) identity'ye katkı yapmaz.",
+          "properties": {
+            "user": {
+              "type": "string",
+              "description": "Kullanıcı (operatör) bilgisini içeren JWT claim adı",
+              "examples": ["act"]
+            },
+            "scope": {
+              "type": "string",
+              "description": "Müşteri/kapsam bilgisini içeren JWT claim adı",
+              "examples": ["sub"]
+            }
+          },
+          "required": ["user", "scope"],
+          "additionalProperties": false
+        },
         "grantFlow": {
           "$ref": "#/$defs/grantFlow",
           "description": "Token almak için çalıştırılacak workflow (Amorphie workflow ile grant)"

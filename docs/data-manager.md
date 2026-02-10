@@ -2,6 +2,8 @@
 
 Uygulamanın **merkezi state store**'unu sağlayan core SDK sınıfıdır. Hem TypeScript (web) hem de Flutter (mobil) platformlarında aynı interface ve davranışı sağlar.
 
+> **DI Yaklaşımı:** DataManager, DI container üzerinden singleton olarak register edilir. İhtiyaç duyan tüm sınıflar (manager, service, component) constructor injection ile `IDataManager`'ı alır. `$ActiveUser` ve `$ActiveScope` dinamik değişkenleri, inject edilen `IAuthorizationManager`'dan otomatik resolve edilir.
+
 ## 🏪 State Store Rolü
 
 DataManager, uygulamanın **tüm verilerinin merkezi deposudur**. Geleneksel state management çözümlerinden farklı olarak:
@@ -211,89 +213,91 @@ Encryption key artık **`secureMemory` context'ine** yazılır - özel unlock me
 
 **TypeScript:**
 ```typescript
-// Encryption key yazma (Device Register sonrası)
-dataManager.setData(DataContext.secureMemory, "encryption/key", encryptionKey);
+// Inject edilmiş dataManager üzerinden:
+
+// Encryption key yazma (Device Register sonrası — genellikle x-autoStore ile otomatik)
+this.dataManager.setData(DataContext.secureMemory, "encryption/key", encryptionKey);
 
 // Secure storage durumu kontrolü
-const isUnlocked = dataManager.getData(DataContext.secureMemory, "encryption/key") !== undefined;
+const isUnlocked = this.dataManager.getData(DataContext.secureMemory, "encryption/key") !== undefined;
 
 // Logout - key'i sil (opsiyonel, app kapanınca zaten silinir)
-dataManager.deleteData(DataContext.secureMemory, "encryption/key");
+this.dataManager.deleteData(DataContext.secureMemory, "encryption/key");
 ```
 
 **Flutter (Dart):**
 ```dart
-// Encryption key yazma (Device Register sonrası)
-dataManager.setData(DataContext.secureMemory, "encryption/key", encryptionKey);
+// Inject edilmiş _dataManager üzerinden:
+
+// Encryption key yazma (Device Register sonrası — genellikle x-autoStore ile otomatik)
+_dataManager.setData(DataContext.secureMemory, "encryption/key", encryptionKey);
 
 // Secure storage durumu kontrolü
-final isUnlocked = dataManager.getData(DataContext.secureMemory, "encryption/key") != null;
+final isUnlocked = _dataManager.getData(DataContext.secureMemory, "encryption/key") != null;
 
 // Logout - key'i sil (opsiyonel, app kapanınca zaten silinir)
-dataManager.deleteData(DataContext.secureMemory, "encryption/key");
+_dataManager.deleteData(DataContext.secureMemory, "encryption/key");
 ```
 
 ### Kullanım Örneği
 
 **TypeScript:**
 ```typescript
-// SDK initialization flow
-async function initializeApp() {
-  // 1. Device register - x-autoStore ile encryptionKey otomatik secureMemory'ye yazılır
-  const response = await authManager.deviceRegister({
-    deviceId: getDeviceId(),
-    installationId: getInstallationId(),
-    platform: "web"
-  });
-  
-  // 2. Key otomatik olarak secureMemory'ye yazıldı (x-autoStore sayesinde)
-  // Manuel yazmak isterseniz:
-  // dataManager.setData(DataContext.secureMemory, "encryption/key", response.encryptionKey);
-  
-  // 3. Artık tüm context'lere erişilebilir
-  const userProfile = dataManager.getData(DataContext.user, "profile");
-  const deviceSettings = dataManager.getData(DataContext.device, "settings");
-}
+class AppBootstrapService {
+  constructor(
+    private readonly dataManager: IDataManager,
+    private readonly authorizationManager: IAuthorizationManager
+  ) {}
 
-// Logout flow
-function logout() {
-  // secureMemory'yi temizle (key silinir)
-  dataManager.clearData(DataContext.secureMemory);
-  
-  // Kullanıcı verilerini temizle (opsiyonel)
-  dataManager.clearData(DataContext.user);
-  dataManager.clearData(DataContext.scope);
+  async initialize(): Promise<void> {
+    // 1. Device register - x-autoStore ile encryptionKey otomatik secureMemory'ye yazılır
+    await this.authorizationManager.grantToken('morph-idm-device');
+
+    // 2. Key otomatik olarak secureMemory'ye yazıldı (x-autoStore sayesinde)
+
+    // 3. Artık tüm context'lere erişilebilir
+    const userProfile = this.dataManager.getData(DataContext.user, "profile");
+    const deviceSettings = this.dataManager.getData(DataContext.device, "settings");
+  }
+
+  logout(): void {
+    // secureMemory'yi temizle (key silinir)
+    this.dataManager.clearData(DataContext.secureMemory);
+
+    // Kullanıcı verilerini temizle (opsiyonel)
+    this.dataManager.clearData(DataContext.user);
+    this.dataManager.clearData(DataContext.scope);
+  }
 }
 ```
 
 **Flutter (Dart):**
 ```dart
-// SDK initialization flow
-Future<void> initializeApp() async {
-  // 1. Device register - x-autoStore ile encryptionKey otomatik secureMemory'ye yazılır
-  final response = await authManager.deviceRegister(
-    deviceId: getDeviceId(),
-    installationId: getInstallationId(),
-    platform: "ios"
-  );
-  
-  // 2. Key otomatik olarak secureMemory'ye yazıldı (x-autoStore sayesinde)
-  // Manuel yazmak isterseniz:
-  // dataManager.setData(DataContext.secureMemory, "encryption/key", response.encryptionKey);
-  
-  // 3. Artık tüm context'lere erişilebilir
-  final userProfile = dataManager.getData(DataContext.user, "profile");
-  final deviceSettings = dataManager.getData(DataContext.device, "settings");
-}
+class AppBootstrapService {
+  final IDataManager _dataManager;
+  final IAuthorizationManager _authorizationManager;
 
-// Logout flow
-void logout() {
-  // secureMemory'yi temizle (key silinir)
-  dataManager.clearData(DataContext.secureMemory);
-  
-  // Kullanıcı verilerini temizle (opsiyonel)
-  dataManager.clearData(DataContext.user);
-  dataManager.clearData(DataContext.scope);
+  AppBootstrapService(this._dataManager, this._authorizationManager);
+
+  Future<void> initialize() async {
+    // 1. Device register - x-autoStore ile encryptionKey otomatik secureMemory'ye yazılır
+    await _authorizationManager.grantToken('morph-idm-device');
+
+    // 2. Key otomatik olarak secureMemory'ye yazıldı (x-autoStore sayesinde)
+
+    // 3. Artık tüm context'lere erişilebilir
+    final userProfile = _dataManager.getData(DataContext.user, "profile");
+    final deviceSettings = _dataManager.getData(DataContext.device, "settings");
+  }
+
+  void logout() {
+    // secureMemory'yi temizle (key silinir)
+    _dataManager.clearData(DataContext.secureMemory);
+
+    // Kullanıcı verilerini temizle (opsiyonel)
+    _dataManager.clearData(DataContext.user);
+    _dataManager.clearData(DataContext.scope);
+  }
 }
 ```
 
@@ -309,26 +313,64 @@ void logout() {
 
 ### Dinamik Key Değişkenleri
 
-Key'lerde iki dinamik değişken kullanılabilir:
+Key'lerde iki dinamik değişken kullanılabilir. Bu değişkenler **AuthorizationManager**'dan otomatik resolve edilir:
 
-| Değişken | Açıklama | Örnek Değer |
-|----------|----------|-------------|
-| `$ActiveUser` | Login olmuş kullanıcı (çalışan, temsilci) | `"employee123"` |
-| `$ActiveScope` | İşlem yapılan müşteri/kapsam | `"C987654321"` |
+| Değişken | Kaynak | Açıklama | Örnek Değer |
+|----------|--------|----------|-------------|
+| `$ActiveUser` | `authorizationManager.activeUser` | Aktif 2FA token'daki kullanıcı (JWT `act` claim) | `"employee123"` |
+| `$ActiveScope` | `authorizationManager.activeScope` | Aktif 2FA token'daki müşteri/kapsam (JWT `sub` claim) | `"C987654321"` |
 
-**Kullanım örneği:**
+> **⚠️ Önemli:** `$ActiveUser` ve `$ActiveScope` yalnızca aktif 2FA oturumu varken değer döner. 2FA yoksa `null` olur ve bu değişkenleri içeren key'lere erişim hata verir.
+
+**DataManager, bu değişkenleri inject ettiği `IAuthorizationManager` üzerinden çözer:**
+
 ```typescript
-// Çalışanın kendi tercihleri
-dataManager.getData(DataContext.user, "preferences/$ActiveUser/theme");
-// → "preferences/employee123/theme"
+class DataManager {
+  constructor(
+    private readonly authorizationManager: IAuthorizationManager
+  ) {
+    // Identity değiştiğinde ilgili listener'ları tetikle
+    this.authorizationManager.on('identity.changed', () => {
+      this.reEvaluateDynamicBindings();
+    });
+  }
 
-// İşlem yapılan müşterinin bilgileri
-dataManager.getData(DataContext.scope, "customer/$ActiveScope/profile");
-// → "customer/C987654321/profile"
+  private resolveKey(key: string): string {
+    const user = this.authorizationManager.activeUser;
+    const scope = this.authorizationManager.activeScope;
+    return key
+      .replace('$ActiveUser', user ?? '')
+      .replace('$ActiveScope', scope ?? '');
+  }
+}
+```
 
-// Çalışanın, müşteri için açtığı notlar
-dataManager.getData(DataContext.scope, "notes/$ActiveUser/$ActiveScope");
-// → "notes/employee123/C987654321"
+**Kullanım örneği (inject edilmiş DataManager üzerinden):**
+
+```typescript
+class CustomerService {
+  constructor(
+    private readonly dataManager: IDataManager
+  ) {}
+
+  getUserPreferences(): any {
+    // Çalışanın kendi tercihleri — $ActiveUser runtime'da resolve edilir
+    return this.dataManager.getData(DataContext.user, "preferences/$ActiveUser/theme");
+    // → "preferences/employee123/theme"
+  }
+
+  getCustomerProfile(): any {
+    // İşlem yapılan müşterinin bilgileri
+    return this.dataManager.getData(DataContext.scope, "customer/$ActiveScope/profile");
+    // → "customer/C987654321/profile"
+  }
+
+  getCustomerNotes(): any {
+    // Çalışanın, müşteri için açtığı notlar
+    return this.dataManager.getData(DataContext.scope, "notes/$ActiveUser/$ActiveScope");
+    // → "notes/employee123/C987654321"
+  }
+}
 ```
 
 ### State Adresleme
@@ -338,30 +380,32 @@ dataManager.getData(DataContext.scope, "notes/$ActiveUser/$ActiveScope");
 * **Path-based**: Slash notation ile hiyerarşik state yapısı (örn: "loan-app/instance-id/transition-name")
 * **DataPath-based**: Kompleks state object'lerin içindeki spesifik property'lere erişim (örn: "applicant.firstName")
 
-**State Adresleme Örneği:**
+**State Adresleme Örneği (inject edilmiş instance üzerinden):**
 
 **TypeScript:**
 ```typescript
 // Context: user, Key: preferences, DataPath: theme
-dataManager.getData(DataContext.user, "preferences", { dataPath: "theme" });
+this.dataManager.getData(DataContext.user, "preferences", { dataPath: "theme" });
 
-// Dinamik değişken ile
-dataManager.getData(DataContext.scope, "customer/$ActiveScope/profile", { dataPath: "firstName" });
+// Dinamik değişken ile — $ActiveScope AuthorizationManager'dan resolve edilir
+this.dataManager.getData(DataContext.scope, "customer/$ActiveScope/profile", { dataPath: "firstName" });
 ```
 
 **Flutter (Dart):**
 ```dart
 // Context: user, Key: preferences, DataPath: theme
-dataManager.getData(DataContext.user, "preferences", dataPath: "theme");
+_dataManager.getData(DataContext.user, "preferences", dataPath: "theme");
 
-// Dinamik değişken ile
-dataManager.getData(DataContext.scope, "customer/$ActiveScope/profile", dataPath: "firstName");
+// Dinamik değişken ile — $ActiveScope AuthorizationManager'dan resolve edilir
+_dataManager.getData(DataContext.scope, "customer/$ActiveScope/profile", dataPath: "firstName");
 ```
 
 
 
 
 ## 💡 Kullanım Senaryoları
+
+> **DI Pattern:** Tüm örneklerde DataManager, constructor injection ile inject edilmiş olarak kullanılır. Hiçbir sınıf DataManager'ı doğrudan oluşturmaz.
 
 ### **Workflow Veri Yönetimi Senaryosu**
 
@@ -377,222 +421,240 @@ Burada belirlenen lifecycle sadece veri yönetimi için adımları içerir. İş
 
 **TypeScript:**
 ```typescript
-// İş akışı instance data'sı backend'den okunup kaydediliyor.
-// Storage: In-Memory + Cache (otomatik)
-// Data type: any (Record, Array, string, number, boolean her şey olabilir)
-dataManager.setData(
-  DataContext.workflowInstance,
-  "loan-application/317749d0-cfff-428d-8a11-20c2d2eff9e3",
-  {
-    applicationNo: 345345534534,
-    applicant: {
-      firstname: "Ugur", 
-      lastname: "karatas",
-      mobile: "905302896073"
-    }
-  }
-);
+class LoanWorkflowHandler {
+  constructor(
+    private readonly dataManager: IDataManager,
+    private readonly apiClient: IApiClient
+  ) {}
 
-// İş akışı transition form data'sı oluşturuluyor.
-// Storage: In-Memory (geçici, otomatik)
-// Data type: any - Flexible data structure
-dataManager.setData(
-  DataContext.workflowTransition,
-  "loan-application/317749d0-cfff-428d-8a11-20c2d2eff9e3/set-loan-term",
-  {
-    term: 36,
-    paymentPlan: "equalInstallments"
+  async loadInstanceData(instanceId: string): Promise<void> {
+    const data = await this.apiClient.get(`/loan-application/${instanceId}`);
+    // Storage: In-Memory + Cache (otomatik)
+    this.dataManager.setData(
+      DataContext.workflowInstance,
+      `loan-application/${instanceId}`,
+      data
+    );
   }
-);
+
+  initTransitionForm(instanceId: string): void {
+    // Storage: In-Memory (geçici, otomatik)
+    this.dataManager.setData(
+      DataContext.workflowTransition,
+      `loan-application/${instanceId}/set-loan-term`,
+      { term: 36, paymentPlan: "equalInstallments" }
+    );
+  }
+}
 ```
 
 **Flutter (Dart):**
 ```dart
-// İş akışı instance data'sı backend'den okunup kaydediliyor.
-// Storage: In-Memory + Cache (otomatik)
-// Data type: dynamic (Map, List, String, int, bool her şey olabilir)
-dataManager.setData(
-  DataContext.workflowInstance,
-  "loan-application/317749d0-cfff-428d-8a11-20c2d2eff9e3",
-  {
-    "applicationNo": 345345534534,
-    "applicant": {
-      "firstname": "Ugur", 
-      "lastname": "karatas",
-      "mobile": "905302896073"
-    }
-  }
-);
+class LoanWorkflowHandler {
+  final IDataManager _dataManager;
+  final IApiClient _apiClient;
 
-// İş akışı transition form data'sı oluşturuluyor.
-// Storage: In-Memory (geçici, otomatik)
-// Data type: dynamic - Flexible data structure
-dataManager.setData(
-  DataContext.workflowTransition,
-  "loan-application/317749d0-cfff-428d-8a11-20c2d2eff9e3/set-loan-term",
-  {
-    "term": 36,
-    "paymentPlan": "equalInstallments"
+  LoanWorkflowHandler(this._dataManager, this._apiClient);
+
+  Future<void> loadInstanceData(String instanceId) async {
+    final data = await _apiClient.get('/loan-application/$instanceId');
+    // Storage: In-Memory + Cache (otomatik)
+    _dataManager.setData(
+      DataContext.workflowInstance,
+      'loan-application/$instanceId',
+      data
+    );
   }
-);
+
+  void initTransitionForm(String instanceId) {
+    // Storage: In-Memory (geçici, otomatik)
+    _dataManager.setData(
+      DataContext.workflowTransition,
+      'loan-application/$instanceId/set-loan-term',
+      {"term": 36, "paymentPlan": "equalInstallments"}
+    );
+  }
+}
 ```
 
 ### **Device Veri Yönetimi Senaryosu**
 
 **TypeScript:**
 ```typescript
-// Device bilgileri - Local Persistent (otomatik)
-dataManager.setData(DataContext.device, "info/deviceId", "device-uuid-12345");
-dataManager.setData(DataContext.device, "info/installationId", "install-uuid-67890");
-dataManager.setData(DataContext.device, "info/platform", "web");
+class DeviceService {
+  constructor(
+    private readonly dataManager: IDataManager
+  ) {}
 
-// Device ayarları - Local Persistent (otomatik)
-dataManager.setData(DataContext.device, "settings", { 
-  language: "tr", 
-  theme: "dark", 
-  notifications: true 
-});
+  registerDevice(deviceId: string, installationId: string): void {
+    // Device bilgileri - Secure Storage, şifresiz (bootstrap)
+    this.dataManager.setData(DataContext.device, "info/deviceId", deviceId);
+    this.dataManager.setData(DataContext.device, "info/installationId", installationId);
+    this.dataManager.setData(DataContext.device, "info/platform", "web");
+  }
 
-// Device verisi okuma
-const deviceId = dataManager.getData(DataContext.device, "info/deviceId");
-const settings = dataManager.getData(DataContext.device, "settings");
+  updateSettings(settings: DeviceSettings): void {
+    this.dataManager.setData(DataContext.device, "settings", settings);
+  }
 
-// Vue/React component'ları bindData() ile otomatik reactive olur
-dataManager.bindData(DataContext.device, "settings", themeComponent, BindingMode.oneWay, { dataPath: "theme" });
+  getDeviceId(): string | undefined {
+    return this.dataManager.getData(DataContext.device, "info/deviceId");
+  }
+
+  bindTheme(themeComponent: any): void {
+    this.dataManager.bindData(DataContext.device, "settings", themeComponent, BindingMode.oneWay, { dataPath: "theme" });
+  }
+}
 ```
 
 **Flutter (Dart):**
 ```dart
-// Device bilgileri - Local Persistent (otomatik)
-dataManager.setData(DataContext.device, "info/deviceId", "device-uuid-12345");
-dataManager.setData(DataContext.device, "info/installationId", "install-uuid-67890");
-dataManager.setData(DataContext.device, "info/platform", "ios");
+class DeviceService {
+  final IDataManager _dataManager;
 
-// Device ayarları - Local Persistent (otomatik)
-dataManager.setData(DataContext.device, "settings", { 
-  "language": "tr", 
-  "theme": "dark", 
-  "notifications": true 
-});
+  DeviceService(this._dataManager);
 
-// Device verisi okuma
-final deviceId = dataManager.getData(DataContext.device, "info/deviceId");
-final settings = dataManager.getData(DataContext.device, "settings");
+  void registerDevice(String deviceId, String installationId) {
+    // Device bilgileri - Secure Storage, şifresiz (bootstrap)
+    _dataManager.setData(DataContext.device, "info/deviceId", deviceId);
+    _dataManager.setData(DataContext.device, "info/installationId", installationId);
+    _dataManager.setData(DataContext.device, "info/platform", "ios");
+  }
 
-// Widget'lar bindData() ile otomatik reactive olur
-dataManager.bindData(DataContext.device, "settings", themeWidget, BindingMode.oneWay, dataPath: "theme");
+  void updateSettings(Map<String, dynamic> settings) {
+    _dataManager.setData(DataContext.device, "settings", settings);
+  }
+
+  String? getDeviceId() {
+    return _dataManager.getData(DataContext.device, "info/deviceId");
+  }
+
+  void bindTheme(Widget themeWidget) {
+    _dataManager.bindData(DataContext.device, "settings", themeWidget, BindingMode.oneWay, dataPath: "theme");
+  }
+}
 ```
 
 ### **User Veri Yönetimi Senaryosu**
 
 **TypeScript:**
 ```typescript
-// User profil ve token verileri - Secure Persistent (otomatik şifreli)
-dataManager.setData(DataContext.user, "auth/session", { 
-  userId: "user-123", 
-  token1fa: "jwt-token-1fa",
-  token2fa: "jwt-token-2fa"
-});
-dataManager.setData(DataContext.user, "profile", { 
-  firstName: "Ugur", 
-  lastName: "Karatas",
-  email: "ugur@example.com" 
-});
+class UserProfileService {
+  constructor(
+    private readonly dataManager: IDataManager
+  ) {}
 
-// Kullanıcı tercihleri - Secure Persistent (otomatik şifreli)
-dataManager.setData(DataContext.user, "preferences/$ActiveUser", { 
-  theme: "dark", 
-  language: "tr",
-  notifications: true 
-});
+  saveProfile(profile: UserProfile): void {
+    // Secure Persistent (otomatik şifreli)
+    this.dataManager.setData(DataContext.user, "profile", profile);
+  }
 
-// User verisi okuma
-const session = dataManager.getData(DataContext.user, "auth/session");
-const profile = dataManager.getData(DataContext.user, "profile");
+  savePreferences(prefs: UserPreferences): void {
+    // $ActiveUser → authorizationManager.activeUser üzerinden resolve edilir
+    this.dataManager.setData(DataContext.user, "preferences/$ActiveUser", prefs);
+  }
 
-// Binding
-dataManager.bindData(DataContext.user, "profile", profileComponent, BindingMode.twoWay);
+  getProfile(): UserProfile | undefined {
+    return this.dataManager.getData(DataContext.user, "profile");
+  }
+
+  bindProfileToComponent(profileComponent: any): void {
+    this.dataManager.bindData(DataContext.user, "profile", profileComponent, BindingMode.twoWay);
+  }
+}
 ```
 
 **Flutter (Dart):**
 ```dart
-// User profil ve token verileri - Secure Persistent (otomatik şifreli)
-dataManager.setData(DataContext.user, "auth/session", { 
-  "userId": "user-123", 
-  "token1fa": "jwt-token-1fa",
-  "token2fa": "jwt-token-2fa"
-});
-dataManager.setData(DataContext.user, "profile", { 
-  "firstName": "Ugur", 
-  "lastName": "Karatas",
-  "email": "ugur@example.com" 
-});
+class UserProfileService {
+  final IDataManager _dataManager;
 
-// Kullanıcı tercihleri - Secure Persistent (otomatik şifreli)
-dataManager.setData(DataContext.user, "preferences/$ActiveUser", { 
-  "theme": "dark", 
-  "language": "tr",
-  "notifications": true 
-});
+  UserProfileService(this._dataManager);
 
-// User verisi okuma
-final session = dataManager.getData(DataContext.user, "auth/session");
-final profile = dataManager.getData(DataContext.user, "profile");
+  void saveProfile(Map<String, dynamic> profile) {
+    // Secure Persistent (otomatik şifreli)
+    _dataManager.setData(DataContext.user, "profile", profile);
+  }
 
-// Binding
-dataManager.bindData(DataContext.user, "profile", profileWidget, BindingMode.twoWay);
+  void savePreferences(Map<String, dynamic> prefs) {
+    // $ActiveUser → authorizationManager.activeUser üzerinden resolve edilir
+    _dataManager.setData(DataContext.user, "preferences/$ActiveUser", prefs);
+  }
+
+  Map<String, dynamic>? getProfile() {
+    return _dataManager.getData(DataContext.user, "profile");
+  }
+
+  void bindProfileToWidget(Widget profileWidget) {
+    _dataManager.bindData(DataContext.user, "profile", profileWidget, BindingMode.twoWay);
+  }
+}
 ```
 
 ### **Scope Veri Yönetimi Senaryosu**
 
-Kurumsal uygulamalarda çalışan ($ActiveUser) başka bir müşteri ($ActiveScope) için işlem yapabilir.
+Kurumsal uygulamalarda çalışan (`$ActiveUser`) başka bir müşteri (`$ActiveScope`) için işlem yapabilir. Bu değişkenler AuthorizationManager'daki aktif 2FA token'dan otomatik resolve edilir.
 
 **TypeScript:**
 ```typescript
-// İşlem yapılan müşterinin bilgileri - Secure Persistent (otomatik şifreli)
-dataManager.setData(DataContext.scope, "customer/$ActiveScope/profile", { 
-  customerId: "C987654321",
-  firstName: "Mehmet",
-  lastName: "Yılmaz",
-  segment: "retail"
-});
+class CustomerScopeService {
+  constructor(
+    private readonly dataManager: IDataManager
+  ) {}
 
-// Çalışanın müşteri için tuttuğu notlar
-dataManager.setData(DataContext.scope, "notes/$ActiveUser/$ActiveScope", [
-  { id: 1, text: "Kredi başvurusu görüşüldü", date: "2025-01-15" },
-  { id: 2, text: "Ek belge istendi", date: "2025-01-16" }
-]);
+  saveCustomerProfile(profile: CustomerProfile): void {
+    // $ActiveScope → authorizationManager.activeScope (2FA token'dan "sub" claim)
+    this.dataManager.setData(DataContext.scope, "customer/$ActiveScope/profile", profile);
+  }
 
-// Scope verisi okuma - dinamik değişkenler runtime'da resolve edilir
-const customerProfile = dataManager.getData(DataContext.scope, "customer/$ActiveScope/profile");
-// → customer/C987654321/profile
+  addCustomerNote(note: CustomerNote): void {
+    // $ActiveUser + $ActiveScope → AuthorizationManager'dan resolve edilir
+    const notes = this.dataManager.getData<CustomerNote[]>(
+      DataContext.scope, "notes/$ActiveUser/$ActiveScope"
+    ) ?? [];
+    notes.push(note);
+    this.dataManager.setData(DataContext.scope, "notes/$ActiveUser/$ActiveScope", notes);
+  }
 
-// Binding
-dataManager.bindData(DataContext.scope, "customer/$ActiveScope/profile", customerCard, BindingMode.oneWay);
+  getCustomerProfile(): CustomerProfile | undefined {
+    // → customer/C987654321/profile (runtime'da resolve)
+    return this.dataManager.getData(DataContext.scope, "customer/$ActiveScope/profile");
+  }
+
+  bindCustomerCard(customerCard: any): void {
+    this.dataManager.bindData(DataContext.scope, "customer/$ActiveScope/profile", customerCard, BindingMode.oneWay);
+  }
+}
 ```
 
 **Flutter (Dart):**
 ```dart
-// İşlem yapılan müşterinin bilgileri - Secure Persistent (otomatik şifreli)
-dataManager.setData(DataContext.scope, "customer/$ActiveScope/profile", { 
-  "customerId": "C987654321",
-  "firstName": "Mehmet",
-  "lastName": "Yılmaz",
-  "segment": "retail"
-});
+class CustomerScopeService {
+  final IDataManager _dataManager;
 
-// Çalışanın müşteri için tuttuğu notlar
-dataManager.setData(DataContext.scope, "notes/$ActiveUser/$ActiveScope", [
-  {"id": 1, "text": "Kredi başvurusu görüşüldü", "date": "2025-01-15"},
-  {"id": 2, "text": "Ek belge istendi", "date": "2025-01-16"}
-]);
+  CustomerScopeService(this._dataManager);
 
-// Scope verisi okuma - dinamik değişkenler runtime'da resolve edilir
-final customerProfile = dataManager.getData(DataContext.scope, "customer/$ActiveScope/profile");
-// → customer/C987654321/profile
+  void saveCustomerProfile(Map<String, dynamic> profile) {
+    // $ActiveScope → authorizationManager.activeScope (2FA token'dan "sub" claim)
+    _dataManager.setData(DataContext.scope, "customer/$ActiveScope/profile", profile);
+  }
 
-// Binding
-dataManager.bindData(DataContext.scope, "customer/$ActiveScope/profile", customerCard, BindingMode.oneWay);
+  void addCustomerNote(Map<String, dynamic> note) {
+    // $ActiveUser + $ActiveScope → AuthorizationManager'dan resolve edilir
+    final notes = _dataManager.getData(DataContext.scope, "notes/$ActiveUser/$ActiveScope") as List? ?? [];
+    notes.add(note);
+    _dataManager.setData(DataContext.scope, "notes/$ActiveUser/$ActiveScope", notes);
+  }
+
+  Map<String, dynamic>? getCustomerProfile() {
+    // → customer/C987654321/profile (runtime'da resolve)
+    return _dataManager.getData(DataContext.scope, "customer/$ActiveScope/profile");
+  }
+
+  void bindCustomerCard(Widget customerCard) {
+    _dataManager.bindData(DataContext.scope, "customer/$ActiveScope/profile", customerCard, BindingMode.oneWay);
+  }
+}
 ```
 
 ### **Artifact Veri Yönetimi Senaryosu**
@@ -601,408 +663,396 @@ Render içerikleri, JSON dosyaları ve UI şablonları için kullanılır. **Sto
 
 **TypeScript:**
 ```typescript
-// UI şablonu - Local Persistent + TTL (otomatik)
-dataManager.setData(DataContext.artifact, "views/loan-application-form", {
-  schema: { /* JSON Schema */ },
-  uiSchema: { /* UI Schema */ },
-  version: "1.2.0"
-}, { ttl: 60 * 60 * 1000 }); // 1 saat TTL
+class ArtifactCacheService {
+  constructor(
+    private readonly dataManager: IDataManager,
+    private readonly apiClient: IApiClient
+  ) {}
 
-// Navigation config - TTL ile expire olur, backend'den yenisi çekilir
-dataManager.setData(DataContext.artifact, "navigation/main-menu", {
-  items: [
-    { id: "home", label: "Ana Sayfa", icon: "home" },
-    { id: "accounts", label: "Hesaplarım", icon: "wallet" }
-  ]
-}, { ttl: 24 * 60 * 60 * 1000 }); // 24 saat TTL
+  async cacheFormView(viewKey: string): Promise<void> {
+    const view = await this.apiClient.get(`/artifacts/views/${viewKey}`);
+    // Local Persistent + TTL (otomatik)
+    this.dataManager.setData(DataContext.artifact, `views/${viewKey}`, view, { ttl: 60 * 60 * 1000 }); // 1 saat
+  }
 
-// Artifact okuma
-const formView = dataManager.getData(DataContext.artifact, "views/loan-application-form");
+  async cacheNavigationMenu(): Promise<void> {
+    const menu = await this.apiClient.get('/artifacts/navigation/main-menu');
+    this.dataManager.setData(DataContext.artifact, "navigation/main-menu", menu, { ttl: 24 * 60 * 60 * 1000 }); // 24 saat
+  }
+
+  getFormView(viewKey: string): any {
+    return this.dataManager.getData(DataContext.artifact, `views/${viewKey}`);
+  }
+}
 ```
 
 **Flutter (Dart):**
 ```dart
-// UI şablonu - Local Persistent + TTL (otomatik)
-dataManager.setData(DataContext.artifact, "views/loan-application-form", {
-  "schema": { /* JSON Schema */ },
-  "uiSchema": { /* UI Schema */ },
-  "version": "1.2.0"
-}, ttl: Duration(hours: 1)); // 1 saat TTL
+class ArtifactCacheService {
+  final IDataManager _dataManager;
+  final IApiClient _apiClient;
 
-// Navigation config - TTL ile expire olur, backend'den yenisi çekilir
-dataManager.setData(DataContext.artifact, "navigation/main-menu", {
-  "items": [
-    {"id": "home", "label": "Ana Sayfa", "icon": "home"},
-    {"id": "accounts", "label": "Hesaplarım", "icon": "wallet"}
-  ]
-}, ttl: Duration(hours: 24)); // 24 saat TTL
+  ArtifactCacheService(this._dataManager, this._apiClient);
 
-// Artifact okuma
-final formView = dataManager.getData(DataContext.artifact, "views/loan-application-form");
+  Future<void> cacheFormView(String viewKey) async {
+    final view = await _apiClient.get('/artifacts/views/$viewKey');
+    // Local Persistent + TTL (otomatik)
+    _dataManager.setData(DataContext.artifact, 'views/$viewKey', view, ttl: Duration(hours: 1));
+  }
+
+  Future<void> cacheNavigationMenu() async {
+    final menu = await _apiClient.get('/artifacts/navigation/main-menu');
+    _dataManager.setData(DataContext.artifact, "navigation/main-menu", menu, ttl: Duration(hours: 24));
+  }
+
+  dynamic getFormView(String viewKey) {
+    return _dataManager.getData(DataContext.artifact, 'views/$viewKey');
+  }
+}
 ```
 
 ### **Event Delegation Senaryoları**
 
 **TypeScript:**
 ```typescript
-// Basic listener - Data değişikliklerini dinleme
-dataManager.addListener(
-  "themeListener",
-  DataContext.user,
-  "preferences",
-  (preferences) => {
-    console.log("User preferences changed:", preferences);
-  },
-  { dataPath: "theme" }
-);
+class ThemeWatcher {
+  constructor(
+    private readonly dataManager: IDataManager
+  ) {
+    // Constructor'da listener kaydet
+    this.dataManager.addListener(
+      "themeListener",
+      DataContext.user,
+      "preferences",
+      (preferences) => this.onThemeChanged(preferences),
+      { dataPath: "theme" }
+    );
 
-// Scope listener - Müşteri değişikliğini dinleme
-dataManager.addListener(
-  "customerListener",
-  DataContext.scope,
-  "customer/$ActiveScope/profile",
-  (profile) => {
+    // $ActiveScope → AuthorizationManager'dan otomatik resolve edilir
+    this.dataManager.addListener(
+      "customerListener",
+      DataContext.scope,
+      "customer/$ActiveScope/profile",
+      (profile) => this.onCustomerUpdated(profile)
+    );
+  }
+
+  private onThemeChanged(theme: string): void {
+    console.log("Theme changed:", theme);
+  }
+
+  private onCustomerUpdated(profile: any): void {
     console.log("Customer profile updated:", profile);
   }
-);
 
-// Listener cleanup
-dataManager.removeListener("themeListener");
-dataManager.clearAllListeners();
+  dispose(): void {
+    this.dataManager.removeListener("themeListener");
+    this.dataManager.removeListener("customerListener");
+  }
+}
 ```
 
 **Flutter (Dart):**
 ```dart
-// Basic listener - Data değişikliklerini dinleme
-dataManager.addListener(
-  "themeListener",
-  DataContext.user,
-  "preferences",
-  (preferences) {
-    print("User preferences changed: $preferences");
-  },
-  dataPath: "theme"
-);
+class ThemeWatcher {
+  final IDataManager _dataManager;
 
-// Scope listener - Müşteri değişikliğini dinleme
-dataManager.addListener(
-  "customerListener",
-  DataContext.scope,
-  "customer/$ActiveScope/profile",
-  (profile) {
+  ThemeWatcher(this._dataManager) {
+    // Constructor'da listener kaydet
+    _dataManager.addListener(
+      "themeListener",
+      DataContext.user,
+      "preferences",
+      (preferences) => _onThemeChanged(preferences),
+      dataPath: "theme"
+    );
+
+    // $ActiveScope → AuthorizationManager'dan otomatik resolve edilir
+    _dataManager.addListener(
+      "customerListener",
+      DataContext.scope,
+      "customer/$ActiveScope/profile",
+      (profile) => _onCustomerUpdated(profile)
+    );
+  }
+
+  void _onThemeChanged(dynamic theme) {
+    print("Theme changed: $theme");
+  }
+
+  void _onCustomerUpdated(dynamic profile) {
     print("Customer profile updated: $profile");
   }
-);
 
-// Listener cleanup
-dataManager.removeListener("themeListener");
-dataManager.clearAllListeners();
+  void dispose() {
+    _dataManager.removeListener("themeListener");
+    _dataManager.removeListener("customerListener");
+  }
+}
 ```
 
 ### **Data Binding Senaryoları**
 
 **TypeScript (Vue/React):**
 ```typescript
-// 1. SINGLE FIELD BINDING - Traditional approach
-// Workflow instance data binding (readonly display)
-dataManager.bindData(
-  DataContext.workflowInstance,
-  "loan-application/317749d0-cfff-428d-8a11-20c2d2eff9e3",
-  firstNameInputComponent,
-  BindingMode.readOnly,
-  { dataPath: "applicant.firstName" }
-);
+class LoanApplicationView {
+  constructor(
+    private readonly dataManager: IDataManager
+  ) {}
 
-// 2. COMPOSITE FIELD BINDING - DataManager methods (ONE-WAY/READONLY)
-// Full name display: firstName + lastName
-const fullNameLabel = ref(""); // Vue ref veya React state
-dataManager.bindCompositeData(
-  DataContext.workflowInstance,
-  "loan-application/317749d0-cfff-428d-8a11-20c2d2eff9e3",
-  ["applicant.firstName", "applicant.lastName"],
-  (values) => {
-    const firstName = values[0] ?? "";
-    const lastName = values[1] ?? "";
-    return `${firstName} ${lastName}`.trim();
-  },
-  fullNameLabel
-);
+  bindFormFields(instanceId: string, components: LoanFormComponents): void {
+    const instanceKey = `loan-application/${instanceId}`;
+    const transitionKey = `loan-application/${instanceId}/set-loan-term`;
 
-// 3. MULTI-CONTEXT COMPOSITE BINDING - Cross-context data combination
-const greetingLabel = ref("");
-dataManager.bindMultiContextData(
-  [
-    [DataContext.workflowInstance, "loan-application/317749d0-cfff-428d-8a11-20c2d2eff9e3", "applicant.firstName"],
-    [DataContext.user, "preferences", "language"],
-    [DataContext.scope, "customer/$ActiveScope/profile", "firstName"],
-  ],
-  (values) => {
-    const applicantName = values[0] ?? "Guest";
-    const language = values[1] ?? "en";
-    const customerName = values[2] ?? "";
-    return language === "tr" 
-      ? `Sayın ${customerName}, başvuran: ${applicantName}` 
-      : `Dear ${customerName}, applicant: ${applicantName}`;
-  },
-  greetingLabel
-);
+    // 1. SINGLE FIELD BINDING - Readonly display
+    this.dataManager.bindData(
+      DataContext.workflowInstance, instanceKey,
+      components.firstNameInput, BindingMode.readOnly,
+      { dataPath: "applicant.firstName" }
+    );
 
-// 4. TRADITIONAL SINGLE BINDINGS - Still supported
-// Workflow form input binding (editable)
-dataManager.bindData(
-  DataContext.workflowTransition,
-  "loan-application/317749d0-cfff-428d-8a11-20c2d2eff9e3/set-loan-term",
-  termInputComponent,
-  BindingMode.twoWay,
-  { dataPath: "term" }
-);
+    // 2. COMPOSITE FIELD BINDING (ONE-WAY/READONLY)
+    this.dataManager.bindCompositeData(
+      DataContext.workflowInstance, instanceKey,
+      ["applicant.firstName", "applicant.lastName"],
+      (values) => `${values[0] ?? ""} ${values[1] ?? ""}`.trim(),
+      components.fullNameLabel
+    );
+
+    // 3. MULTI-CONTEXT COMPOSITE BINDING - Cross-context
+    // $ActiveScope → AuthorizationManager'dan resolve edilir
+    this.dataManager.bindMultiContextData(
+      [
+        [DataContext.workflowInstance, instanceKey, "applicant.firstName"],
+        [DataContext.user, "preferences", "language"],
+        [DataContext.scope, "customer/$ActiveScope/profile", "firstName"],
+      ],
+      (values) => {
+        const [applicantName, language, customerName] = values;
+        return language === "tr"
+          ? `Sayın ${customerName}, başvuran: ${applicantName}`
+          : `Dear ${customerName}, applicant: ${applicantName}`;
+      },
+      components.greetingLabel
+    );
+
+    // 4. TWO-WAY BINDING - Form input
+    this.dataManager.bindData(
+      DataContext.workflowTransition, transitionKey,
+      components.termInput, BindingMode.twoWay,
+      { dataPath: "term" }
+    );
+  }
+}
 ```
 
 **Flutter (Dart):**
 ```dart
-// 1. SINGLE FIELD BINDING - Traditional approach
-// Workflow instance data binding (readonly display)
-dataManager.bindData(
-  DataContext.workflowInstance,
-  "loan-application/317749d0-cfff-428d-8a11-20c2d2eff9e3",
-  firstNameInput,
-  BindingMode.readOnly,
-  dataPath: "applicant.firstName"
-);
+class LoanApplicationView {
+  final IDataManager _dataManager;
 
-// 2. COMPOSITE FIELD BINDING - DataManager methods (ONE-WAY/READONLY)
-// Normal bindData() ile aynı mantık - widget parametre olarak veriliyor
+  LoanApplicationView(this._dataManager);
 
-// Full name display: firstName + lastName
-final fullNameLabel = Text("", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold));
-dataManager.bindCompositeData(
-  DataContext.workflowInstance,
-  "loan-application/317749d0-cfff-428d-8a11-20c2d2eff9e3",
-  ["applicant.firstName", "applicant.lastName"],
-  (values) {
-    final firstName = values[0] ?? "";
-    final lastName = values[1] ?? "";
-    return "$firstName $lastName".trim();
-  },
-  fullNameLabel // Widget parametre olarak veriliyor
-);
+  void bindFormFields(String instanceId, LoanFormWidgets widgets) {
+    final instanceKey = 'loan-application/$instanceId';
+    final transitionKey = 'loan-application/$instanceId/set-loan-term';
 
-// Address display: street + city + country
-final addressLabel = Text("");
-dataManager.bindCompositeData(
-  DataContext.workflowInstance,
-  "loan-application/317749d0-cfff-428d-8a11-20c2d2eff9e3",
-  ["applicant.address.street", "applicant.address.city", "applicant.address.country"],
-  (values) {
-    final parts = values.where((v) => v != null && v.toString().isNotEmpty).toList();
-    return parts.join(", ");
-  },
-  addressLabel // Widget parametre olarak veriliyor
-);
+    // 1. SINGLE FIELD BINDING - Readonly display
+    _dataManager.bindData(
+      DataContext.workflowInstance, instanceKey,
+      widgets.firstNameInput, BindingMode.readOnly,
+      dataPath: "applicant.firstName"
+    );
 
+    // 2. COMPOSITE FIELD BINDING (ONE-WAY/READONLY)
+    _dataManager.bindCompositeData(
+      DataContext.workflowInstance, instanceKey,
+      ["applicant.firstName", "applicant.lastName"],
+      (values) => "${values[0] ?? ''} ${values[1] ?? ''}".trim(),
+      widgets.fullNameLabel
+    );
 
+    // 3. MULTI-CONTEXT COMPOSITE BINDING - Cross-context
+    // $ActiveScope → AuthorizationManager'dan resolve edilir
+    _dataManager.bindMultiContextData(
+      [
+        (DataContext.workflowInstance, instanceKey, "applicant.firstName"),
+        (DataContext.user, "preferences", "language"),
+        (DataContext.scope, "customer/$ActiveScope/profile", "firstName"),
+      ],
+      (values) {
+        final applicantName = values[0] ?? "Guest";
+        final language = values[1] ?? "en";
+        final customerName = values[2] ?? "";
+        return language == "tr"
+          ? "Sayın $customerName, başvuran: $applicantName"
+          : "Dear $customerName, applicant: $applicantName";
+      },
+      widgets.greetingLabel
+    );
 
-
-
-// 3. MULTI-CONTEXT COMPOSITE BINDING - Cross-context data combination
-final greetingLabel = Text("");
-dataManager.bindMultiContextData(
-  [
-    (DataContext.workflowInstance, "loan-application/317749d0-cfff-428d-8a11-20c2d2eff9e3", "applicant.firstName"),
-    (DataContext.user, "preferences", "language"),
-    (DataContext.scope, "customer/$ActiveScope/profile", "firstName"),
-  ],
-  (values) {
-    final applicantName = values[0] ?? "Guest";
-    final language = values[1] ?? "en";
-    final customerName = values[2] ?? "";
-    return language == "tr" 
-      ? "Sayın $customerName, başvuran: $applicantName" 
-      : "Dear $customerName, applicant: $applicantName";
-  },
-  greetingLabel
-);
-
-// 4. TRADITIONAL SINGLE BINDINGS - Still supported
-// Workflow form input binding (editable)
-dataManager.bindData(
-  DataContext.workflowTransition,
-  "loan-application/317749d0-cfff-428d-8a11-20c2d2eff9e3/set-loan-term",
-  termInput,
-  BindingMode.twoWay,
-  dataPath: "term"
-);
-
-// User preferences binding - Secure Persistent (otomatik)
-dataManager.bindData(
-  DataContext.user,
-  "preferences",
-  themeSelector,
-  BindingMode.twoWay,
-  dataPath: "theme"
-);
-
-// Device settings binding - Local Persistent (otomatik)
-dataManager.bindData(
-  DataContext.device,
-  "settings",
-  languageSelector,
-  BindingMode.twoWay,
-  dataPath: "language"
-);
-
-// Scope customer data binding - Secure Persistent (otomatik)
-dataManager.bindData(
-  DataContext.scope,
-  "customer/$ActiveScope/profile",
-  customerCard,
-  BindingMode.oneWay,
-  dataPath: "firstName"
-);
-
-// Artifact view binding - In-Memory + Cache (otomatik)
-dataManager.bindData(
-  DataContext.artifact,
-  "views/loan-form",
-  formRenderer,
-  BindingMode.oneWay
-);
+    // 4. TWO-WAY BINDING - Form input
+    _dataManager.bindData(
+      DataContext.workflowTransition, transitionKey,
+      widgets.termInput, BindingMode.twoWay,
+      dataPath: "term"
+    );
+  }
+}
 ```
 
 ### **Batch Operations Senaryoları**
 
 **TypeScript:**
 ```typescript
-// Batch data setting - Form submit senaryosu
-dataManager.batchSet([
-  { context: DataContext.user, key: "profile/name", value: "John" },
-  { context: DataContext.user, key: "profile/email", value: "john@example.com" },
-  { context: DataContext.user, key: "profile/age", value: 30 },
-  { context: DataContext.scope, key: "customer/$ActiveScope/lastContact", value: new Date() }
-]);
+class ProfileFormHandler {
+  constructor(
+    private readonly dataManager: IDataManager
+  ) {}
 
-// Batch data getting - Profile load senaryosu
-const results = dataManager.batchGet([
-  { context: DataContext.user, key: "profile/name" },
-  { context: DataContext.user, key: "profile/email" },
-  { context: DataContext.device, key: "info/deviceId" }
-]);
-// Returns: Array of { context, key, value }
+  submitProfile(profile: ProfileData): void {
+    // $ActiveScope → AuthorizationManager'dan resolve edilir
+    this.dataManager.batchSet([
+      { context: DataContext.user, key: "profile/name", value: profile.name },
+      { context: DataContext.user, key: "profile/email", value: profile.email },
+      { context: DataContext.user, key: "profile/age", value: profile.age },
+      { context: DataContext.scope, key: "customer/$ActiveScope/lastContact", value: new Date() }
+    ]);
+  }
 
-// Extract values easily
-const name = results[0].value;
-const email = results[1].value;
-const deviceId = results[2].value;
+  loadProfile(): { name: string; email: string; deviceId: string } {
+    const results = this.dataManager.batchGet([
+      { context: DataContext.user, key: "profile/name" },
+      { context: DataContext.user, key: "profile/email" },
+      { context: DataContext.device, key: "info/deviceId" }
+    ]);
+    return { name: results[0].value, email: results[1].value, deviceId: results[2].value };
+  }
 
-// Batch form binding - Loan application form
-dataManager.batchBind(
-  DataContext.workflowTransition,
-  "loan-app/317749d0-cfff-428d-8a11-20c2d2eff9e3/application-form",
-  BindingMode.twoWay,
-  [
-    { dataPath: "applicant.firstName", component: firstNameInput },
-    { dataPath: "applicant.lastName", component: lastNameInput },
-    { dataPath: "applicant.email", component: emailInput },
-    { dataPath: "applicant.phone", component: phoneInput },
-    { dataPath: "loan.amount", component: amountInput },
-    { dataPath: "loan.term", component: termInput },
-    { dataPath: "loan.purpose", component: purposeDropdown },
-    { dataPath: "documents.idCard", component: idCardUpload },
-    { dataPath: "documents.salarySlip", component: salarySlipUpload },
-    { dataPath: "agreement.terms", component: termsCheckbox }
-  ]
-);
+  bindLoanForm(instanceId: string, components: LoanFormComponents): void {
+    this.dataManager.batchBind(
+      DataContext.workflowTransition,
+      `loan-app/${instanceId}/application-form`,
+      BindingMode.twoWay,
+      [
+        { dataPath: "applicant.firstName", component: components.firstNameInput },
+        { dataPath: "applicant.lastName", component: components.lastNameInput },
+        { dataPath: "applicant.email", component: components.emailInput },
+        { dataPath: "loan.amount", component: components.amountInput },
+        { dataPath: "loan.term", component: components.termInput },
+        { dataPath: "agreement.terms", component: components.termsCheckbox }
+      ]
+    );
+  }
+}
 ```
 
 **Flutter (Dart):**
 ```dart
-// Batch data setting - Form submit senaryosu
-dataManager.batchSet([
-  (DataContext.user, "profile/name", "John"),
-  (DataContext.user, "profile/email", "john@example.com"),
-  (DataContext.user, "profile/age", 30),
-  (DataContext.scope, "customer/$ActiveScope/lastContact", DateTime.now())
-]);
+class ProfileFormHandler {
+  final IDataManager _dataManager;
 
-// Batch data getting - Profile load senaryosu
-final results = dataManager.batchGet([
-  (DataContext.user, "profile/name"),
-  (DataContext.user, "profile/email"),
-  (DataContext.device, "info/deviceId")
-]);
-// Returns: [(DataContext.user, "profile/name", "John"), (...), (...)]
+  ProfileFormHandler(this._dataManager);
 
-// Extract values easily
-final name = results[0].$3; // Tuple'dan value'yu al
-final email = results[1].$3;
-final deviceId = results[2].$3;
+  void submitProfile(Map<String, dynamic> profile) {
+    // $ActiveScope → AuthorizationManager'dan resolve edilir
+    _dataManager.batchSet([
+      (DataContext.user, "profile/name", profile['name']),
+      (DataContext.user, "profile/email", profile['email']),
+      (DataContext.user, "profile/age", profile['age']),
+      (DataContext.scope, "customer/$ActiveScope/lastContact", DateTime.now())
+    ]);
+  }
 
-// Batch form binding - Loan application form
-dataManager.batchBind(
-  DataContext.workflowTransition,
-  "loan-app/317749d0-cfff-428d-8a11-20c2d2eff9e3/application-form",
-  BindingMode.twoWay,
-  [
-    ("applicant.firstName", firstNameInput),
-    ("applicant.lastName", lastNameInput),
-    ("applicant.email", emailInput),
-    ("applicant.phone", phoneInput),
-    ("loan.amount", amountInput),
-    ("loan.term", termInput),
-    ("loan.purpose", purposeDropdown),
-    ("documents.idCard", idCardUpload),
-    ("documents.salarySlip", salarySlipUpload),
-    ("agreement.terms", termsCheckbox)
-  ]
-);
+  Map<String, dynamic> loadProfile() {
+    final results = _dataManager.batchGet([
+      (DataContext.user, "profile/name"),
+      (DataContext.user, "profile/email"),
+      (DataContext.device, "info/deviceId")
+    ]);
+    return {'name': results[0].$3, 'email': results[1].$3, 'deviceId': results[2].$3};
+  }
+
+  void bindLoanForm(String instanceId, LoanFormWidgets widgets) {
+    _dataManager.batchBind(
+      DataContext.workflowTransition,
+      'loan-app/$instanceId/application-form',
+      BindingMode.twoWay,
+      [
+        ("applicant.firstName", widgets.firstNameInput),
+        ("applicant.lastName", widgets.lastNameInput),
+        ("applicant.email", widgets.emailInput),
+        ("loan.amount", widgets.amountInput),
+        ("loan.term", widgets.termInput),
+        ("agreement.terms", widgets.termsCheckbox)
+      ]
+    );
+  }
+}
 ```
 
 ### **Data Migration Senaryoları**
 
 **TypeScript:**
 ```typescript
-// Version upgrade migration with export/import
-// 1. Export old data (context bazlı - storage otomatik belirlenir)
-const userBackup = dataManager.exportData(DataContext.user);
-const deviceBackup = dataManager.exportData(DataContext.device);
+class DataMigrationService {
+  constructor(
+    private readonly dataManager: IDataManager
+  ) {}
 
-// 2. Application layer transforms data (business logic responsibility)
-const transformedUserData = MigrationService.transformUserData(userBackup, "1.0", "2.0");
-const transformedDeviceData = MigrationService.transformDeviceData(deviceBackup, "1.0", "2.0");
+  async migrateToV2(): Promise<void> {
+    // 1. Export old data
+    const userBackup = this.dataManager.exportData(DataContext.user);
+    const deviceBackup = this.dataManager.exportData(DataContext.device);
 
-// 3. Import transformed data
-dataManager.importData(DataContext.user, transformedUserData);
-dataManager.importData(DataContext.device, transformedDeviceData);
+    // 2. Transform data (business logic)
+    const transformedUser = MigrationService.transformUserData(userBackup, "1.0", "2.0");
+    const transformedDevice = MigrationService.transformDeviceData(deviceBackup, "1.0", "2.0");
 
-// Selective export/import - Specific data migration
-const onlyPreferences = dataManager.exportData(DataContext.user, { partialKey: "preferences" });
-const workflowBackup = dataManager.exportData(DataContext.workflowInstance, { partialKey: "loan-app/" });
+    // 3. Import transformed data
+    this.dataManager.importData(DataContext.user, transformedUser);
+    this.dataManager.importData(DataContext.device, transformedDevice);
+  }
 
-// Restore if migration fails
-dataManager.importData(DataContext.user, userBackup, { overwrite: false });
+  backupPreferences(): Record<string, any> {
+    return this.dataManager.exportData(DataContext.user, { partialKey: "preferences" });
+  }
+
+  restoreFromBackup(backup: Record<string, any>): void {
+    this.dataManager.importData(DataContext.user, backup, { overwrite: false });
+  }
+}
 ```
 
 **Flutter (Dart):**
 ```dart
-// Version upgrade migration with export/import
-// 1. Export old data (context bazlı - storage otomatik belirlenir)
-final userBackup = dataManager.exportData(DataContext.user);
-final deviceBackup = dataManager.exportData(DataContext.device);
+class DataMigrationService {
+  final IDataManager _dataManager;
 
-// 2. Application layer transforms data (business logic responsibility)
-final transformedUserData = MigrationService.transformUserData(userBackup, "1.0", "2.0");
-final transformedDeviceData = MigrationService.transformDeviceData(deviceBackup, "1.0", "2.0");
+  DataMigrationService(this._dataManager);
 
-// 3. Import transformed data
-dataManager.importData(DataContext.user, transformedUserData);
-dataManager.importData(DataContext.device, transformedDeviceData);
+  Future<void> migrateToV2() async {
+    // 1. Export old data
+    final userBackup = _dataManager.exportData(DataContext.user);
+    final deviceBackup = _dataManager.exportData(DataContext.device);
 
-// Selective export/import - Specific data migration
-final onlyPreferences = dataManager.exportData(DataContext.user, partialKey: "preferences");
-final workflowBackup = dataManager.exportData(DataContext.workflowInstance, partialKey: "loan-app/");
+    // 2. Transform data (business logic)
+    final transformedUser = MigrationService.transformUserData(userBackup, "1.0", "2.0");
+    final transformedDevice = MigrationService.transformDeviceData(deviceBackup, "1.0", "2.0");
 
-// Restore if migration fails
-dataManager.importData(DataContext.user, userBackup, overwrite: false);
+    // 3. Import transformed data
+    _dataManager.importData(DataContext.user, transformedUser);
+    _dataManager.importData(DataContext.device, transformedDevice);
+  }
+
+  Map<String, dynamic> backupPreferences() {
+    return _dataManager.exportData(DataContext.user, partialKey: "preferences");
+  }
+
+  void restoreFromBackup(Map<String, dynamic> backup) {
+    _dataManager.importData(DataContext.user, backup, overwrite: false);
+  }
+}
 ```
 
 
@@ -1048,14 +1098,17 @@ enum BindingMode {
 }
 
 interface DataManager {
-  // ===== ACTIVE CONTEXT MANAGEMENT =====
+  // ===== DI BAĞIMLILIKLARI =====
   
-  // Dinamik değişkenler için aktif kullanıcı ve scope ayarları
-  // Key'lerde $ActiveUser ve $ActiveScope değişkenleri bu değerlerle replace edilir
-  setActiveUser(userId: string): void;
-  getActiveUser(): string | undefined;
-  setActiveScope(scopeId: string): void;
-  getActiveScope(): string | undefined;
+  // DataManager, $ActiveUser ve $ActiveScope dinamik değişkenlerini
+  // AuthorizationManager'dan resolve eder. Constructor injection ile alınır:
+  //
+  //   constructor(
+  //     private readonly authorizationManager: IAuthorizationManager
+  //   )
+  //
+  // authorizationManager.activeUser  → $ActiveUser
+  // authorizationManager.activeScope → $ActiveScope
   
   // ===== UNIFIED DATA METHODS =====
   
@@ -1182,14 +1235,16 @@ enum BindingMode {
 }
 
 class DataManager {
-  // ===== ACTIVE CONTEXT MANAGEMENT =====
+  // ===== DI BAĞIMLILIKLARI =====
   
-  // Dinamik değişkenler için aktif kullanıcı ve scope ayarları
-  // Key'lerde $ActiveUser ve $ActiveScope değişkenleri bu değerlerle replace edilir
-  void setActiveUser(String userId);
-  String? getActiveUser();
-  void setActiveScope(String scopeId);
-  String? getActiveScope();
+  // DataManager, $ActiveUser ve $ActiveScope dinamik değişkenlerini
+  // AuthorizationManager'dan resolve eder. Constructor injection ile alınır:
+  //
+  //   DataManager(this._authorizationManager);
+  //   final IAuthorizationManager _authorizationManager;
+  //
+  // _authorizationManager.activeUser  → $ActiveUser
+  // _authorizationManager.activeScope → $ActiveScope
   
   // ===== UNIFIED DATA METHODS =====
   

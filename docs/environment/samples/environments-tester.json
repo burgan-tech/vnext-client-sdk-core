@@ -47,6 +47,10 @@
                 {
                     "key": "morph-idm-1fa",
                     "type": "oauth2",
+                    "identityClaims": {
+                        "user": "act",
+                        "scope": "sub"
+                    },
                     "logout": {
                         "endpoint": "/auth/logout/1fa"
                     },
@@ -63,6 +67,10 @@
                 {
                     "key": "morph-idm-2fa",
                     "type": "oauth2",
+                    "identityClaims": {
+                        "user": "act",
+                        "scope": "sub"
+                    },
                     "grantFlow": {
                         "runtime": "v2",
                         "domain": "morph-idm",
@@ -208,6 +216,10 @@
                 {
                     "key": "morph-idm-1fa",
                     "type": "oauth2",
+                    "identityClaims": {
+                        "user": "act",
+                        "scope": "sub"
+                    },
                     "logout": {
                         "endpoint": "/auth/logout/1fa"
                     },
@@ -224,6 +236,10 @@
                 {
                     "key": "morph-idm-2fa",
                     "type": "oauth2",
+                    "identityClaims": {
+                        "user": "act",
+                        "scope": "sub"
+                    },
                     "grantFlow": {
                         "runtime": "v2",
                         "domain": "morph-idm",
