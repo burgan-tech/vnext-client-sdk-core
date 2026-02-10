@@ -41,18 +41,18 @@
   "$defs": {
     "requiredToken": {
       "type": "object",
-      "description": "Endpoint çağrısı için gerekli token tanımı",
+      "description": "Endpoint çağrısı için gerekli token tanımı. provider auth provider key'i, token ise access veya refresh gibi token tipidir.",
       "required": ["provider", "token"],
       "properties": {
         "provider": {
           "type": "string",
           "description": "Auth provider key'i",
-          "examples": ["morph-idm", "edevlet", "burgan-yatirim"]
+          "examples": ["morph-idm-device", "morph-idm-1fa", "morph-idm-2fa", "edevlet"]
         },
         "token": {
           "type": "string",
-          "description": "Token tipi",
-          "examples": ["device", "1fa", "2fa", "access", "session"]
+          "description": "Token tipi (tokenTypes içindeki key)",
+          "examples": ["access", "refresh"]
         }
       },
       "additionalProperties": false
@@ -105,13 +105,7 @@
         "requiredToken": {
           "type": "array",
           "description": "Bu endpoint'i çağırmak için gerekli token'lar (öncelik sırasına göre)",
-          "items": { "$ref": "#/$defs/requiredToken" },
-          "examples": [
-            [
-              { "provider": "morph-idm", "token": "1fa" },
-              { "provider": "morph-idm", "token": "device" }
-            ]
-          ]
+          "items": { "$ref": "#/$defs/requiredToken" }
         }
       },
       "additionalProperties": false,
@@ -150,153 +144,193 @@
       "additionalProperties": false
     },
 
-    "tokenType": {
+    "tokenStorage": {
       "type": "object",
-      "description": "Bir token tipinin tanımı",
-      "required": ["expiry"],
+      "description": "Token'ın DataManager'da hangi context ve key'de saklanacağı",
+      "required": ["context", "key"],
+      "properties": {
+        "context": {
+          "type": "string",
+          "description": "DataManager context'i",
+          "enum": ["device", "user", "secureMemory"],
+          "x-enumDescriptions": {
+            "device": "Secure Storage (şifresiz - bootstrap). Uzun ömürlü device token'ları için.",
+            "user": "Secure Storage + Encrypted. Uzun ömürlü kullanıcı token'ları (1fa, refresh) için.",
+            "secureMemory": "In-Memory ONLY. Kısa ömürlü, volatile token'lar (2fa access, OAuth2 access) için."
+          }
+        },
+        "key": {
+          "type": "string",
+          "description": "DataManager storage key'i",
+          "pattern": "^auth\\.token\\.",
+          "examples": [
+            "auth.token.morph-idm-device.access",
+            "auth.token.morph-idm-2fa.access",
+            "auth.token.morph-idm-2fa.refresh",
+            "auth.token.edevlet.access"
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+
+    "logout": {
+      "type": "object",
+      "description": "Logout ve auto-logout ayarları. Provider seviyesinde tanımlanır, tüm token'ları temizler.",
+      "properties": {
+        "endpoint": {
+          "type": "string",
+          "description": "Backend logout endpoint path'i"
+        },
+        "autoLogoutAtBackground": {
+          "type": "string",
+          "description": "App background'a geçtiğinde kaç süre sonra otomatik logout",
+          "examples": ["5m", "3m"]
+        },
+        "autoLogoutAtInactivity": {
+          "type": "string",
+          "description": "Kullanıcı inaktivitesi sonrası otomatik logout",
+          "examples": ["15m", "10m"]
+        }
+      },
+      "additionalProperties": false
+    },
+
+    "accessToken": {
+      "type": "object",
+      "description": "Access token tanımı",
+      "required": ["expiry", "storage"],
       "properties": {
         "expiry": {
           "type": "string",
           "description": "Token geçerlilik süresi",
           "examples": ["infinite", "90d", "5m", "1h"]
         },
-        "grantFlow": {
-          "oneOf": [
-            { "$ref": "#/$defs/grantFlow" },
-            { "type": "null" }
-          ],
-          "description": "Token almak için workflow. null ise otomatik alınır (örn: 1fa, 2fa sonrası)"
-        },
-        "refresh": {
-          "oneOf": [
-            {
-              "type": "object",
-              "required": ["endpoint", "strategy"],
-              "properties": {
-                "endpoint": { "type": "string" },
-                "strategy": { "type": "string", "enum": ["rotating", "static"] },
-                "beforeExpiry": { "type": "string", "description": "Expire'dan ne kadar önce refresh", "examples": ["1m", "30s"] }
-              }
-            },
-            { "type": "null" }
-          ],
-          "description": "Token refresh ayarları"
-        },
-        "logout": {
-          "oneOf": [
-            {
-              "type": "object",
-              "properties": {
-                "endpoint": { "type": "string" },
-                "autoLogoutAtBackground": { "type": "string", "description": "Background'da kalma süresi sonrası logout", "examples": ["5m"] },
-                "autoLogoutAtInactivity": { "type": "string", "description": "İnaktivite süresi sonrası logout", "examples": ["15m"] }
-              }
-            },
-            { "type": "null" }
-          ],
-          "description": "Logout ayarları"
-        }
+        "storage": { "$ref": "#/$defs/tokenStorage" }
       },
       "additionalProperties": false
     },
 
-    "authProviderNative": {
+    "refreshToken": {
       "type": "object",
-      "description": "Native (morph-idm) auth provider",
+      "description": "Refresh token tanımı. Access token expire olmadan önce bu token ile yenileme yapılır.",
+      "required": ["expiry", "endpoint", "strategy", "beforeExpiry", "storage"],
+      "properties": {
+        "expiry": {
+          "type": "string",
+          "description": "Refresh token geçerlilik süresi",
+          "examples": ["30d", "7d", "1d"]
+        },
+        "endpoint": {
+          "type": "string",
+          "description": "Refresh endpoint path'i"
+        },
+        "strategy": {
+          "type": "string",
+          "description": "Refresh stratejisi",
+          "enum": ["rotating", "extend"],
+          "x-enumDescriptions": {
+            "rotating": "Her refresh'te yeni access ve refresh token döner, eski token'lar invalid olur",
+            "extend": "Mevcut token'ın expiry'si extend edilir"
+          }
+        },
+        "beforeExpiry": {
+          "type": "string",
+          "description": "Access token expire olmadan ne kadar önce refresh yapılır",
+          "examples": ["1m", "5m", "30s"]
+        },
+        "storage": { "$ref": "#/$defs/tokenStorage" }
+      },
+      "additionalProperties": false
+    },
+
+    "authProvider": {
+      "type": "object",
+      "description": "Auth provider tanımı. Tüm provider'lar OAuth2 tabanlıdır, grant mekanizması farklılaşır.",
       "required": ["key", "type", "tokenTypes"],
       "properties": {
-        "key": { "type": "string", "const": "morph-idm" },
-        "type": { "type": "string", "const": "native" },
-        "tokenTypes": {
+        "key": {
+          "type": "string",
+          "description": "Provider benzersiz tanımlayıcısı",
+          "examples": ["morph-idm-device", "morph-idm-1fa", "morph-idm-2fa", "edevlet", "burgan-yatirim", "fxtrade"]
+        },
+        "type": {
+          "type": "string",
+          "description": "Protokol tipi. Tüm provider'lar OAuth2 tabanlıdır.",
+          "const": "oauth2"
+        },
+        "grantFlow": {
+          "$ref": "#/$defs/grantFlow",
+          "description": "Token almak için çalıştırılacak workflow (Amorphie workflow ile grant)"
+        },
+        "logout": {
+          "$ref": "#/$defs/logout",
+          "description": "Logout ayarları (tüm token'ları temizler)"
+        },
+        "authorizationUrl": {
+          "type": "string",
+          "format": "uri",
+          "description": "OAuth2 Authorization Code flow: Authorization endpoint URL (harici OAuth2 provider'lar için)"
+        },
+        "tokenUrl": {
+          "type": "string",
+          "format": "uri",
+          "description": "OAuth2 Authorization Code flow: Token endpoint URL (harici OAuth2 provider'lar için)"
+        },
+        "clientId": {
+          "type": "string",
+          "description": "OAuth2 client ID"
+        },
+        "scopes": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "OAuth2 scope'ları"
+        },
+        "pkce": {
+          "type": "boolean",
+          "default": true,
+          "description": "PKCE (Proof Key for Code Exchange) desteği"
+        },
+        "scheme": {
+          "type": "string",
+          "description": "App2App grant: Deep link scheme (native app açma)",
+          "examples": ["burganyatirim://auth"]
+        },
+        "fallbackUrl": {
+          "type": "string",
+          "format": "uri",
+          "description": "App2App grant: App yüklü değilse yönlendirilecek URL"
+        },
+        "callbackScheme": {
+          "type": "string",
+          "description": "App2App grant: Geri dönüş scheme'i"
+        },
+        "url": {
+          "type": "string",
+          "format": "uri",
+          "description": "Webview grant: Embedded webview login URL'i"
+        },
+        "callbackPattern": {
+          "type": "string",
+          "description": "Webview grant: Callback URL pattern"
+        },
+        "tokenExchange": {
           "type": "object",
-          "description": "Token tipleri tanımları",
+          "description": "Harici provider token'ını core token'a çevirmek için endpoint",
           "properties": {
-            "device": { "$ref": "#/$defs/tokenType" },
-            "1fa": { "$ref": "#/$defs/tokenType" },
-            "2fa": { "$ref": "#/$defs/tokenType" }
+            "endpoint": { "type": "string" }
           },
-          "additionalProperties": { "$ref": "#/$defs/tokenType" }
-        }
-      },
-      "additionalProperties": false
-    },
-
-    "authProviderOAuth2": {
-      "type": "object",
-      "description": "OAuth2 auth provider (e-devlet, Google, vb.)",
-      "required": ["key", "type", "authorizationUrl", "tokenUrl", "clientId"],
-      "properties": {
-        "key": { "type": "string", "examples": ["edevlet", "google"] },
-        "type": { "type": "string", "const": "oauth2" },
-        "authorizationUrl": { "type": "string", "format": "uri" },
-        "tokenUrl": { "type": "string", "format": "uri" },
-        "clientId": { "type": "string" },
-        "scopes": { "type": "array", "items": { "type": "string" } },
-        "pkce": { "type": "boolean", "default": true },
+          "additionalProperties": false
+        },
         "tokenTypes": {
           "type": "object",
+          "description": "Token tipleri. access (zorunlu) ve refresh (opsiyonel) token tanımları.",
+          "required": ["access"],
           "properties": {
-            "access": { "$ref": "#/$defs/tokenType" },
-            "refresh": { "$ref": "#/$defs/tokenType" }
-          }
-        },
-        "tokenExchange": {
-          "type": "object",
-          "description": "External token'ı core token'a çevirmek için endpoint",
-          "properties": {
-            "endpoint": { "type": "string" }
-          }
-        }
-      },
-      "additionalProperties": false
-    },
-
-    "authProviderApp2App": {
-      "type": "object",
-      "description": "App2App auth provider (native app açma)",
-      "required": ["key", "type", "scheme"],
-      "properties": {
-        "key": { "type": "string", "examples": ["burgan-yatirim"] },
-        "type": { "type": "string", "const": "app2app" },
-        "scheme": { "type": "string", "description": "Deep link scheme", "examples": ["burganyatirim://auth"] },
-        "fallbackUrl": { "type": "string", "format": "uri", "description": "App yüklü değilse yönlendirilecek URL" },
-        "callbackScheme": { "type": "string", "description": "Geri dönüş scheme'i" },
-        "tokenTypes": {
-          "type": "object",
-          "properties": {
-            "session": { "$ref": "#/$defs/tokenType" }
-          }
-        },
-        "tokenExchange": {
-          "type": "object",
-          "properties": {
-            "endpoint": { "type": "string" }
-          }
-        }
-      },
-      "additionalProperties": false
-    },
-
-    "authProviderWebview": {
-      "type": "object",
-      "description": "Webview auth provider (embedded login)",
-      "required": ["key", "type", "url"],
-      "properties": {
-        "key": { "type": "string", "examples": ["fxtrade"] },
-        "type": { "type": "string", "const": "webview" },
-        "url": { "type": "string", "format": "uri" },
-        "callbackPattern": { "type": "string" },
-        "tokenTypes": {
-          "type": "object",
-          "properties": {
-            "session": { "$ref": "#/$defs/tokenType" }
-          }
-        },
-        "tokenExchange": {
-          "type": "object",
-          "properties": {
-            "endpoint": { "type": "string" }
-          }
+            "access": { "$ref": "#/$defs/accessToken" },
+            "refresh": { "$ref": "#/$defs/refreshToken" }
+          },
+          "additionalProperties": false
         }
       },
       "additionalProperties": false
@@ -339,14 +373,9 @@
         },
         "authProviders": {
           "type": "array",
-          "description": "Auth provider'lar listesi",
+          "description": "Auth provider'lar listesi. Her auth seviyesi ayrı provider olarak tanımlanır.",
           "items": {
-            "oneOf": [
-              { "$ref": "#/$defs/authProviderNative" },
-              { "$ref": "#/$defs/authProviderOAuth2" },
-              { "$ref": "#/$defs/authProviderApp2App" },
-              { "$ref": "#/$defs/authProviderWebview" }
-            ]
+            "$ref": "#/$defs/authProvider"
           }
         }
       },

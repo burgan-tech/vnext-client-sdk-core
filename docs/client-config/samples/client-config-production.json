@@ -156,8 +156,8 @@
         "domains": [
           "app.example.com",
           "*.example.com"
-        ]
-      }
+          ]
+        }
     },
     "outgoing": {
       "enabled": true,
@@ -166,7 +166,7 @@
           "burganyatirim",
           "vnextapp"
         ],
-        "domains": [
+      "domains": [
           "app.example.com",
           "partner.example.com",
           "*.partner.com"

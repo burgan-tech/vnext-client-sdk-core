@@ -16,60 +16,79 @@
         "key": "mobile-app",
         "function": "enviroment",
         "requiredToken": [
-          { "provider": "morph-idm", "token": "1fa" },
-          { "provider": "morph-idm", "token": "device" }
+          { "provider": "morph-idm-1fa", "token": "access" },
+          { "provider": "morph-idm-device", "token": "access" }
         ]
       },
       "authProviders": [
         {
-          "key": "morph-idm",
-          "type": "native",
+          "key": "morph-idm-device",
+          "type": "oauth2",
+          "grantFlow": {
+            "runtime": "v2",
+            "domain": "morph-idm",
+            "workflow": "device-login",
+            "requiredToken": []
+          },
           "tokenTypes": {
-            "device": {
+            "access": {
               "expiry": "infinite",
-              "grantFlow": {
-                "runtime": "v2",
-                "domain": "morph-idm",
-                "workflow": "device-login",
-                "requiredToken": []
-              },
-              "refresh": null,
-              "logout": null
-            },
-            "1fa": {
+              "storage": {
+                "context": "device",
+                "key": "auth.token.morph-idm-device.access"
+              }
+            }
+          }
+        },
+        {
+          "key": "morph-idm-1fa",
+          "type": "oauth2",
+          "logout": {
+            "endpoint": "/auth/logout/1fa"
+          },
+          "tokenTypes": {
+            "access": {
               "expiry": "90d",
-              "grantFlow": null,
-              "refresh": null,
-              "logout": {
-                "endpoint": "/auth/logout/1fa"
+              "storage": {
+                "context": "user",
+                "key": "auth.token.morph-idm-1fa.access"
+              }
+            }
+          }
+        },
+        {
+          "key": "morph-idm-2fa",
+          "type": "oauth2",
+          "grantFlow": {
+            "runtime": "v2",
+            "domain": "morph-idm",
+            "workflow": "mobile-login",
+            "requiredToken": [
+              { "provider": "morph-idm-1fa", "token": "access" },
+              { "provider": "morph-idm-device", "token": "access" }
+            ]
+          },
+          "logout": {
+            "endpoint": "/auth/logout",
+            "autoLogoutAtBackground": "5m",
+            "autoLogoutAtInactivity": "15m"
+          },
+          "tokenTypes": {
+            "access": {
+              "expiry": "5m",
+              "storage": {
+                "context": "secureMemory",
+                "key": "auth.token.morph-idm-2fa.access"
               }
             },
-            "2fa": {
-              "expiry": "5m",
-              "grantFlow": {
-                "runtime": "v2",
-                "domain": "morph-idm",
-                "workflow": "mobile-login",
-                "requiredToken": [
-                  {
-                    "provider": "morph-idm",
-                    "token": "1fa"
-                  },
-                  {
-                    "provider": "morph-idm",
-                    "token": "device"
-                  }
-                ]
-              },
-              "refresh": {
-                "endpoint": "/auth/token/refresh",
-                "strategy": "rotating",
-                "beforeExpiry": "1m"
-              },
-              "logout": {
-                "endpoint": "/auth/logout",
-                "autoLogoutAtBackground": "5m",
-                "autoLogoutAtInactivity": "15m"
+            "refresh": {
+              "expiry": "30d",
+              "endpoint": "/auth/token/refresh",
+              "strategy": "rotating",
+              "beforeExpiry": "1m",
+              "storage": {
+                "context": "user",
+                "key": "auth.token.morph-idm-2fa.refresh"
               }
             }
           }
@@ -85,16 +104,30 @@
             "tcno"
           ],
           "pkce": true,
-          "tokenTypes": {
-            "access": {
-              "expiry": "1h"
-            },
-            "refresh": {
-              "expiry": "7d"
-            }
-          },
           "tokenExchange": {
             "endpoint": "/auth/exchange/edevlet"
+          },
+          "logout": {
+            "endpoint": "/auth/logout/edevlet"
+          },
+          "tokenTypes": {
+            "access": {
+              "expiry": "1h",
+              "storage": {
+                "context": "secureMemory",
+                "key": "auth.token.edevlet.access"
+              }
+            },
+            "refresh": {
+              "expiry": "7d",
+              "endpoint": "/auth/token/refresh",
+              "strategy": "rotating",
+              "beforeExpiry": "5m",
+              "storage": {
+                "context": "user",
+                "key": "auth.token.edevlet.refresh"
+              }
+            }
           }
         }
       ]
