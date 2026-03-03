@@ -142,23 +142,31 @@ Her provider kendi `grantFlow`, `logout` ve `tokenTypes` konfigürasyonuna sahip
 
 ## Endpoint
 
-### Function Endpoint (Client Kullanır ✅)
+### configEndpoint Yapısı
 
-Client'a özel, sadece gerekli environment konfigürasyonunu döner.
+`configEndpoint`, [Fonksiyon Çağrısı Standardı](../../function-call-standard.md)'na uygun bir endpoint descriptor'dır. `type` alanına göre URL oluşturulur:
 
-```http
-GET {{baseUrl}}/discovery/workflows/enviroment/instances/{{clientId}}/functions/enviroments
+```json
+"configEndpoint": {
+  "type": "instance-function",
+  "runtime": "v2",
+  "domain": "discovery",
+  "workflow": "enviroment",
+  "key": "mobile-app",
+  "function": "enviroment",
+  "requiredToken": [
+    { "provider": "morph-idm-1fa", "token": "access" },
+    { "provider": "morph-idm-device", "token": "access" }
+  ]
+}
 ```
 
-### Instance Data (Kullanılmaz ❌)
-
-Tüm instance verisini döner. Client için gereksiz veri içerir.
-
+Oluşan URL:
 ```http
-GET {{baseUrl}}/discovery/workflows/enviroment/instances/{{clientId}}/data
+GET {{baseUrl}}/api/v2/discovery/workflows/enviroment/instances/mobile-app/functions/enviroment
 ```
 
-> **Not:** `clientId` ve `baseUrl` uygulama içinde hardcode edilmiştir. Bu iki değer dışında tüm konfigürasyon backend'den gelir.
+> **Not:** `baseUrl` aktif stage'in `baseUrl` değerinden alınır. `key` uygulama içinde hardcode edilmiştir. Bu değerler dışında tüm konfigürasyon backend'den gelir.
 
 ---
 

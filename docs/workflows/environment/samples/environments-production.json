@@ -9,8 +9,8 @@
       "wsUrl": "wss://ws.burgan.com.tr",
       "mqttUrl": "mqtts://mqtt.burgan.com.tr:8883",
       "configEndpoint": {
+        "type": "instance-function",
         "runtime": "v2",
-        "level": "instance",
         "domain": "discovery",
         "workflow": "enviroment",
         "key": "mobile-app",

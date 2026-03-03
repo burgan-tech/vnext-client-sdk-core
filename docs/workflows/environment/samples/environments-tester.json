@@ -19,8 +19,8 @@
             "wsUrl": "ws://localhost:3001",
             "mqttUrl": "mqtt://localhost:1883",
             "configEndpoint": {
+                "type": "instance-function",
                 "runtime": "v2",
-                "level": "instance",
                 "domain": "discovery",
                 "workflow": "enviroment",
                 "key": "localhost",
@@ -188,8 +188,8 @@
             "wsUrl": "wss://pilot-ws.example.com/v1",
             "mqttUrl": "mqtts://pilot-mqtt.example.com:8883",
             "configEndpoint": {
+                "type": "instance-function",
                 "runtime": "v2",
-                "level": "instance",
                 "domain": "discovery",
                 "workflow": "enviroment",
                 "key": "pilot",

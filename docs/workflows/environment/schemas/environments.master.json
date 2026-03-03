@@ -60,47 +60,47 @@
 
     "functionEndpoint": {
       "type": "object",
-      "description": "Amorphie function endpoint tanımı. Client bu bilgilerle URL oluşturur.",
-      "required": ["level", "domain", "workflow", "function"],
+      "description": "Amorphie function endpoint tanımı. Client, type alanına göre URL oluşturur. Bkz: docs/function-call-standard.md",
+      "required": ["type", "runtime", "domain", "function"],
       "properties": {
+        "type": {
+          "type": "string",
+          "description": "Endpoint tipi. Swagger API hiyerarşisindeki üç fonksiyon seviyesine karşılık gelir.",
+          "enum": ["domain-function", "workflow-function", "instance-function"],
+          "x-enumDescriptions": {
+            "domain-function": "/api/{runtime}/{domain}/functions/{function}",
+            "workflow-function": "/api/{runtime}/{domain}/workflows/{workflow}/functions/{function}",
+            "instance-function": "/api/{runtime}/{domain}/workflows/{workflow}/instances/{key}/functions/{function}"
+          }
+        },
         "runtime": {
           "type": "string",
-          "description": "Workflow runtime versiyonu",
+          "description": "API runtime versiyonu",
           "enum": ["v1", "v2"],
           "default": "v2"
         },
-        "level": {
-          "type": "string",
-          "description": "Endpoint seviyesi",
-          "enum": ["instance", "workflow", "domain"],
-          "x-enumDescriptions": {
-            "instance": "/{domain}/workflows/{workflow}/instances/{key}/functions/{function}",
-            "workflow": "/{domain}/workflows/{workflow}/functions/{function}",
-            "domain": "/{domain}/functions/{function}"
-          }
-        },
         "domain": {
           "type": "string",
-          "description": "Workflow domain'i",
+          "description": "Domain tanımlayıcı",
           "pattern": "^[a-z0-9-]+$",
           "examples": ["discovery", "morph-idm", "loan"]
         },
         "workflow": {
           "type": "string",
-          "description": "Workflow adı",
+          "description": "Workflow adı (type='workflow-function' veya 'instance-function' olduğunda gerekli)",
           "pattern": "^[a-z0-9-]+$",
           "examples": ["enviroment", "mobile-login", "device-register"]
         },
         "key": {
           "type": "string",
-          "description": "Instance key (level='instance' olduğunda gerekli)",
+          "description": "Instance key (type='instance-function' olduğunda gerekli)",
           "examples": ["localhost", "pilot", "mobile-app"]
         },
         "function": {
           "type": "string",
-          "description": "Function adı",
+          "description": "Çağrılacak fonksiyon adı",
           "pattern": "^[a-z0-9-]+$",
-          "examples": ["enviroment", "config"]
+          "examples": ["enviroment", "domain-info", "available-enviroments", "info", "data"]
         },
         "requiredToken": {
           "type": "array",
@@ -109,12 +109,24 @@
         }
       },
       "additionalProperties": false,
-      "if": {
-        "properties": { "level": { "const": "instance" } }
-      },
-      "then": {
-        "required": ["level", "domain", "workflow", "key", "function"]
-      }
+      "allOf": [
+        {
+          "if": {
+            "properties": { "type": { "enum": ["workflow-function", "instance-function"] } }
+          },
+          "then": {
+            "required": ["type", "runtime", "domain", "workflow", "function"]
+          }
+        },
+        {
+          "if": {
+            "properties": { "type": { "const": "instance-function" } }
+          },
+          "then": {
+            "required": ["type", "runtime", "domain", "workflow", "key", "function"]
+          }
+        }
+      ]
     },
 
     "grantFlow": {
