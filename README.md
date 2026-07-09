@@ -1,144 +1,123 @@
-# VNext Client SDK Core
+# vNext Client SDK — Monorepo
 
-Low-code platform için TypeScript ve Flutter core SDK'ları ile Vue adaptörü içeren monorepo yapısı.
+vNext platformunun beş TypeScript client SDK'sını (ve Vue adaptörlerini) tek bir
+npm-workspaces monorepo'sunda toplayan, hepsini birlikte kullanan **entegre bir
+Vue 3 örnek uygulaması** içeren depo.
 
-## 🚀 Hızlı Başlangıç
+> Hedef: SDK'ları yalnızca **vNext seviyesinde** uyumlu tutmak. Flutter/Dart,
+> Angular ve React desteği kapsam dışıdır (bkz. [docs/RESTRUCTURE.md](docs/RESTRUCTURE.md)).
 
-### Ön Gereksinimler
+## 📦 SDK'lar
 
-- Node.js >= 18.0.0
-- npm >= 9.0.0
+| Paket(ler) | Klasör | Rol |
+|---|---|---|
+| `@morph/core`, `@morph/oauth2`, `@morph/logger`, `@morph/browser-storage` | `packages/morph-api/*` | Config-driven HTTP client + OAuth2 token yaşam döngüsü (transport) |
+| `@burgan-tech/pseudo-ui` | `packages/pseudo-ui` | Server-driven UI renderer — **yalnızca Vue** (`/vue` alt-yolu) |
+| `page-router`, `page-router-vue` | `packages/page-router/{core,vue}` | Navigasyon + görünüm yaşam döngüsü (uygulama kabuğu) |
+| `@burgantech/context-store` | `packages/context-store` | Paylaşılan reaktif state (context) yönetimi |
+| `amorphie-workflow-manager`, `amorphie-workflow-manager-vue` | `packages/workflow-manager/{core,vue}` | Amorphie workflow durum-makinesi |
 
-### Kurulum
+Her paketin kendi `README.md`'si vardır (kaynak repolardan gelir).
 
-1. **Bağımlılıkları yükle:**
-   ```bash
-   npm install
-   ```
+### Bağımlılık grafiği
 
-2. **Mock server'ı başlat (ayrı terminal):**
-   ```bash
-   npm run mock:server
-   ```
-   Mock server `http://localhost:3001` adresinde çalışacak.
+```
+@morph/core ── @morph/{oauth2,logger,browser-storage}
+      └── amorphie-workflow-manager (peer) ── amorphie-workflow-manager-vue (peer, +vue)
+page-router ── page-router-vue (peer, +vue)
+@burgantech/context-store            (bağımsız)
+@burgan-tech/pseudo-ui  (Vue + PrimeVue)   (bağımsız)
+```
 
-3. **Vue örnek uygulamasını başlat:**
-   ```bash
-   cd examples/vue-app
-   npm run dev
-   ```
-   Uygulama `http://localhost:5173` adresinde çalışacak.
-
-## 📋 Proje Yapısı
+## 📁 Proje Yapısı
 
 ```
 vnext-client-sdk-core/
-├── core/
-│   ├── core-ts/          # TypeScript Core SDK
-│   └── core-flutter/      # Flutter Core SDK (placeholder)
-├── adapters/
-│   └── vue/              # Vue 3 Adapter
+├── packages/
+│   ├── tsconfig.base.json          # page-router paketlerinin ortak TS tabanı
+│   ├── morph-api/{core,oauth2,logger,browser-storage}
+│   ├── pseudo-ui/                  # Vue-only server-driven renderer
+│   ├── page-router/{core,vue}
+│   ├── context-store/
+│   └── workflow-manager/{core,vue}
 ├── examples/
-│   └── vue-app/          # Vue örnek uygulaması
-├── mocks/                # Mock server (MSW + Express)
-└── docs/                 # Dokümantasyon
+│   └── vue-app/                    # 5 SDK'yı birlikte kullanan örnek uygulama
+└── docs/                           # Tasarım/spec dokümanları (bkz. not)
 ```
 
-## 🔧 Mock Server
+## 🚀 Hızlı Başlangıç
 
-Mock server, geliştirme sırasında backend API'lerini mock etmek için kullanılır.
-
-**Başlatma:**
-```bash
-npm run mock:server
-```
-
-**Endpoint listesini görmek için:**
-```bash
-curl http://localhost:3001/
-```
-
-**Test endpoint'leri:**
-```bash
-# Environment listesi
-curl http://localhost:3001/api/v1/discovery/workflows/enviroment/instances/web-app/functions/enviroment
-
-# Client config
-curl http://localhost:3001/api/v1/morph-idm/workflows/client/instances/web-app/functions/client
-
-# Features
-curl http://localhost:3001/features
-```
-
-## 📚 Dokümantasyon
-
-- [Lifecycle Events](docs/lifecycle.md) - Platform-agnostic lifecycle events
-- [Data Manager](docs/data-manager.md) - Centralized state management
-- [Navigation](docs/navigation.md) - Backend-driven navigation system
-- [Router](docs/router.md) - Router management (SDI/MDI modes)
-- [Authentication](docs/authantication.md) - Authentication flows and token management
-- [Workflow Schema](docs/workflow-schema.md) - Backend workflow schema specification
-- [Stage Config Schema](docs/stage-config-schema.md) - Stage configuration and function call URL building
-- [View Managers](docs/view-managers/) - View rendering managers
-- [Vue App README](examples/vue-app/README.md) - Vue example app setup and usage
-
-## 🛠️ Development
-
-### Build
+Ön gereksinim: Node.js ≥ 18, npm ≥ 9.
 
 ```bash
-# Tüm paketleri build et
+# 1) Bağımlılıkları kur + workspace'leri linkle
+npm install
+
+# 2) Tüm SDK paketlerini build et (dist/ üretir — örnek app bunları tüketir)
 npm run build
 
-# Belirli bir paketi build et
-cd core/core-ts && npm run build
-cd adapters/vue && npm run build
+# 3) Örnek uygulamayı çalıştır
+cd examples/vue-app
+npm run dev            # http://localhost:5173
 ```
 
-### Clean
+Ayrıntı: [examples/vue-app/README.md](examples/vue-app/README.md).
+
+## 🧩 Örnek Uygulama Ne Gösteriyor?
+
+Beş SDK'nın tek bir Vue 3 uygulamasında birlikte çalışması:
+
+- **page-router** → uygulama kabuğu (sidebar + `PageRouterShell`, SDI mod).
+- **pseudo-ui** → JSON `ViewDefinition`'ları render eden görünüm motoru (PrimeVue + Aura teması).
+- **context-store** → ekranlar arası paylaşılan reaktif state.
+- **morph-api** → HTTP/OAuth2 transport.
+- **workflow-manager** → amorphie workflow durum-makinesi.
+
+**Bayrak entegrasyon (Clients / Workflow ekranları):** `morph-idm` içindeki her
+`client` bir workflow **instance**'ıdır. Uygulama gerçek
+`test-vnext-morph-idm` backend'ine bağlanır ve:
+- client'ları **listeler** (`queryInstances`),
+- **yeni client** açar (`startWorkflow` → draft),
+- **statü değiştirir** (`startTransition`; active→passive, draft→publish),
+- her adımın **server-driven view'ını** (bir pseudo-ui `ViewDefinition`) render eder;
+  transition formları da server-driven'dır.
+
+### Backend & mock kurulumu (Keycloak/Docker gerekmez)
+
+- **Gerçek workflow API'si**: `examples/vue-app/vite.config.ts` içindeki Vite
+  proxy `/api/v1` isteklerini `https://test-vnext-morph-idm.apps.nonprod.ebt.bank`
+  adresine yönlendirir (self-signed sertifika için `secure:false`). Tarayıcı
+  aynı-origin `/api/v1/...` çağırır → CORS sorunu olmaz.
+- **Auth**: workflow API'si test'te public'tir ama morph her istekte bir auth
+  context'i ister. Bu yüzden bir **client-credentials token'ı MSW ile mock'lanır**
+  (`*/idp/token`) ve uygulama açılışında `ensureMorphAuth()` ile önceden alınır;
+  backend bu zararsız Bearer'ı yok sayar.
+- **Morph API demo ekranı** tamamen MSW ile mock'lanır (`/api/accounts`).
+
+## 🛠️ Geliştirme
 
 ```bash
+npm run build     # tüm paketleri build et (--workspaces --if-present)
+npm run test      # tüm paket testlerini çalıştır
 npm run clean
 ```
 
-### Test
+Notlar:
+- **Build sırası**: `@morph/core` önce; page-router paketleri `packages/tsconfig.base.json`'a bağımlıdır (bu dosya `packages/` kökünde durmalı, yoksa page-router derlemesi kırılır).
+- **Build araçları**: morph-api/* ve workflow-manager/* → Vite; page-router/* ve context-store → `tsc`; pseudo-ui → Vite + `vue-tsc`.
+- Örnek app, SDK paketlerini `dist/` üzerinden workspace symlink'iyle tüketir; bir SDK'yı değiştirince `npm run build -w <paket>` sonrası app HMR ile yeni dist'i alır (`vite.config.ts` → `optimizeDeps.exclude`).
 
-```bash
-npm run test
-```
+## 📚 Dokümantasyon
 
-## 📝 Vue Uygulaması Kullanımı
+- [docs/RESTRUCTURE.md](docs/RESTRUCTURE.md) — **bu depoda ne yapıldı**: yeniden yapılandırma, Vue-only pseudo-ui, cleanup kayıtları, mimari kararlar.
+- [examples/vue-app/README.md](examples/vue-app/README.md) — örnek uygulama.
 
-Detaylı kullanım için [Vue App README](examples/vue-app/README.md) dosyasına bakın.
-
-**Kısa özet:**
-1. Mock server'ı başlat: `npm run mock:server`
-2. Vue app'i başlat: `cd examples/vue-app && npm run dev`
-3. Browser'da aç: `http://localhost:5173`
-
-## 🔍 Log Prefix'leri
-
-SDK logları prefix'lerle ayrılmıştır:
-
-- `[CoreSDK]` - Core SDK logları (mavi, timestamp'li)
-- `[VueAdapter]` - Vue adapter logları (mor)
-- `[VueApp]` - Vue app logları (normal console.log)
-
-## 📦 Paketler
-
-### Core SDK'lar
-
-- **@vnext/core-ts**: TypeScript core SDK - Framework-agnostic core library
-- **@vnext/core-flutter**: Flutter core SDK - Dart/Flutter için core library (placeholder)
-
-### Adapters
-
-- **@vnext/vue**: Vue 3 Composition API hooks ve plugin
-
-### Examples
-
-- **vue-app**: Vue SDK'yı tüketen örnek uygulama
+> **`docs/` içindeki diğer .md dosyaları** (data-manager, navigation, router,
+> authantication, workflow-schema, vb.) daha eski **monolitik vNext tasarımına**
+> ait spec/tasarım notlarıdır ve mevcut 5-paket yapısıyla birebir örtüşmeyebilir.
+> Referans olarak tutuluyorlar; güncel gerçek kaynak = paketlerin kendi kodları
+> ve README'leridir.
 
 ## 📄 Lisans
 
-Private
+Private (paketlerin kendi lisansları için ilgili `package.json`'lara bakın).

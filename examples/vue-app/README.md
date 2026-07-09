@@ -1,198 +1,92 @@
-# VNext Vue Example Application
+# vNext SDK — Integrated Vue Sample
 
-Bu proje, VNext TypeScript Core SDK ve Vue adapter'ını kullanan örnek bir Vue 3 uygulamasıdır.
+A single Vue 3 app that wires **all five vNext TypeScript SDKs** together.
 
-## 🚀 Hızlı Başlangıç
+- The **Morph API** demo screen mocks its network in-browser with MSW.
+- The **Workflow (KYC)** screen talks to the **real** `test-vnext-morph-idm`
+  backend (through a Vite dev proxy), driving the live `morph-idm / client`
+  workflow instance `IbWeb`.
 
-### Ön Gereksinimler
+No Keycloak or Docker required — morph's mandatory auth context is satisfied by a
+mock client-credentials token (the test workflow API is public and ignores it).
 
-- Node.js >= 18.0.0
-- npm >= 9.0.0
+## SDKs used
 
-### Kurulum
+| SDK | Package(s) | Role in this app |
+|-----|-----------|------------------|
+| morph-api | `@morph/core` · `oauth2` · `logger` · `browser-storage` | HTTP client + OAuth2 (client-credentials) transport |
+| pseudo-ui | `@burgan-tech/pseudo-ui/vue` | Server-driven UI renderer (Vue-only build) |
+| page-router | `page-router` · `page-router-vue` | Navigation + view lifecycle (the app shell) |
+| context-store | `@burgantech/context-store` | Shared reactive state bus |
+| workflow-manager | `amorphie-workflow-manager` (+ `-vue`) | Workflow state machine |
 
-1. **Root dizinde bağımlılıkları yükle:**
-   ```bash
-   cd /path/to/vnext-client-sdk-core
-   npm install
-   ```
+## Run
 
-2. **Mock server'ı başlat (ayrı terminal):**
-   ```bash
-   npm run mock:server
-   ```
-   Mock server `http://localhost:3001` adresinde çalışacak.
+From the repo root (installs + links the workspace packages):
 
-3. **Vue uygulamasını başlat:**
-   ```bash
-   cd examples/vue-app
-   npm run dev
-   ```
-   Uygulama `http://localhost:5173` adresinde çalışacak.
-
-## 📋 Kullanım
-
-### Mock Server
-
-Mock server, geliştirme sırasında backend API'lerini mock etmek için kullanılır.
-
-**Başlatma:**
 ```bash
-npm run mock:server
+npm install
+npm run build          # build the SDK packages first
 ```
 
-**Endpoint'leri görmek için:**
-```bash
-curl http://localhost:3001/
-```
+Then start the app:
 
-**Test endpoint'leri:**
-```bash
-# Environment listesi
-curl http://localhost:3001/api/v1/discovery/workflows/enviroment/instances/web-app/functions/enviroment
-
-# Client config
-curl http://localhost:3001/api/v1/morph-idm/workflows/client/instances/web-app/functions/client
-
-# Features
-curl http://localhost:3001/features
-```
-
-### Vue Uygulaması
-
-**Development modunda çalıştırma:**
 ```bash
 cd examples/vue-app
-npm run dev
+npm run dev            # http://localhost:5173
 ```
 
-**Build:**
-```bash
-npm run build
-```
+> The MSW service worker (`public/mockServiceWorker.js`) is committed. If it is
+> ever missing, regenerate it with `npm run mock:init`.
 
-**Preview (build sonrası):**
-```bash
-npm run preview
-```
+## Screens
 
-## 🔧 Yapılandırma
+- **Home** — overview of the wired SDKs.
+- **Clients (IDM)** — a client-management console over the **real**
+  `morph-idm / client` workflow: lists clients (`queryInstances`, paginated),
+  creates new ones (`startWorkflow` → draft), and changes status
+  (active → passive via `startTransition`). Every mutation goes through a
+  confirm dialog; migration/fact clients are protected. Opening a client goes to:
+- **Client detail** — attaches to the instance (`continueWith`), renders its
+  server-driven view with pseudo-ui, and drives transitions. A transition's own
+  form (e.g. `update` / `publish`) is itself a server-driven pseudo-ui view,
+  fetched through morph-api and rendered inline; submitting runs the transition.
+- **Workflow (IbWeb)** — a focused single-instance demo of the same mechanism.
+- **Pseudo-UI Form** — a standalone JSON-defined view rendered by pseudo-ui; the
+  submitted payload is written to the context-store.
+- **Workflow (KYC)** — the flagship integration against the **real** backend:
+  `workflow-manager` attaches to the live `morph-idm / client` instance `IbWeb`
+  (via `morph-api`'s `MorphHttpDelegate` over the Vite proxy), polls its state,
+  and renders the server-driven view — which is a **pseudo-ui `ViewDefinition`**.
+  A pseudo-ui *submit* (whose `command` is the transition key) fires the next
+  workflow transition. An offline in-memory alternative lives in
+  `src/mocks/workflow-backend.ts`.
+- **Morph API** — acquires a client-credentials token and makes an authenticated
+  `GET /accounts`; both the token endpoint and the API are mocked by MSW.
+- **Context Store** — read/write shared state; values written by other screens
+  appear here reactively.
 
-### Environment Variables
-
-Vue uygulaması aşağıdaki environment variable'ları destekler:
-
-- `VITE_ENVIRONMENT_ENDPOINT`: Environment endpoint URL'i (opsiyonel)
-- `VITE_APP_KEY`: Uygulama/client key (opsiyonel)
-- `VITE_DEFAULT_STAGE`: Default stage seçimi (opsiyonel)
-- `VITE_DEBUG`: Debug mode aktif etmek için `true` (opsiyonel)
-
-**Örnek `.env` dosyası:**
-```env
-VITE_ENVIRONMENT_ENDPOINT=http://localhost:3001/api/v1/discovery/workflows/enviroment/instances/web-app/functions/enviroment
-VITE_APP_KEY=web-app
-VITE_DEFAULT_STAGE=localhost
-VITE_DEBUG=true
-```
-
-### SDK Initialization
-
-Vue uygulaması, SDK'yı sadece 2 parametre ile initialize eder:
-
-```typescript
-app.use(VNextVuePlugin, {
-  environmentEndpoint: 'http://localhost:3001/api/v1/discovery/workflows/enviroment/instances/web-app/functions/enviroment',
-  appKey: 'web-app',
-  debug: true, // Opsiyonel: Verbose logging için
-});
-```
-
-Core SDK gerisini halleder:
-1. Environment listesini çeker
-2. Default stage'i seçer (veya `defaultStage` parametresini kullanır)
-3. Client config'i çeker
-4. Feature'ları initialize eder
-5. WebSocket bağlantısını kurar (eğer enabled ise)
-
-## 📊 Log Prefix'leri
-
-Console'da hangi katmanın log attığını ayırt edebilirsin:
-
-- `[VueApp]` - Vue uygulaması logları
-- `[VueAdapter]` - Vue adapter logları (mor renk)
-- `[CoreSDK]` - Core SDK logları (mavi renk, timestamp'li)
-
-## 🐛 Debug Mode
-
-Debug mode aktif olduğunda, SDK tüm initialization adımlarını detaylı olarak loglar:
+## How it fits together
 
 ```
-[CoreSDK] [INFO] 🚀 Initializing CoreSDK...
-[CoreSDK] [INFO] Step 1/7: Fetching environments...
-[CoreSDK] [DEBUG] Environments fetched: {...}
-[CoreSDK] [INFO] Step 2/7: Selecting stage...
-[CoreSDK] [INFO] Stage selected: {id: 'localhost', ...}
-...
-[CoreSDK] [INFO] ✅ SDK initialization completed successfully!
+page-router (shell)  ──renders──▶  view components
+                                        │
+   Workflow (KYC) ────────────────────▶ workflow-manager ──(HttpDelegate: in-memory)──▶ state machine
+                                        │                                                    │
+                                        └── step view.content (pseudo-ui ViewDefinition) ◀───┘
+                                        │
+   pseudo-ui <PseudoView> ── submit ───▶ wf.transition(...)
+
+   Morph API view ─────────▶ morph-api ──(MSW)──▶ /idp/token, /api/accounts
+
+   context-store  ◀── shared reactive bus, read/written by every screen
 ```
 
-## 📁 Proje Yapısı
+## Notes
 
-```
-examples/vue-app/
-├── src/
-│   ├── main.ts              # Vue app entry point, SDK initialization
-│   ├── App.vue              # Main app component
-│   ├── router.ts            # Vue Router configuration
-│   ├── components/          # Vue components
-│   └── views/               # Vue views/pages
-│       ├── Login.vue        # Login examples
-│       ├── Dashboard.vue    # Dashboard view
-│       ├── WebSocket.vue    # WebSocket test
-│       ├── Workflow.vue     # Workflow examples
-│       └── View.vue         # View examples
-├── public/                  # Static files
-│   └── mockServiceWorker.js # MSW service worker
-├── package.json
-└── README.md
-```
-
-## 🔍 Troubleshooting
-
-### Log prefix'leri görünmüyor
-
-1. Hard refresh yap: `Cmd+Shift+R` (Mac) veya `Ctrl+Shift+R` (Windows)
-2. Browser cache'i temizle: DevTools > Application > Clear storage
-3. Vite cache'i temizle: `rm -rf node_modules/.vite`
-
-### Mock server çalışmıyor
-
-1. Port 3001'in kullanılabilir olduğundan emin ol:
-   ```bash
-   lsof -i :3001
-   ```
-2. Mock server'ı yeniden başlat:
-   ```bash
-   npm run mock:server
-   ```
-
-### CORS hatası
-
-Mock server CORS header'larını otomatik olarak ekler. Eğer hala CORS hatası görüyorsan:
-
-1. Mock server'ın çalıştığından emin ol
-2. Browser'ı yenile
-3. Network tab'ında request'in mock server'a gittiğini kontrol et
-
-### SDK initialization hatası
-
-1. Console'da hata mesajlarını kontrol et
-2. Mock server'ın çalıştığından emin ol
-3. Environment endpoint'in doğru olduğundan emin ol
-4. Network tab'ında request'lerin başarılı olduğunu kontrol et
-
-## 📚 Daha Fazla Bilgi
-
-- [Core SDK Documentation](../../docs/)
-- [Vue Adapter Documentation](../../adapters/vue/)
-- [Mock Server Documentation](../../mocks/README.md)
+- `pseudo-ui` is consumed as a **Vue-only** build in this repo — the Angular and
+  React adapters were removed. It requires PrimeVue + a `@primeuix/themes` preset
+  (set up in `src/main.ts`).
+- `vite.config.ts` sets `build.target: 'es2022'` (page-router boot uses top-level
+  await), `resolve.dedupe: ['vue','primevue']`, and excludes the SDK packages
+  from dep pre-bundling so SDK rebuilds are picked up on reload.

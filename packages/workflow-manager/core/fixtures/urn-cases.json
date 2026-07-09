@@ -1,0 +1,64 @@
+{
+  "valid": [
+    {
+      "input": "urn:vnext:flow:start:onboarding:kyc-main-flow",
+      "expected": {
+        "namespace": "vnext",
+        "type": "flow",
+        "command": "start",
+        "domain": "onboarding",
+        "flowName": "kyc-main-flow"
+      }
+    },
+    {
+      "input": "URN:VNEXT:FLOW:START:onboarding:kyc-main-flow",
+      "expected": {
+        "namespace": "vnext",
+        "type": "flow",
+        "command": "start",
+        "domain": "onboarding",
+        "flowName": "kyc-main-flow"
+      },
+      "note": "case-insensitive prefix/command"
+    },
+    {
+      "input": "urn:vnext:flow:transition:onboarding:kyc-main-flow:abc-123:approved",
+      "expected": {
+        "namespace": "vnext",
+        "type": "flow",
+        "command": "transition",
+        "domain": "onboarding",
+        "flowName": "kyc-main-flow",
+        "instanceId": "abc-123",
+        "transitionKey": "approved"
+      }
+    },
+    {
+      "input": "urn:vnext:flow:continue:onboarding:kyc-main-flow:abc-123",
+      "expected": {
+        "namespace": "vnext",
+        "type": "flow",
+        "command": "continue",
+        "domain": "onboarding",
+        "flowName": "kyc-main-flow",
+        "instanceId": "abc-123"
+      }
+    }
+  ],
+  "invalid": [
+    { "input": "", "reason": "empty" },
+    { "input": "urn:vnext:flow", "reason": "min parts" },
+    { "input": "other:vnext:flow:start:domain:flow:extra", "reason": "wrong prefix" },
+    { "input": "urn:other:flow:start:domain:flow", "reason": "wrong namespace" },
+    { "input": "urn:vnext:other:start:domain:flow", "reason": "wrong type" },
+    { "input": "urn:vnext:flow:foo:domain:flow", "reason": "unknown command" },
+    { "input": "urn:vnext:flow:start::flow", "reason": "empty domain" },
+    { "input": "urn:vnext:flow:start:domain:", "reason": "empty flow name" },
+    { "input": "urn:vnext:flow:start:domain:flow:extra", "reason": "start needs 6 parts" },
+    { "input": "urn:vnext:flow:transition:domain:flow:abc", "reason": "transition needs 8 parts" },
+    { "input": "urn:vnext:flow:transition:domain:flow::approve", "reason": "empty instance id" },
+    { "input": "urn:vnext:flow:transition:domain:flow:abc:", "reason": "empty transition key" },
+    { "input": "urn:vnext:flow:continue:domain:flow", "reason": "continue needs 7 parts" },
+    { "input": "urn:vnext:flow:continue:domain:flow:", "reason": "empty instance id (continue)" }
+  ]
+}

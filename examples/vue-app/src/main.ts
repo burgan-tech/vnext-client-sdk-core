@@ -1,57 +1,49 @@
+// ─────────────────────────────────────────────────────────────────────────
+// Bootstrap — wires all 5 vNext SDKs into one Vue 3 app.
+//
+//   1. PrimeVue + Aura theme + CSS   (required by pseudo-ui widgets)
+//   2. MSW                            (mocks morph-api's network in-browser)
+//   3. context-store + workflow       (provided app-wide)
+//   4. page-router                    (async boot → mounted as the app shell)
+// ─────────────────────────────────────────────────────────────────────────
 import { createApp } from 'vue';
-import App from './App.vue';
-import VNextVuePlugin from '@vnext/vue';
-import { router } from './router';
+import PrimeVue from 'primevue/config';
+import ToastService from 'primevue/toastservice';
+import Aura from '@primeuix/themes/aura';
+import 'primeicons/primeicons.css';
+import '@burgan-tech/pseudo-ui/vue/style.css';
+import './styles.css';
 
-// Enable MSW in development
-async function enableMocking() {
-  if (import.meta.env.DEV) {
-    console.log('🔶 [VueApp] Enabling MSW mock service worker...');
-    const { worker } = await import('../../../mocks/browser.js');
-    await worker.start({
-      onUnhandledRequest: 'bypass',
-    });
-    console.log('✅ [VueApp] MSW enabled - Mocking API requests');
-  }
+import AppShell from './AppShell.vue';
+import { worker } from './mocks/browser';
+import { bootRouter } from './sdk/router';
+import { contextStore, CONTEXT_STORE_KEY } from './sdk/context';
+import { workflowManager } from './sdk/workflow';
+import { WorkflowManagerKey } from 'amorphie-workflow-manager-vue';
+import { ensureMorphAuth } from './sdk/morph';
+
+// 1. Start the mock network layer before anything makes a request.
+await worker.start({ onUnhandledRequest: 'bypass' });
+
+// 2. Prime the morph client-credentials token (via the mocked token endpoint)
+//    so the first workflow/IDM request is already authenticated. Non-fatal:
+//    the app still mounts if this fails (IDM screens will just show an error).
+try {
+  await ensureMorphAuth();
+} catch {
+  /* already logged by ensureMorphAuth */
 }
 
-// Enable WebSocket mock in development
-function enableWebSocketMock() {
-  if (import.meta.env.DEV) {
-    console.log('🔶 [VueApp] Enabling WebSocket mock...');
-    import('../../../mocks/websocket.js').then(({ setupWebSocketMock }) => {
-      setupWebSocketMock();
-      console.log('✅ [VueApp] WebSocket mock enabled');
-    }).catch((error) => {
-      console.warn('⚠️ [VueApp] Failed to enable WebSocket mock:', error);
-    });
-  }
-}
+// 3. Boot the page-router (async) — it navigates to the "home" route.
+const router = await bootRouter();
 
-// Enable WebSocket mock (doesn't need to wait)
-enableWebSocketMock();
+// 3. Create the app, install PrimeVue, provide shared SDK singletons, mount.
+const app = createApp(AppShell, { router });
+app.use(PrimeVue, { theme: { preset: Aura, options: { darkModeSelector: '.dark-mode' } } });
+app.use(ToastService);
+app.provide(CONTEXT_STORE_KEY, contextStore);
+app.provide(WorkflowManagerKey, workflowManager);
+app.mount('#app');
 
-// Start the app after MSW is ready
-enableMocking().then(() => {
-  console.log('🚀 [VueApp] Creating Vue app instance...');
-  const app = createApp(App);
-
-  // Install VNext Vue plugin
-  // Only 2 parameters needed: environmentEndpoint and appKey
-  // Core SDK will handle the rest (fetching environments, client config, etc.)
-  app.use(VNextVuePlugin, {
-    environmentEndpoint: import.meta.env.VITE_ENVIRONMENT_ENDPOINT || 
-      'http://localhost:3001/api/v1/discovery/workflows/enviroment/instances/web-app/functions/enviroment',
-    appKey: import.meta.env.VITE_APP_KEY || 'web-app',
-    defaultStage: import.meta.env.VITE_DEFAULT_STAGE, // Optional
-    debug: import.meta.env.DEV || import.meta.env.VITE_DEBUG === 'true', // Enable verbose logging in dev mode
-  });
-
-  // Install router
-  app.use(router);
-
-  console.log('✅ [VueApp] Mounting Vue app...');
-  app.mount('#app');
-  console.log('✅ [VueApp] Vue app mounted successfully!');
-});
-
+// eslint-disable-next-line no-console
+console.info('%c[vue-app] ✅ mounted — 5 SDKs wired', 'color:#4f46e5;font-weight:bold');

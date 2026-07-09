@@ -1,0 +1,49 @@
+{
+  "name": "page-router-vue",
+  "version": "0.1.0",
+  "description": "Vue 3 adapter for page-router — composable + reactive bindings + ViewSurface mount component",
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint \"src/**/*.ts\" \"tests/**/*.ts\""
+  },
+  "peerDependencies": {
+    "page-router": "0.1.0",
+    "vue": "^3.5.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "@typescript-eslint/eslint-plugin": "^8.18.0",
+    "@typescript-eslint/parser": "^8.18.0",
+    "@vue/test-utils": "^2.4.6",
+    "eslint": "^9.17.0",
+    "happy-dom": "^15.11.7",
+    "page-router": "0.1.0",
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8",
+    "vue": "^3.5.13"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "license": "UNLICENSED"
+}

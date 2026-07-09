@@ -1,0 +1,1175 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "https://amorphie.io/meta/view-vocabulary/1.0",
+    "title": "Amorphie View Vocabulary",
+    "description": "Platform-agnostic, Material Design 3 based component tree specification. Defines the structure of view JSON files that are rendered by platform-specific engines (Vue/PrimeVue, Flutter/material.io). Contains no styling - only structural component definitions, data binding, and semantic variants.",
+
+    "type": "object",
+    "required": ["$schema", "dataSchema", "view"],
+    "properties": {
+        "$schema": {
+            "type": "string",
+            "const": "https://amorphie.io/meta/view-vocabulary/1.0",
+            "description": "View vocabulary schema reference"
+        },
+        "dataSchema": {
+            "type": "string",
+            "format": "uri",
+            "description": "Reference to the JSON Schema $id that defines the data contract for this view. The renderer uses this to resolve bind targets, labels, validation rules, LOV sources, and conditional logic."
+        },
+        "lookups": {
+            "type": "array",
+            "items": {
+                "type": "string",
+                "minLength": 1
+            },
+            "description": "List of schema property names whose x-lookup definitions should be activated for this view. The renderer watches filter dependencies and lazily fetches lookup data when required parameters are available. Results are stored in lookupData and accessible via $lookup.{propertyName}.{field} expressions.",
+            "examples": [
+                ["branchDetail"],
+                ["accountInfo", "customerAddressLookup"]
+            ]
+        },
+        "uiState": {
+            "type": "object",
+            "additionalProperties": true,
+            "description": "Initial values for the $ui namespace — transient UI state that is NOT included in form submission. Used for overlay visibility toggles, active tab tracking, accordion expansion state, etc. Keys are freely defined (no schema required). Access via $ui.key expressions and set via ActionDescriptor with bind: '$ui.key'.",
+            "examples": [
+                { "showConfirmDialog": false, "activeTab": "home", "filterPanelOpen": true }
+            ]
+        },
+        "view": {
+            "$ref": "#/$defs/componentNode",
+            "description": "Root component node - the entry point of the component tree"
+        }
+    },
+    "additionalProperties": false,
+
+    "$defs": {
+
+        "componentNode": {
+            "description": "A single node in the component tree. Discriminated by the 'type' field.",
+            "oneOf": [
+                { "$ref": "#/$defs/columnComponent" },
+                { "$ref": "#/$defs/rowComponent" },
+                { "$ref": "#/$defs/wrapComponent" },
+                { "$ref": "#/$defs/stackComponent" },
+                { "$ref": "#/$defs/gridComponent" },
+                { "$ref": "#/$defs/expandedComponent" },
+                { "$ref": "#/$defs/spacerComponent" },
+                { "$ref": "#/$defs/centerComponent" },
+                { "$ref": "#/$defs/scrollViewComponent" },
+
+                { "$ref": "#/$defs/cardComponent" },
+                { "$ref": "#/$defs/expansionPanelComponent" },
+                { "$ref": "#/$defs/stepperComponent" },
+                { "$ref": "#/$defs/tabViewComponent" },
+                { "$ref": "#/$defs/dividerComponent" },
+
+                { "$ref": "#/$defs/textFieldComponent" },
+                { "$ref": "#/$defs/textAreaComponent" },
+                { "$ref": "#/$defs/numberFieldComponent" },
+                { "$ref": "#/$defs/dropdownComponent" },
+                { "$ref": "#/$defs/checkboxComponent" },
+                { "$ref": "#/$defs/radioGroupComponent" },
+                { "$ref": "#/$defs/switchComponent" },
+                { "$ref": "#/$defs/datePickerComponent" },
+                { "$ref": "#/$defs/sliderComponent" },
+                { "$ref": "#/$defs/arrayFieldComponent" },
+
+                { "$ref": "#/$defs/textComponent" },
+                { "$ref": "#/$defs/iconComponent" },
+                { "$ref": "#/$defs/imageComponent" },
+                { "$ref": "#/$defs/chipComponent" },
+                { "$ref": "#/$defs/badgeComponent" },
+                { "$ref": "#/$defs/progressIndicatorComponent" },
+
+                { "$ref": "#/$defs/buttonComponent" },
+                { "$ref": "#/$defs/iconButtonComponent" },
+                { "$ref": "#/$defs/fabComponent" },
+
+                { "$ref": "#/$defs/forEachComponent" },
+                { "$ref": "#/$defs/nestedComponent" },
+
+                { "$ref": "#/$defs/timePickerComponent" },
+                { "$ref": "#/$defs/segmentedButtonComponent" },
+                { "$ref": "#/$defs/searchFieldComponent" },
+                { "$ref": "#/$defs/autoCompleteComponent" },
+
+                { "$ref": "#/$defs/listTileComponent" },
+                { "$ref": "#/$defs/avatarComponent" },
+                { "$ref": "#/$defs/richTextComponent" },
+                { "$ref": "#/$defs/loadingIndicatorComponent" },
+
+                { "$ref": "#/$defs/dialogComponent" },
+                { "$ref": "#/$defs/bottomSheetComponent" },
+                { "$ref": "#/$defs/sideSheetComponent" },
+                { "$ref": "#/$defs/snackbarComponent" },
+                { "$ref": "#/$defs/tooltipComponent" },
+
+                { "$ref": "#/$defs/appBarComponent" },
+                { "$ref": "#/$defs/navigationBarComponent" },
+                { "$ref": "#/$defs/navigationDrawerComponent" },
+
+                { "$ref": "#/$defs/menuComponent" },
+                { "$ref": "#/$defs/toolbarComponent" },
+                { "$ref": "#/$defs/carouselComponent" }
+            ]
+        },
+
+        "spacingToken": {
+            "type": "string",
+            "enum": ["xs", "sm", "md", "lg", "xl"],
+            "description": "Semantic spacing token. Resolved to platform-specific pixel values by the theme. xs=4, sm=8, md=16, lg=24, xl=32 are typical defaults."
+        },
+
+        "mainAxisAlignment": {
+            "type": "string",
+            "enum": ["start", "center", "end", "spaceBetween", "spaceAround", "spaceEvenly"],
+            "description": "Alignment along the main axis (vertical for Column, horizontal for Row)"
+        },
+
+        "crossAxisAlignment": {
+            "type": "string",
+            "enum": ["start", "center", "end", "stretch"],
+            "description": "Alignment along the cross axis (horizontal for Column, vertical for Row)"
+        },
+
+        "typographyVariant": {
+            "type": "string",
+            "enum": [
+                "displayLarge", "displayMedium", "displaySmall",
+                "headlineLarge", "headlineMedium", "headlineSmall",
+                "titleLarge", "titleMedium", "titleSmall",
+                "bodyLarge", "bodyMedium", "bodySmall",
+                "labelLarge", "labelMedium", "labelSmall"
+            ],
+            "description": "Material Design 3 Type Scale variant"
+        },
+
+        "buttonVariant": {
+            "type": "string",
+            "enum": ["filled", "outlined", "text", "elevated", "tonal"],
+            "description": "Material Design 3 button style variant"
+        },
+
+        "inputVariant": {
+            "type": "string",
+            "enum": ["filled", "outlined"],
+            "description": "Material Design 3 input field style variant"
+        },
+
+        "buttonAction": {
+            "type": "string",
+            "enum": ["submit", "cancel", "back"],
+            "description": "Semantic button action. submit: validates then dispatches, cancel/back: dispatches immediately. The optional 'command' property carries the opaque reference (URN, URL, etc.) for the delegate."
+        },
+
+        "sheetVariant": {
+            "type": "string",
+            "enum": ["standard", "modal"],
+            "description": "Sheet presentation mode. standard: non-blocking, co-exists with main content. modal: blocks interaction with content behind."
+        },
+
+        "appBarVariant": {
+            "type": "string",
+            "enum": ["center", "small", "medium", "large"],
+            "description": "Material Design 3 top app bar variant."
+        },
+
+        "chipVariant": {
+            "type": "string",
+            "enum": ["assist", "filter", "input", "suggestion"],
+            "description": "Material Design 3 chip type. assist: action shortcut, filter: toggleable filter, input: user-entered info, suggestion: contextual hint."
+        },
+
+        "avatarShape": {
+            "type": "string",
+            "enum": ["circle", "square"],
+            "description": "Avatar shape variant."
+        },
+
+        "multiLangText": {
+            "type": "object",
+            "description": "Multi-language text object. Keys are ISO 639-1 language codes.",
+            "patternProperties": {
+                "^[a-z]{2}(-[A-Z]{2})?$": {
+                    "type": "string",
+                    "minLength": 1
+                }
+            },
+            "additionalProperties": false,
+            "examples": [
+                { "tr": "Kaydet", "en": "Save", "ar": "حفظ" }
+            ]
+        },
+
+        "textContent": {
+            "description": "Text content - either a static/expression string or a multi-language object. Expressions start with $ (e.g. $schema.firstName.label, $form.firstName, $instance.selectedBranchCode, $param.city, $ui.activeTab, $lov.city.display, $lookup.branchDetail.address, $item.name, $context.lang)",
+            "oneOf": [
+                { "type": "string", "minLength": 1 },
+                { "$ref": "#/$defs/multiLangText" }
+            ]
+        },
+
+        "expression": {
+            "type": "string",
+            "pattern": "^\\$",
+            "description": "Runtime expression. $form.fieldName = user input data, $instance.fieldName = backend-persisted data, $param.fieldName = parent-bound data (sub-components only), $ui.key = transient UI state (not submitted), $schema.fieldName.label = field label from x-labels, $context.key = runtime context (lang, etc.), $item.field = current iteration item, $lov.fieldName = LOV items array, $lov.fieldName.display = localized display name for current value, $lookup.propName.field = enrichment data"
+        },
+
+        "actionHook": {
+            "description": "Side-channel signal fired before or after a main action dispatch. Forwarded through the same delegate.onAction with a phase context. Reserved verbs (submit/select/reset) are rejected at runtime.",
+            "type": "object",
+            "required": ["action"],
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "description": "Hook verb. Opaque to the SDK (use a domain verb like 'audit', 'telemetry', 'prefetch')."
+                },
+                "command": {
+                    "type": "string",
+                    "description": "Optional URN command, opaque to the SDK."
+                },
+                "sync": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Await the delegate call? Default false (fire-and-forget). When true, a pre-hook rejection aborts the pipeline."
+                }
+            },
+            "additionalProperties": false
+        },
+
+        "actionDescriptor": {
+            "description": "Action triggered by user interaction. Can be a simple action name string, a detailed action object, or an array of action objects (to set multiple fields in one tap).",
+            "oneOf": [
+                {
+                    "type": "string",
+                    "description": "Simple action name: 'submit', 'cancel', 'back', 'next', etc."
+                },
+                {
+                    "type": "object",
+                    "required": ["action"],
+                    "properties": {
+                        "action": {
+                            "type": "string",
+                            "description": "Action identifier"
+                        },
+                        "bind": {
+                            "type": "string",
+                            "description": "Schema property to update"
+                        },
+                        "value": {
+                            "description": "Value to set (static or expression)"
+                        },
+                        "command": {
+                            "type": "string",
+                            "description": "Free-form domain payload — typically a URN that the host resolves (workflow command, integration ref, navigation target). Opaque to the SDK."
+                        },
+                        "validate": {
+                            "type": "boolean",
+                            "description": "Override validation behaviour. submit defaults to true; everything else defaults to false. Use to make a non-submit dispatch run validation, or to bypass validation on a submit."
+                        },
+                        "preHooks": {
+                            "type": "array",
+                            "description": "Side-channel hooks fired before the main delegate dispatch.",
+                            "items": { "$ref": "#/$defs/actionHook" },
+                            "minItems": 1
+                        },
+                        "postHooks": {
+                            "type": "array",
+                            "description": "Side-channel hooks fired after the main delegate dispatch.",
+                            "items": { "$ref": "#/$defs/actionHook" },
+                            "minItems": 1
+                        }
+                    },
+                    "additionalProperties": false
+                },
+                {
+                    "type": "array",
+                    "description": "Array of action objects. Executed sequentially in one interaction (e.g. set branchCode and branchName on card tap).",
+                    "items": {
+                        "type": "object",
+                        "required": ["action"],
+                        "properties": {
+                            "action": { "type": "string" },
+                            "bind": { "type": "string" },
+                            "value": {},
+                            "command": { "type": "string" },
+                            "validate": { "type": "boolean" },
+                            "preHooks": {
+                                "type": "array",
+                                "items": { "$ref": "#/$defs/actionHook" },
+                                "minItems": 1
+                            },
+                            "postHooks": {
+                                "type": "array",
+                                "items": { "$ref": "#/$defs/actionHook" },
+                                "minItems": 1
+                            }
+                        },
+                        "additionalProperties": false
+                    },
+                    "minItems": 1
+                }
+            ]
+        },
+
+
+        "columnComponent": {
+            "type": "object",
+            "required": ["type", "children"],
+            "properties": {
+                "type": { "const": "Column" },
+                "children": { "type": "array", "items": { "$ref": "#/$defs/componentNode" }, "minItems": 1 },
+                "gap": { "$ref": "#/$defs/spacingToken" },
+                "mainAxisAlignment": { "$ref": "#/$defs/mainAxisAlignment" },
+                "crossAxisAlignment": { "$ref": "#/$defs/crossAxisAlignment" }
+            },
+            "additionalProperties": false,
+            "description": "Vertical layout container. Flutter: Column, Vue: flex-direction column."
+        },
+
+        "rowComponent": {
+            "type": "object",
+            "required": ["type", "children"],
+            "properties": {
+                "type": { "const": "Row" },
+                "children": { "type": "array", "items": { "$ref": "#/$defs/componentNode" }, "minItems": 1 },
+                "gap": { "$ref": "#/$defs/spacingToken" },
+                "mainAxisAlignment": { "$ref": "#/$defs/mainAxisAlignment" },
+                "crossAxisAlignment": { "$ref": "#/$defs/crossAxisAlignment" }
+            },
+            "additionalProperties": false,
+            "description": "Horizontal layout container. Flutter: Row, Vue: flex-direction row."
+        },
+
+        "wrapComponent": {
+            "type": "object",
+            "required": ["type", "children"],
+            "properties": {
+                "type": { "const": "Wrap" },
+                "children": { "type": "array", "items": { "$ref": "#/$defs/componentNode" }, "minItems": 1 },
+                "gap": { "$ref": "#/$defs/spacingToken" }
+            },
+            "additionalProperties": false,
+            "description": "Flow layout that wraps children to next line. Flutter: Wrap, Vue: flex-wrap."
+        },
+
+        "stackComponent": {
+            "type": "object",
+            "required": ["type", "children"],
+            "properties": {
+                "type": { "const": "Stack" },
+                "children": { "type": "array", "items": { "$ref": "#/$defs/componentNode" }, "minItems": 1 }
+            },
+            "additionalProperties": false,
+            "description": "Overlay layout where children are stacked on top of each other. Flutter: Stack, Vue: position relative container."
+        },
+
+        "gridComponent": {
+            "type": "object",
+            "required": ["type", "children", "columns"],
+            "properties": {
+                "type": { "const": "Grid" },
+                "children": { "type": "array", "items": { "$ref": "#/$defs/componentNode" }, "minItems": 1 },
+                "columns": { "type": "integer", "minimum": 1, "maximum": 12, "description": "Number of grid columns" },
+                "gap": { "$ref": "#/$defs/spacingToken" }
+            },
+            "additionalProperties": false,
+            "description": "Grid layout. Flutter: GridView, Vue: CSS Grid."
+        },
+
+        "expandedComponent": {
+            "type": "object",
+            "required": ["type", "children"],
+            "properties": {
+                "type": { "const": "Expanded" },
+                "children": { "type": "array", "items": { "$ref": "#/$defs/componentNode" }, "minItems": 1, "maxItems": 1 },
+                "flex": { "type": "integer", "minimum": 1, "default": 1 }
+            },
+            "additionalProperties": false,
+            "description": "Fills remaining space in a Row or Column. Flutter: Expanded, Vue: flex 1."
+        },
+
+        "spacerComponent": {
+            "type": "object",
+            "required": ["type"],
+            "properties": {
+                "type": { "const": "Spacer" },
+                "flex": { "type": "integer", "minimum": 1, "default": 1 }
+            },
+            "additionalProperties": false,
+            "description": "Flexible empty space. Flutter: Spacer, Vue: flex spacer div."
+        },
+
+        "centerComponent": {
+            "type": "object",
+            "required": ["type", "children"],
+            "properties": {
+                "type": { "const": "Center" },
+                "children": { "type": "array", "items": { "$ref": "#/$defs/componentNode" }, "minItems": 1, "maxItems": 1 }
+            },
+            "additionalProperties": false,
+            "description": "Centers its child. Flutter: Center, Vue: centered flex container."
+        },
+
+        "scrollViewComponent": {
+            "type": "object",
+            "required": ["type", "children"],
+            "properties": {
+                "type": { "const": "ScrollView" },
+                "children": { "type": "array", "items": { "$ref": "#/$defs/componentNode" }, "minItems": 1 }
+            },
+            "additionalProperties": false,
+            "description": "Scrollable container. Flutter: SingleChildScrollView, Vue: overflow-auto."
+        },
+
+
+        "cardComponent": {
+            "type": "object",
+            "required": ["type", "children"],
+            "properties": {
+                "type": { "const": "Card" },
+                "children": { "type": "array", "items": { "$ref": "#/$defs/componentNode" }, "minItems": 1 },
+                "variant": { "type": "string", "enum": ["elevated", "filled", "outlined"], "default": "elevated" },
+                "action": { "$ref": "#/$defs/actionDescriptor", "description": "Primary action fired when the card is tapped. Preferred over the legacy `onTap` alias." },
+                "onTap": { "$ref": "#/$defs/actionDescriptor", "description": "Deprecated alias of `action`. Honoured for backward compatibility; `action` wins when both are set." }
+            },
+            "additionalProperties": false,
+            "description": "Material card container. Flutter: Card, Vue/PrimeVue: Card."
+        },
+
+        "expansionPanelComponent": {
+            "type": "object",
+            "required": ["type", "title", "children"],
+            "properties": {
+                "type": { "const": "ExpansionPanel" },
+                "title": { "$ref": "#/$defs/textContent" },
+                "children": { "type": "array", "items": { "$ref": "#/$defs/componentNode" }, "minItems": 1 },
+                "initiallyExpanded": { "type": "boolean", "default": false }
+            },
+            "additionalProperties": false,
+            "description": "Expandable/collapsible panel. Flutter: ExpansionTile, Vue/PrimeVue: Accordion."
+        },
+
+        "stepperComponent": {
+            "type": "object",
+            "required": ["type", "steps"],
+            "properties": {
+                "type": { "const": "Stepper" },
+                "steps": {
+                    "type": "array",
+                    "minItems": 2,
+                    "items": {
+                        "type": "object",
+                        "required": ["title", "content"],
+                        "properties": {
+                            "title": { "$ref": "#/$defs/textContent" },
+                            "subtitle": { "$ref": "#/$defs/textContent" },
+                            "content": { "type": "array", "items": { "$ref": "#/$defs/componentNode" }, "minItems": 1 }
+                        },
+                        "additionalProperties": false
+                    }
+                }
+            },
+            "additionalProperties": false,
+            "description": "Multi-step wizard. Flutter: Stepper, Vue/PrimeVue: Steps."
+        },
+
+        "dividerComponent": {
+            "type": "object",
+            "required": ["type"],
+            "properties": {
+                "type": { "const": "Divider" }
+            },
+            "additionalProperties": false,
+            "description": "Horizontal divider line. Flutter: Divider, Vue/PrimeVue: Divider."
+        },
+
+
+        "textFieldComponent": {
+            "type": "object",
+            "required": ["type", "bind"],
+            "properties": {
+                "type": { "const": "TextField" },
+                "bind": { "type": "string", "minLength": 1, "description": "JSON Schema property name to bind to. Renderer resolves label, validation, conditional visibility from the schema." },
+                "variant": { "$ref": "#/$defs/inputVariant" }
+            },
+            "additionalProperties": false,
+            "description": "Single-line text input. All metadata (label, placeholder, validation, error messages, conditional) comes from the bound JSON Schema property via x-labels, x-errorMessages, x-conditional, etc."
+        },
+
+        "textAreaComponent": {
+            "type": "object",
+            "required": ["type", "bind"],
+            "properties": {
+                "type": { "const": "TextArea" },
+                "bind": { "type": "string", "minLength": 1 },
+                "variant": { "$ref": "#/$defs/inputVariant" }
+            },
+            "additionalProperties": false,
+            "description": "Multi-line text input. Flutter: TextField(maxLines), Vue/PrimeVue: Textarea."
+        },
+
+        "numberFieldComponent": {
+            "type": "object",
+            "required": ["type", "bind"],
+            "properties": {
+                "type": { "const": "NumberField" },
+                "bind": { "type": "string", "minLength": 1 },
+                "variant": { "$ref": "#/$defs/inputVariant" }
+            },
+            "additionalProperties": false,
+            "description": "Numeric input. Flutter: TextField(keyboardType: number), Vue/PrimeVue: InputNumber."
+        },
+
+        "dropdownComponent": {
+            "type": "object",
+            "required": ["type", "bind"],
+            "properties": {
+                "type": { "const": "Dropdown" },
+                "bind": { "type": "string", "minLength": 1 },
+                "variant": { "$ref": "#/$defs/inputVariant" }
+            },
+            "additionalProperties": false,
+            "description": "Selection dropdown. Options come from the bound schema property's 'enum' + 'x-enum' (static) or 'x-lov' (dynamic from backend). Cascade filtering handled via x-lov.filter."
+        },
+
+        "checkboxComponent": {
+            "type": "object",
+            "required": ["type", "bind"],
+            "properties": {
+                "type": { "const": "Checkbox" },
+                "bind": { "type": "string", "minLength": 1 }
+            },
+            "additionalProperties": false,
+            "description": "Boolean checkbox. Label comes from x-labels of the bound schema property."
+        },
+
+        "radioGroupComponent": {
+            "type": "object",
+            "required": ["type", "bind"],
+            "properties": {
+                "type": { "const": "RadioGroup" },
+                "bind": { "type": "string", "minLength": 1 }
+            },
+            "additionalProperties": false,
+            "description": "Radio button group. Options come from the bound schema property's 'enum' + 'x-enum'."
+        },
+
+        "switchComponent": {
+            "type": "object",
+            "required": ["type", "bind"],
+            "properties": {
+                "type": { "const": "Switch" },
+                "bind": { "type": "string", "minLength": 1 }
+            },
+            "additionalProperties": false,
+            "description": "Boolean toggle switch. Flutter: Switch, Vue/PrimeVue: ToggleSwitch."
+        },
+
+        "datePickerComponent": {
+            "type": "object",
+            "required": ["type", "bind"],
+            "properties": {
+                "type": { "const": "DatePicker" },
+                "bind": { "type": "string", "minLength": 1 }
+            },
+            "additionalProperties": false,
+            "description": "Date selection input. Flutter: showDatePicker, Vue/PrimeVue: DatePicker."
+        },
+
+        "sliderComponent": {
+            "type": "object",
+            "required": ["type", "bind"],
+            "properties": {
+                "type": { "const": "Slider" },
+                "bind": { "type": "string", "minLength": 1 }
+            },
+            "additionalProperties": false,
+            "description": "Numeric slider. Min/max come from the bound schema property's minimum/maximum."
+        },
+
+        "arrayFieldComponent": {
+            "type": "object",
+            "required": ["type", "bind"],
+            "properties": {
+                "type": { "const": "ArrayField" },
+                "bind": {
+                    "type": "string",
+                    "minLength": 1,
+                    "description": "Schema property name. Must resolve to type:'array'. Object items (items.type='object') render as a repeatable sub-form; primitive items (string/number) render as repeatable single inputs. Add/remove controls appear when the field is enabled."
+                },
+                "variant": { "$ref": "#/$defs/inputVariant" }
+            },
+            "additionalProperties": false,
+            "description": "Dynamic array editor. Auto-expands a type:'array' schema property into a repeatable list UI."
+        },
+
+        "textComponent": {
+            "type": "object",
+            "required": ["type", "content"],
+            "properties": {
+                "type": { "const": "Text" },
+                "content": { "$ref": "#/$defs/textContent" },
+                "variant": { "$ref": "#/$defs/typographyVariant" }
+            },
+            "additionalProperties": false,
+            "description": "Text display. Supports static text, multi-language text, and expressions ($schema.fieldName.label, $form.fieldName, $instance.fieldName, $param.fieldName, $lov.fieldName.display, $lookup.propName.field, $item.name)."
+        },
+
+        "iconComponent": {
+            "type": "object",
+            "required": ["type", "name"],
+            "properties": {
+                "type": { "const": "Icon" },
+                "name": { "type": "string", "minLength": 1, "description": "Material icon name (e.g. 'business', 'person', 'check_circle')" },
+                "size": { "type": "string", "enum": ["sm", "md", "lg"], "default": "md" }
+            },
+            "additionalProperties": false,
+            "description": "Material icon. Flutter: Icon(Icons.name), Vue: Material Icons / PrimeIcons."
+        },
+
+        "imageComponent": {
+            "type": "object",
+            "required": ["type", "source"],
+            "properties": {
+                "type": { "const": "Image" },
+                "source": { "type": "string", "minLength": 1, "description": "Image URL or expression" },
+                "fit": { "type": "string", "enum": ["cover", "contain", "fill"], "default": "cover" }
+            },
+            "additionalProperties": false,
+            "description": "Image display. Flutter: Image, Vue: img element."
+        },
+
+        "chipComponent": {
+            "type": "object",
+            "required": ["type", "label"],
+            "properties": {
+                "type": { "const": "Chip" },
+                "label": { "$ref": "#/$defs/textContent" },
+                "icon": { "type": "string" },
+                "variant": { "type": "string", "enum": ["filled", "outlined"], "default": "filled" }
+            },
+            "additionalProperties": false,
+            "description": "Compact element for tags or status. Flutter: Chip, Vue/PrimeVue: Chip."
+        },
+
+        "badgeComponent": {
+            "type": "object",
+            "required": ["type", "content", "children"],
+            "properties": {
+                "type": { "const": "Badge" },
+                "content": { "$ref": "#/$defs/textContent" },
+                "children": { "type": "array", "items": { "$ref": "#/$defs/componentNode" }, "minItems": 1, "maxItems": 1 }
+            },
+            "additionalProperties": false,
+            "description": "Badge overlay on a child widget. Flutter: Badge, Vue/PrimeVue: Badge."
+        },
+
+        "progressIndicatorComponent": {
+            "type": "object",
+            "required": ["type"],
+            "properties": {
+                "type": { "const": "ProgressIndicator" },
+                "variant": { "type": "string", "enum": ["circular", "linear"], "default": "circular" }
+            },
+            "additionalProperties": false,
+            "description": "Loading indicator. Flutter: CircularProgressIndicator/LinearProgressIndicator, Vue/PrimeVue: ProgressSpinner/ProgressBar."
+        },
+
+
+        "buttonComponent": {
+            "type": "object",
+            "required": ["type", "label", "action"],
+            "properties": {
+                "type": { "const": "Button" },
+                "label": { "$ref": "#/$defs/textContent" },
+                "variant": { "$ref": "#/$defs/buttonVariant" },
+                "icon": { "type": "string", "description": "Optional leading Material icon name" },
+                "action": {
+                    "oneOf": [
+                        { "$ref": "#/$defs/buttonAction" },
+                        { "$ref": "#/$defs/actionDescriptor" }
+                    ],
+                    "description": "ButtonAction string (submit/cancel/back) or a full ActionDescriptor."
+                },
+                "command": { "type": "string", "description": "Opaque reference (URN, URL, short code) passed to the onAction delegate. SDK does not interpret this value." }
+            },
+            "additionalProperties": false,
+            "description": "Material button. Flutter: ElevatedButton/OutlinedButton/TextButton, Vue/PrimeVue: Button."
+        },
+
+        "iconButtonComponent": {
+            "type": "object",
+            "required": ["type", "icon", "action"],
+            "properties": {
+                "type": { "const": "IconButton" },
+                "icon": { "type": "string", "minLength": 1 },
+                "action": { "$ref": "#/$defs/actionDescriptor" }
+            },
+            "additionalProperties": false,
+            "description": "Icon-only button. Flutter: IconButton, Vue/PrimeVue: Button(icon)."
+        },
+
+        "fabComponent": {
+            "type": "object",
+            "required": ["type", "icon", "action"],
+            "properties": {
+                "type": { "const": "FAB" },
+                "icon": { "type": "string", "minLength": 1 },
+                "label": { "$ref": "#/$defs/textContent" },
+                "action": { "$ref": "#/$defs/actionDescriptor" },
+                "variant": { "type": "string", "enum": ["small", "regular", "large"], "default": "regular" }
+            },
+            "additionalProperties": false,
+            "description": "Floating action button. If label is provided, renders as extended FAB. Flutter: FloatingActionButton, Vue/PrimeVue: SpeedDial."
+        },
+
+
+        "tabViewComponent": {
+            "type": "object",
+            "required": ["type", "tabs"],
+            "properties": {
+                "type": { "const": "TabView" },
+                "tabs": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "required": ["title", "content"],
+                        "properties": {
+                            "title": {
+                                "oneOf": [
+                                    { "type": "string" },
+                                    { "$ref": "#/$defs/multiLangText" }
+                                ],
+                                "description": "Tab header text. Can be a simple string or a multi-language object."
+                            },
+                            "icon": {
+                                "type": "string",
+                                "description": "Optional PrimeIcons icon name (without 'pi pi-' prefix). Flutter: Icons.* equivalent."
+                            },
+                            "content": {
+                                "type": "array",
+                                "items": { "$ref": "#/$defs/componentNode" },
+                                "description": "Child components rendered when this tab is active."
+                            }
+                        },
+                        "additionalProperties": false
+                    },
+                    "minItems": 1,
+                    "description": "Array of tab definitions. Each tab has a title, optional icon, and content components."
+                }
+            },
+            "additionalProperties": false,
+            "description": "Tabbed navigation container. Renders content in switchable tab panels. Flutter: TabBar + TabBarView, Vue/PrimeVue: Tabs."
+        },
+
+        "forEachComponent": {
+            "type": "object",
+            "required": ["type", "source", "as", "template"],
+            "properties": {
+                "type": { "const": "ForEach" },
+                "source": {
+                    "type": "string",
+                    "pattern": "^\\$",
+                    "description": "Expression pointing to an array data source. Examples: $form.addresses, $instance.items, $lov.branchCode (LOV data for a field)"
+                },
+                "as": {
+                    "type": "string",
+                    "minLength": 1,
+                    "description": "Iterator variable name. Children access current item via $item.fieldName"
+                },
+                "template": {
+                    "$ref": "#/$defs/componentNode",
+                    "description": "Component template to render for each item in the source array"
+                }
+            },
+            "additionalProperties": false,
+            "description": "Iteration component. Repeats the template for each item in the source array. Inside the template, $item references the current iteration item."
+        },
+
+        "nestedComponent": {
+            "type": "object",
+            "required": ["type", "ref"],
+            "properties": {
+                "type": { "const": "Component" },
+                "ref": {
+                    "type": "string",
+                    "pattern": "^[a-z0-9-]+$",
+                    "description": "Component identifier. Resolved via naming convention: components/{ref}/schema.json + components/{ref}/view.json"
+                },
+                "bind": {
+                    "oneOf": [
+                        {
+                            "type": "string",
+                            "minLength": 1,
+                            "description": "Compact object bind: pass an entire namespace to the child. '$instance' spreads all instanceData fields, '$form' spreads all formData fields. Inside the child, all received fields are accessible via $param.fieldName. '$ui' is NOT supported in compact form."
+                        },
+                        {
+                            "type": "object",
+                            "additionalProperties": { "type": "string" },
+                            "description": "Multi-bind: each key is a child property name, each value is a parent expression ($form.fieldName, $instance.fieldName, or $ui.key). Example: { \"cityCode\": \"$form.city\", \"showMap\": \"$ui.showHomeMap\" }. Both input (parent->child) and output (child->parent) flow through the same mapping. $ui.* values allow passing transient UI state to child components."
+                        }
+                    ],
+                    "description": "Data binding between parent and child components. All bound values are merged into the child's $param namespace. String form ('$instance' or '$form') passes an entire object. Object form maps individual fields with explicit source prefixes ($form.*, $instance.*, or $ui.*). $ui.* bindings enable passing transient UI state (e.g. dialog visibility) to child components -- child changes write back to parent's uiState. Properties marked x-binding in the child schema declare which bindings are expected from the parent."
+                }
+            },
+            "additionalProperties": false,
+            "description": "Embeds another component by reference. Each nested component has its own schema.json (data contract) and view.json (pseudo UI). The renderer fetches and recursively renders the referenced component. The component manages its own isolated data store. Input and output flow through bind: parent properties mapped to child properties bidirectionally. Properties marked with x-binding in the child schema declare the input contract."
+        },
+
+
+        "timePickerComponent": {
+            "type": "object",
+            "required": ["type", "bind"],
+            "properties": {
+                "type": { "const": "TimePicker" },
+                "bind": { "type": "string", "minLength": 1 },
+                "variant": { "$ref": "#/$defs/inputVariant" },
+                "hourFormat": { "type": "string", "enum": ["12", "24"], "default": "24", "description": "12-hour or 24-hour display." }
+            },
+            "additionalProperties": false,
+            "description": "Time selection input. Flutter: showTimePicker, Vue/PrimeVue: DatePicker(timeOnly)."
+        },
+
+        "segmentedButtonComponent": {
+            "type": "object",
+            "required": ["type", "bind"],
+            "properties": {
+                "type": { "const": "SegmentedButton" },
+                "bind": { "type": "string", "minLength": 1 },
+                "multiSelect": { "type": "boolean", "default": false, "description": "Allow selecting multiple segments." }
+            },
+            "additionalProperties": false,
+            "description": "2-5 option toggle group. Options come from the bound schema property's enum + x-enum. Flutter: SegmentedButton, Vue/PrimeVue: SelectButton."
+        },
+
+        "searchFieldComponent": {
+            "type": "object",
+            "required": ["type", "bind"],
+            "properties": {
+                "type": { "const": "SearchField" },
+                "bind": { "type": "string", "minLength": 1 },
+                "variant": { "$ref": "#/$defs/inputVariant" }
+            },
+            "additionalProperties": false,
+            "description": "Search text input with search icon and clear button. Flutter: SearchBar, Vue/PrimeVue: IconField + InputText."
+        },
+
+        "autoCompleteComponent": {
+            "type": "object",
+            "required": ["type", "bind"],
+            "properties": {
+                "type": { "const": "AutoComplete" },
+                "bind": { "type": "string", "minLength": 1 },
+                "variant": { "$ref": "#/$defs/inputVariant" },
+                "minLength": { "type": "integer", "minimum": 0, "default": 1, "description": "Minimum characters before suggestions appear." }
+            },
+            "additionalProperties": false,
+            "description": "Text input with typeahead suggestions from x-lov. Flutter: Autocomplete, Vue/PrimeVue: AutoComplete."
+        },
+
+
+        "listTileComponent": {
+            "type": "object",
+            "required": ["type", "title"],
+            "properties": {
+                "type": { "const": "ListTile" },
+                "title": { "$ref": "#/$defs/textContent" },
+                "subtitle": { "$ref": "#/$defs/textContent" },
+                "leading": { "$ref": "#/$defs/componentNode", "description": "Widget before the title (typically Icon or Avatar)." },
+                "trailing": { "$ref": "#/$defs/componentNode", "description": "Widget after the title (typically Icon, Switch, or Checkbox)." },
+                "onTap": { "$ref": "#/$defs/actionDescriptor" }
+            },
+            "additionalProperties": false,
+            "description": "Structured list row with title, optional subtitle, and leading/trailing slots. Flutter: ListTile, Vue/PrimeVue: custom flex row."
+        },
+
+        "avatarComponent": {
+            "type": "object",
+            "required": ["type"],
+            "properties": {
+                "type": { "const": "Avatar" },
+                "source": { "type": "string", "description": "Image URL or expression for the avatar photo." },
+                "label": { "$ref": "#/$defs/textContent", "description": "Initials or text shown when no image is available." },
+                "icon": { "type": "string", "description": "Fallback Material icon name when no image or label." },
+                "shape": { "$ref": "#/$defs/avatarShape" },
+                "size": { "type": "string", "enum": ["sm", "md", "lg", "xl"], "default": "md" }
+            },
+            "additionalProperties": false,
+            "description": "User or entity avatar. Shows image, initials, or icon fallback. Flutter: CircleAvatar, Vue/PrimeVue: Avatar."
+        },
+
+        "richTextComponent": {
+            "type": "object",
+            "required": ["type", "spans"],
+            "properties": {
+                "type": { "const": "RichText" },
+                "spans": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "required": ["text"],
+                        "properties": {
+                            "text": { "$ref": "#/$defs/textContent" },
+                            "variant": { "$ref": "#/$defs/typographyVariant" },
+                            "bold": { "type": "boolean" },
+                            "italic": { "type": "boolean" },
+                            "link": { "type": "string", "description": "URL to open when tapped." }
+                        },
+                        "additionalProperties": false
+                    },
+                    "minItems": 1
+                }
+            },
+            "additionalProperties": false,
+            "description": "Formatted text with inline styled spans. Flutter: RichText/TextSpan, Vue/PrimeVue: inline HTML spans."
+        },
+
+        "loadingIndicatorComponent": {
+            "type": "object",
+            "required": ["type"],
+            "properties": {
+                "type": { "const": "LoadingIndicator" }
+            },
+            "additionalProperties": false,
+            "description": "M3 loading indicator (animated dots). For determinate progress use ProgressIndicator instead. Flutter: CircularProgressIndicator.adaptive, Vue/PrimeVue: ProgressSpinner."
+        },
+
+
+        "dialogComponent": {
+            "type": "object",
+            "required": ["type", "title"],
+            "properties": {
+                "type": { "const": "Dialog" },
+                "title": { "$ref": "#/$defs/textContent" },
+                "children": { "type": "array", "items": { "$ref": "#/$defs/componentNode" }, "description": "Dialog body content." },
+                "actions": {
+                    "type": "array",
+                    "items": { "$ref": "#/$defs/componentNode" },
+                    "description": "Action buttons displayed at the bottom of the dialog."
+                },
+                "dismissible": { "type": "boolean", "default": true, "description": "Whether tapping outside closes the dialog." },
+                "icon": { "type": "string", "description": "Optional hero icon displayed above the title." },
+                "visible": { "$ref": "#/$defs/expression", "description": "Expression controlling dialog visibility (e.g. $form.showConfirmDialog)." }
+            },
+            "additionalProperties": false,
+            "description": "Modal dialog with title, content, and action buttons. Flutter: AlertDialog/SimpleDialog, Vue/PrimeVue: Dialog."
+        },
+
+        "bottomSheetComponent": {
+            "type": "object",
+            "required": ["type", "children"],
+            "properties": {
+                "type": { "const": "BottomSheet" },
+                "children": { "type": "array", "items": { "$ref": "#/$defs/componentNode" }, "minItems": 1 },
+                "variant": { "$ref": "#/$defs/sheetVariant" },
+                "visible": { "$ref": "#/$defs/expression", "description": "Expression controlling sheet visibility." },
+                "dragHandle": { "type": "boolean", "default": true, "description": "Show drag handle indicator at top." }
+            },
+            "additionalProperties": false,
+            "description": "Bottom-anchored surface for secondary content. Flutter: BottomSheet/DraggableScrollableSheet, Vue/PrimeVue: Drawer(position: bottom)."
+        },
+
+        "sideSheetComponent": {
+            "type": "object",
+            "required": ["type", "children"],
+            "properties": {
+                "type": { "const": "SideSheet" },
+                "children": { "type": "array", "items": { "$ref": "#/$defs/componentNode" }, "minItems": 1 },
+                "variant": { "$ref": "#/$defs/sheetVariant" },
+                "visible": { "$ref": "#/$defs/expression", "description": "Expression controlling sheet visibility." },
+                "title": { "$ref": "#/$defs/textContent" }
+            },
+            "additionalProperties": false,
+            "description": "Side-anchored surface for detail or filter panels. Flutter: end Drawer, Vue/PrimeVue: Drawer(position: right)."
+        },
+
+        "snackbarComponent": {
+            "type": "object",
+            "required": ["type", "content"],
+            "properties": {
+                "type": { "const": "Snackbar" },
+                "content": { "$ref": "#/$defs/textContent" },
+                "action": { "$ref": "#/$defs/actionDescriptor", "description": "Optional action button in the snackbar." },
+                "duration": { "type": "integer", "default": 4000, "description": "Auto-dismiss duration in milliseconds." },
+                "variant": { "type": "string", "enum": ["standard", "success", "error", "warning", "info"], "default": "standard" }
+            },
+            "additionalProperties": false,
+            "description": "Brief message bar at bottom of screen. Flutter: SnackBar, Vue/PrimeVue: Toast."
+        },
+
+        "tooltipComponent": {
+            "type": "object",
+            "required": ["type", "content", "children"],
+            "properties": {
+                "type": { "const": "Tooltip" },
+                "content": { "$ref": "#/$defs/textContent", "description": "Tooltip message text." },
+                "children": { "type": "array", "items": { "$ref": "#/$defs/componentNode" }, "minItems": 1, "maxItems": 1 },
+                "variant": { "type": "string", "enum": ["plain", "rich"], "default": "plain", "description": "plain: single-line text. rich: supports title and longer content." }
+            },
+            "additionalProperties": false,
+            "description": "Hover/tap help text wrapping a child widget. Flutter: Tooltip, Vue/PrimeVue: v-tooltip directive."
+        },
+
+
+        "appBarComponent": {
+            "type": "object",
+            "required": ["type", "title"],
+            "properties": {
+                "type": { "const": "AppBar" },
+                "title": { "$ref": "#/$defs/textContent" },
+                "variant": { "$ref": "#/$defs/appBarVariant" },
+                "leading": { "$ref": "#/$defs/componentNode", "description": "Widget on the left (typically IconButton for menu or back)." },
+                "actions": {
+                    "type": "array",
+                    "items": { "$ref": "#/$defs/componentNode" },
+                    "description": "Trailing action widgets (typically IconButtons)."
+                }
+            },
+            "additionalProperties": false,
+            "description": "Top app bar with title and actions. Flutter: AppBar/SliverAppBar, Vue/PrimeVue: Toolbar."
+        },
+
+        "navigationBarComponent": {
+            "type": "object",
+            "required": ["type", "destinations", "bind"],
+            "properties": {
+                "type": { "const": "NavigationBar" },
+                "bind": { "type": "string", "minLength": 1, "description": "Schema property to store the selected destination index/value." },
+                "destinations": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "required": ["icon", "label"],
+                        "properties": {
+                            "icon": { "type": "string", "description": "Material icon name." },
+                            "selectedIcon": { "type": "string", "description": "Icon when selected (optional, defaults to filled variant)." },
+                            "label": { "$ref": "#/$defs/textContent" },
+                            "value": { "type": "string", "description": "Value written to bound property when selected." }
+                        },
+                        "additionalProperties": false
+                    },
+                    "minItems": 3,
+                    "maxItems": 5,
+                    "description": "Navigation destinations (3-5 items per M3 spec)."
+                }
+            },
+            "additionalProperties": false,
+            "description": "Bottom navigation bar. Flutter: NavigationBar, Vue/PrimeVue: TabMenu."
+        },
+
+        "navigationDrawerComponent": {
+            "type": "object",
+            "required": ["type", "items"],
+            "properties": {
+                "type": { "const": "NavigationDrawer" },
+                "items": {
+                    "type": "array",
+                    "items": {
+                        "oneOf": [
+                            {
+                                "type": "object",
+                                "required": ["label"],
+                                "properties": {
+                                    "icon": { "type": "string" },
+                                    "label": { "$ref": "#/$defs/textContent" },
+                                    "action": { "$ref": "#/$defs/actionDescriptor" },
+                                    "badge": { "$ref": "#/$defs/textContent" }
+                                },
+                                "additionalProperties": false
+                            },
+                            {
+                                "type": "object",
+                                "required": ["divider"],
+                                "properties": {
+                                    "divider": { "const": true }
+                                },
+                                "additionalProperties": false
+                            },
+                            {
+                                "type": "object",
+                                "required": ["header"],
+                                "properties": {
+                                    "header": { "$ref": "#/$defs/textContent" }
+                                },
+                                "additionalProperties": false
+                            }
+                        ]
+                    },
+                    "minItems": 1
+                },
+                "header": { "$ref": "#/$defs/componentNode", "description": "Optional header widget above the item list." },
+                "variant": { "type": "string", "enum": ["standard", "modal"], "default": "modal" },
+                "visible": { "$ref": "#/$defs/expression" }
+            },
+            "additionalProperties": false,
+            "description": "Side navigation drawer with menu items, dividers, and section headers. Flutter: NavigationDrawer/Drawer, Vue/PrimeVue: Drawer + Menu."
+        },
+
+
+        "menuComponent": {
+            "type": "object",
+            "required": ["type", "items"],
+            "properties": {
+                "type": { "const": "Menu" },
+                "items": {
+                    "type": "array",
+                    "items": {
+                        "oneOf": [
+                            {
+                                "type": "object",
+                                "required": ["label"],
+                                "properties": {
+                                    "icon": { "type": "string" },
+                                    "label": { "$ref": "#/$defs/textContent" },
+                                    "action": { "$ref": "#/$defs/actionDescriptor" },
+                                    "disabled": { "type": "boolean", "default": false }
+                                },
+                                "additionalProperties": false
+                            },
+                            {
+                                "type": "object",
+                                "required": ["divider"],
+                                "properties": {
+                                    "divider": { "const": true }
+                                },
+                                "additionalProperties": false
+                            }
+                        ]
+                    },
+                    "minItems": 1
+                },
+                "anchor": { "$ref": "#/$defs/componentNode", "description": "The widget that triggers menu open (typically an IconButton)." }
+            },
+            "additionalProperties": false,
+            "description": "Popup/context menu showing a list of actions. Flutter: PopupMenuButton/DropdownMenu, Vue/PrimeVue: Menu/TieredMenu."
+        },
+
+        "toolbarComponent": {
+            "type": "object",
+            "required": ["type", "children"],
+            "properties": {
+                "type": { "const": "Toolbar" },
+                "children": { "type": "array", "items": { "$ref": "#/$defs/componentNode" }, "minItems": 1, "description": "Action widgets (Buttons, IconButtons, etc.)." }
+            },
+            "additionalProperties": false,
+            "description": "Horizontal bar of frequently used actions. Flutter: BottomAppBar, Vue/PrimeVue: Toolbar."
+        },
+
+        "carouselComponent": {
+            "type": "object",
+            "required": ["type", "source", "template"],
+            "properties": {
+                "type": { "const": "Carousel" },
+                "source": { "$ref": "#/$defs/expression", "description": "Expression pointing to an array data source." },
+                "template": { "$ref": "#/$defs/componentNode", "description": "Component template for each carousel item." },
+                "autoPlay": { "type": "boolean", "default": false },
+                "showIndicators": { "type": "boolean", "default": true, "description": "Show page/dot indicators." }
+            },
+            "additionalProperties": false,
+            "description": "Horizontal scrolling content carousel. Flutter: PageView/CarouselView, Vue/PrimeVue: Carousel."
+        }
+    }
+}

@@ -2,28 +2,26 @@
   "name": "vnext-client-sdk-core",
   "version": "0.1.0",
   "private": true,
-  "description": "Low-code platform client SDKs - TypeScript and Flutter core SDKs with Vue adapter",
+  "description": "vNext client SDKs - TypeScript cores with Vue adapters (morph-api, pseudo-ui, page-router, context-store, workflow-manager)",
   "workspaces": [
-    "core/*",
-    "adapters/*",
+    "packages/morph-api/*",
+    "packages/page-router/*",
+    "packages/workflow-manager/*",
+    "packages/pseudo-ui",
+    "packages/context-store",
     "examples/*"
   ],
   "scripts": {
-    "build": "npm run build --workspaces",
-    "clean": "npm run clean --workspaces",
-    "test": "npm run test --workspaces",
-    "lint": "npm run lint --workspaces",
-    "mock:server": "node mocks/server.js"
+    "build": "npm run build --workspaces --if-present",
+    "clean": "npm run clean --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present",
+    "lint": "npm run lint --workspaces --if-present"
   },
   "devDependencies": {
-    "typescript": "^5.3.3",
-    "msw": "^2.0.0",
-    "express": "^4.18.2",
-    "@types/express": "^4.17.21"
+    "typescript": "^5.3.3"
   },
   "engines": {
     "node": ">=18.0.0",
     "npm": ">=9.0.0"
   }
 }
-

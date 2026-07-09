@@ -1,0 +1,474 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "https://amorphie.io/meta/view-model-vocabulary",
+    "$vocabulary": {
+        "https://json-schema.org/draft/2020-12/vocab/core": true,
+        "https://json-schema.org/draft/2020-12/vocab/applicator": true,
+        "https://json-schema.org/draft/2020-12/vocab/unevaluated": true,
+        "https://json-schema.org/draft/2020-12/vocab/validation": true,
+        "https://json-schema.org/draft/2020-12/vocab/meta-data": true,
+        "https://json-schema.org/draft/2020-12/vocab/format-annotation": true,
+        "https://json-schema.org/draft/2020-12/vocab/content": true,
+        "https://amorphie.io/meta/view-model-vocabulary": true
+    },
+    "title": "Amorphie View-Model Vocabulary",
+    "description": "JSON Schema vocabulary for SDUI data contracts - defines x-labels, x-lov, x-lookup, x-conditional, x-validation, x-binding extensions for multi-language support, dynamic data, and validation rules",
+    "type": "object",
+    "properties": {
+        "x-labels": {
+            "type": "object",
+            "description": "Multi-language labels for fields, properties, or schema elements",
+            "additionalProperties": {
+                "type": "string",
+                "minLength": 1,
+                "description": "Label text in the specified language code"
+            },
+            "patternProperties": {
+                "^[a-z]{2}(-[A-Z]{2})?$": {
+                    "type": "string",
+                    "minLength": 1
+                }
+            },
+            "examples": [
+                {
+                    "tr": "Kredi Tutarı",
+                    "en": "Loan Amount",
+                    "ar": "مبلغ القرض"
+                }
+            ]
+        },  
+        "x-errorMessages": {
+            "type": "object",
+            "description": "Multi-language error messages for validation errors",
+            "additionalProperties": {
+                "type": "object",
+                "description": "Error messages for a specific validation error type",
+                "additionalProperties": {
+                    "type": "string",
+                    "minLength": 1,
+                    "description": "Error message in the specified language code"
+                },
+                "patternProperties": {
+                    "^[a-z]{2}(-[A-Z]{2})?$": {
+                        "type": "string",
+                        "minLength": 1
+                    }
+                }
+            },
+            "examples": [
+                {
+                    "required": {
+                        "tr": "Tutar alanı zorunludur",
+                        "en": "Amount field is required"
+                    },
+                    "minimum": {
+                        "tr": "Minimum tutar 1,000 TL olmalıdır",
+                        "en": "Minimum amount should be 1,000 TL"
+                    }
+                }
+            ]
+        },
+        "x-lov": {
+            "type": "object",
+            "description": "List of Values (LOV) integration for dynamic dropdown/select options",
+            "required": [
+                "source"
+            ],
+            "properties": {
+                "source": {
+                    "type": "string",
+                    "description": "Opaque reference to the data endpoint. Can be a URN (e.g. urn:amorphie:func:domain:shared:get-cities), a URL, or any short code. The SDK passes this string to the delegate's requestData function without interpretation.",
+                    "examples": [
+                        "urn:amorphie:func:domain:shared:get-cities",
+                        "urn:amorphie:func:domain:shared:get-districts",
+                        "https://api.example.com/cities",
+                        "get-cities"
+                    ]
+                },
+                "valueField": {
+                    "type": "string",
+                    "description": "JSONPath expression to extract the value field from the LOV response",
+                    "pattern": "^\\$\\.",
+                    "examples": [
+                        "$.response.data.code",
+                        "$.data.id"
+                    ]
+                },
+                "displayField": {
+                    "type": "string",
+                    "description": "JSONPath expression to extract the display label from the LOV response",
+                    "pattern": "^\\$\\.",
+                    "examples": [
+                        "$.response.data.name",
+                        "$.data.label"
+                    ]
+                },
+                "filter": {
+                    "type": "array",
+                    "description": "Query parameters to pass to the LOV source endpoint (always GET). Each item defines a query param name and its value. Values starting with $ are runtime expressions resolved from form data; other values are static constants. Expression-based filters trigger reactive cascade (e.g. district reloads when city changes).",
+                    "items": {
+                        "type": "object",
+                        "required": ["param", "value"],
+                        "properties": {
+                            "param": {
+                                "type": "string",
+                                "description": "Query parameter name sent to the BFF endpoint",
+                                "minLength": 1,
+                                "examples": ["cityCode", "channel", "status"]
+                            },
+                            "value": {
+                                "type": "string",
+                                "description": "Parameter value. Starts with $form. for user input, $instance. for persisted data, $param. for parent-bound data (inside sub-components), otherwise treated as a static constant.",
+                                "minLength": 1,
+                                "examples": ["$form.city", "$form.cityCode", "$instance.selectedBranchCode", "$param.cityCode", "digital", "active"]
+                            },
+                            "required": {
+                                "type": "boolean",
+                                "default": false,
+                                "description": "When true, the LOV endpoint will NOT be called until this parameter has a non-empty value. Use for mandatory cascade dependencies (e.g. don't load districts until city is selected). When false (default), the LOV loads immediately; if the param is available it is included, otherwise omitted."
+                            }
+                        },
+                        "additionalProperties": false
+                    },
+                    "examples": [
+                        [
+                            { "param": "cityCode", "value": "$form.city", "required": true }
+                        ],
+                        [
+                            { "param": "channel", "value": "digital" },
+                            { "param": "status", "value": "active" }
+                        ],
+                        [
+                            { "param": "cityCode", "value": "$form.city", "required": true },
+                            { "param": "channel", "value": "digital" }
+                        ]
+                    ]
+                }
+            },
+            "additionalProperties": false,
+            "examples": [
+                {
+                    "source": "urn:amorphie:func:domain:shared:get-cities",
+                    "valueField": "$.response.data.code",
+                    "displayField": "$.response.data.name"
+                },
+                {
+                    "source": "urn:amorphie:func:domain:shared:get-districts",
+                    "valueField": "$.response.data.code",
+                    "displayField": "$.response.data.name",
+                    "filter": [
+                        { "param": "cityCode", "value": "$form.city" }
+                    ]
+                }
+            ]
+        },
+        "x-lookup": {
+            "type": "object",
+            "description": "Single-record data enrichment. Fetches one record from a backend endpoint based on filter parameters. Unlike x-lov (which returns a list for dropdowns), x-lookup returns a single object for display enrichment (e.g. branch details, account info). Definition lives in the schema for discoverability; activation is controlled by the view's 'lookups' array. Results are accessible via $lookup.{propertyName}.{field} in view expressions.",
+            "required": ["source", "resultField"],
+            "properties": {
+                "source": {
+                    "$ref": "#/properties/x-lov/properties/source"
+                },
+                "resultField": {
+                    "type": "string",
+                    "description": "JSONPath expression to extract the result object from the response",
+                    "pattern": "^\\$\\.",
+                    "examples": [
+                        "$.response.data",
+                        "$.data"
+                    ]
+                },
+                "filter": {
+                    "$ref": "#/properties/x-lov/properties/filter"
+                }
+            },
+            "additionalProperties": false,
+            "examples": [
+                {
+                    "source": "urn:amorphie:func:domain:shared:get-branch-detail",
+                    "resultField": "$.response.data",
+                    "filter": [
+                        { "param": "branchCode", "value": "$instance.selectedBranchCode", "required": true }
+                    ]
+                }
+            ]
+        },
+        "x-enum": {
+            "type": "object",
+            "description": "Localized display names for enum values",
+            "additionalProperties": {
+                "type": "object",
+                "description": "Localized labels for a specific enum value",
+                "additionalProperties": {
+                    "type": "string",
+                    "minLength": 1,
+                    "description": "Display label in the specified language code"
+                },
+                "patternProperties": {
+                    "^[a-z]{2}(-[A-Z]{2})?$": {
+                        "type": "string",
+                        "minLength": 1
+                    }
+                }
+            },
+            "examples": [
+                {
+                    "individual": {
+                        "tr": "Bireysel",
+                        "en": "Individual"
+                    },
+                    "corporate": {
+                        "tr": "Kurumsal",
+                        "en": "Corporate"
+                    }
+                }
+            ]
+        },
+        "x-validation": {
+            "type": "object",
+            "description": "Custom business validation rules. NOTE: Descoped from current PoC -- not processed by client-side renderers.",
+            "required": [
+                "rule"
+            ],
+            "properties": {
+                "rule": {
+                    "type": "string",
+                    "description": "Name of the validation rule function",
+                    "minLength": 1,
+                    "examples": [
+                        "validateTurkishTaxId",
+                        "validateIBAN",
+                        "validateEmailDomain"
+                    ]
+                },
+                "parameters": {
+                    "type": "object",
+                    "description": "Parameters to pass to the validation rule function",
+                    "additionalProperties": true,
+                    "examples": [
+                        {
+                            "country": "TR"
+                        }
+                    ]
+                },
+                "errorMessages": {
+                    "type": "object",
+                    "description": "Multi-language error messages for validation failures",
+                    "additionalProperties": {
+                        "type": "string",
+                        "minLength": 1,
+                        "description": "Error message in the specified language code"
+                    },
+                    "patternProperties": {
+                        "^[a-z]{2}(-[A-Z]{2})?$": {
+                            "type": "string",
+                            "minLength": 1
+                        }
+                    },
+                    "examples": [
+                        {
+                            "tr": "Geçerli bir vergi numarası giriniz",
+                            "en": "Please enter a valid tax ID"
+                        }
+                    ]
+                }
+            },
+            "additionalProperties": false,
+            "examples": [
+                {
+                    "rule": "validateTurkishTaxId",
+                    "parameters": {
+                        "country": "TR"
+                    },
+                    "errorMessages": {
+                        "tr": "Geçerli bir vergi numarası giriniz",
+                        "en": "Please enter a valid tax ID"
+                    }
+                }
+            ]
+        },
+        "x-encryption": {
+            "type": "object",
+            "description": "Encryption configuration for sensitive data fields. Defines encryption level and optional parameters for data protection. NOTE: Descoped from current PoC -- not processed by client-side UI renderers.",
+            "required": [
+                "type"
+            ],
+            "properties": {
+                "type": {
+                    "type": "string",
+                    "description": "Encryption level/type. 'none': No encryption - data is stored and transmitted in plain text. 'transport': Transport-level encryption - data is encrypted in logs and intermediate layers, but stored in plain text in database. 'persisted': Persistent encryption - data is encrypted at database level and remains encrypted at rest.",
+                    "enum": [
+                        "none",
+                        "transport",
+                        "persisted"
+                    ]
+                }
+            },
+            "additionalProperties": false,
+            "examples": [
+                {
+                    "type": "none"
+                },
+                {
+                    "type": "transport"
+                },
+                {
+                    "type": "persisted"
+                }
+            ]
+        },
+        "x-autoBind": {
+            "type": "object",
+            "description": "Automatic data population from client's DataManager. Field value is auto-populated from specified data source without user input. Storage is automatically determined by context: device=Local Persistent, user/scope=Secure Persistent, workflowInstance/workflowTransition=In-Memory, artifact=Local Persistent with TTL. NOTE: Descoped from current PoC -- not processed by client-side UI renderers.",
+            "required": [
+                "context",
+                "key"
+            ],
+            "properties": {
+                "context": {
+                    "type": "string",
+                    "description": "DataManager context - determines both data ownership and automatic storage type. device: Secure Storage (NO encryption - bootstrap). user: Secure Storage + Encrypted. scope: Secure Storage + Encrypted. workflowInstance: In-Memory. workflowTransition: In-Memory. artifact: Local Storage (cache, TTL). secureMemory: In-Memory ONLY (never persisted, for encryption keys).",
+                    "enum": [
+                        "device",
+                        "user",
+                        "scope",
+                        "workflowInstance",
+                        "workflowTransition",
+                        "artifact",
+                        "secureMemory"
+                    ],
+                    "examples": [
+                        "device",
+                        "user",
+                        "scope",
+                        "workflowInstance",
+                        "secureMemory"
+                    ]
+                },
+                "key": {
+                    "type": "string",
+                    "description": "Data entry key in DataManager. Supports dynamic variables: $ActiveUser (logged-in user), $ActiveScope (active customer/scope for backoffice scenarios).",
+                    "minLength": 1,
+                    "examples": [
+                        "info",
+                        "auth/session",
+                        "preferences",
+                        "customer/$ActiveScope/profile",
+                        "loan-application/317749d0-cfff-428d-8a11-20c2d2eff9e3"
+                    ]
+                },
+                "dataPath": {
+                    "type": "string",
+                    "description": "Optional path to specific property within the data entry (dot notation for nested properties)",
+                    "examples": [
+                        "deviceId",
+                        "installationId",
+                        "userId",
+                        "applicant.firstName",
+                        "firstName"
+                    ]
+                }
+            },
+            "additionalProperties": false,
+            "examples": [
+                {
+                    "context": "device",
+                    "key": "info",
+                    "dataPath": "deviceId"
+                },
+                {
+                    "context": "device",
+                    "key": "info",
+                    "dataPath": "installationId"
+                },
+                {
+                    "context": "user",
+                    "key": "auth/session",
+                    "dataPath": "userId"
+                },
+                {
+                    "context": "scope",
+                    "key": "customer/$ActiveScope/profile",
+                    "dataPath": "customerId"
+                },
+                {
+                    "context": "workflowInstance",
+                    "key": "loan-application/317749d0-cfff-428d-8a11-20c2d2eff9e3",
+                    "dataPath": "applicant.tckn"
+                }
+            ]
+        },
+        "x-conditional": {
+            "type": "object",
+            "description": "Conditional field visibility or behavior based on other field values. The condition field path is resolved against a merged view of params, instanceData and formData (formData takes precedence). Inside sub-components, parent-bound values are available through the params layer.",
+            "properties": {
+                "showIf": { "$ref": "#/$defs/conditionRule", "description": "Conditions for showing this field" },
+                "hideIf": { "$ref": "#/$defs/conditionRule", "description": "Conditions for hiding this field" },
+                "enableIf": { "$ref": "#/$defs/conditionRule", "description": "Conditions for enabling this field" },
+                "disableIf": { "$ref": "#/$defs/conditionRule", "description": "Conditions for disabling this field" }
+            },
+            "additionalProperties": false
+        },
+        "x-validation": {
+            "type": "boolean",
+            "description": "When true, the SDK calls delegate.onValidationRequest(field, value, formData) after built-in validation passes. The delegate returns an error string or null."
+        },
+        "x-binding": {
+            "type": "string",
+            "enum": ["required", "optional"],
+            "description": "Marks a property as an input expected from the parent component via bind. 'required' means the parent MUST bind this property; the renderer warns if missing. 'optional' means the parent CAN bind it but the component works without it. Absence of x-binding means the property is not an input (filled by user interaction or LOV)."
+        }
+    },
+    "additionalProperties": true,
+    "$defs": {
+        "languageCode": {
+            "type": "string",
+            "pattern": "^[a-z]{2}(-[A-Z]{2})?$",
+            "description": "ISO 639-1 language code with optional ISO 3166-1 country code",
+            "examples": ["en", "tr", "ar"]
+        },
+        "conditionRule": {
+            "type": "object",
+            "description": "A condition rule that can be a simple field comparison or a compound rule using allOf/anyOf/not. Compound rules are recursive.",
+            "properties": {
+                "field": {
+                    "type": "string",
+                    "description": "Path to the field to check (supports dot notation)",
+                    "examples": ["customerType", "address.country"]
+                },
+                "operator": {
+                    "type": "string",
+                    "enum": [
+                        "equals", "notEquals",
+                        "in", "notIn",
+                        "greaterThan", "lessThan",
+                        "greaterThanOrEquals", "lessThanOrEquals",
+                        "contains", "startsWith", "endsWith",
+                        "isEmpty", "isNotEmpty"
+                    ],
+                    "description": "Comparison operator (default: equals)",
+                    "default": "equals"
+                },
+                "value": {
+                    "description": "Value(s) to compare against"
+                },
+                "allOf": {
+                    "type": "array",
+                    "items": { "$ref": "#/$defs/conditionRule" },
+                    "description": "All sub-rules must be true (logical AND)"
+                },
+                "anyOf": {
+                    "type": "array",
+                    "items": { "$ref": "#/$defs/conditionRule" },
+                    "description": "At least one sub-rule must be true (logical OR)"
+                },
+                "not": {
+                    "$ref": "#/$defs/conditionRule",
+                    "description": "Negates the sub-rule (logical NOT)"
+                }
+            },
+            "additionalProperties": false
+        }
+    }
+}

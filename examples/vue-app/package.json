@@ -1,23 +1,37 @@
 {
-  "name": "vnext-vue-example",
+  "name": "vnext-vue-app",
   "version": "0.1.0",
+  "private": true,
   "type": "module",
+  "description": "Integrated Vue 3 sample using all 5 vNext SDKs (morph-api, pseudo-ui, page-router, context-store, workflow-manager)",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "mock:init": "msw init public --save"
   },
   "dependencies": {
-    "vue": "^3.4.0",
-    "vue-router": "^4.2.5",
-    "@vnext/vue": "file:../../adapters/vue",
-    "@vnext/core-ts": "file:../../core/core-ts"
+    "@burgan-tech/pseudo-ui": "*",
+    "@burgantech/context-store": "*",
+    "@morph/browser-storage": "*",
+    "@morph/core": "*",
+    "@morph/logger": "*",
+    "@morph/oauth2": "*",
+    "amorphie-workflow-manager": "*",
+    "amorphie-workflow-manager-vue": "*",
+    "page-router": "*",
+    "page-router-vue": "*",
+    "@primeuix/themes": "^2.0.0",
+    "primeicons": "^7.0.0",
+    "primevue": "^4.5.0",
+    "vue": "^3.5.0"
   },
   "devDependencies": {
     "@vitejs/plugin-vue": "^5.0.0",
+    "msw": "^2.0.0",
     "typescript": "^5.3.3",
     "vite": "^5.0.0",
-    "msw": "^2.0.0"
+    "vue-tsc": "^2.0.0"
   },
   "msw": {
     "workerDirectory": [
