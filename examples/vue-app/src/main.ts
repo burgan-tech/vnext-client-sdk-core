@@ -1,12 +1,12 @@
 // ─────────────────────────────────────────────────────────────────────────
-// Bootstrap — wires all 5 vNext SDKs into one Vue 3 app.
+// Bootstrap — the app comes up from ONE constant (clientId). Everything else
+// (master layout, homepage, views, routing, token level) is pulled from the
+// backend `shell` domain by @burgan-tech/app-host. No views or business rules
+// are hardcoded on the boot path.
 //
-//   1. PrimeVue + Aura theme + CSS   (required by pseudo-ui widgets)
-//   2. MSW                            (mocks morph-api's network in-browser)
-//   3. context-store + workflow       (provided app-wide)
-//   4. page-router                    (async boot → mounted as the app shell)
+//   clientId → app-host discovery → RouteRegistry → page-router → homepage view
 // ─────────────────────────────────────────────────────────────────────────
-import { createApp } from 'vue';
+import { createApp, type App } from 'vue';
 import PrimeVue from 'primevue/config';
 import ToastService from 'primevue/toastservice';
 import Aura from '@primeuix/themes/aura';
@@ -14,36 +14,46 @@ import 'primeicons/primeicons.css';
 import '@burgan-tech/pseudo-ui/vue/style.css';
 import './styles.css';
 
-import AppShell from './AppShell.vue';
-import { worker } from './mocks/browser';
-import { bootRouter } from './sdk/router';
-import { contextStore, CONTEXT_STORE_KEY } from './sdk/context';
-import { workflowManager } from './sdk/workflow';
-import { WorkflowManagerKey } from 'amorphie-workflow-manager-vue';
-import { ensureMorphAuth } from './sdk/morph';
+import { createPageRouter } from 'page-router';
+import { createVueSurfaceFactory } from 'page-router-vue';
+import type { TokenLevel } from '@burgan-tech/app-host';
 
-// 1. Start the mock network layer before anything makes a request.
-await worker.start({ onUnhandledRequest: 'bypass' });
+import HostShell from './HostShell.vue';
+import NavView from './components/NavView.vue';
+import { bootAppHost } from './boot/appHost';
+import { ITEMS_BY_KEY, APP_ROUTER } from './boot/keys';
 
-// 2. Prime the morph client-credentials token (via the mocked token endpoint)
-//    so the first workflow/IDM request is already authenticated. Non-fatal:
-//    the app still mounts if this fails (IDM screens will just show an error).
-try {
-  await ensureMorphAuth();
-} catch {
-  /* already logged by ensureMorphAuth */
+let app: App | null = null;
+
+/** Boot (or re-boot for a token-level switch) the whole app from app-host. */
+async function start(overrideLevel?: TokenLevel): Promise<void> {
+  const host = await bootAppHost();
+  if (overrideLevel) await host.setTokenLevel(overrideLevel);
+
+  const router = await createPageRouter({
+    routeRegistry: host.built.registry,
+    onEvaluate: async ({ item }) => [item],
+    onNavigate: async () => undefined,
+    // One generic surface renders every route by its NavItem type.
+    createViewSurface: createVueSurfaceFactory(() => NavView),
+    disposeViewSurface: async () => undefined,
+    onLog: (level, code) => console.debug(`%c[page-router] ${level}: ${code}`, 'color:#c60'),
+  });
+  await router.navigate({ routeKey: host.built.homepageKey });
+
+  if (app) app.unmount();
+  app = createApp(HostShell, { router, host, onSwitch: (lvl: TokenLevel) => void start(lvl) });
+  app.use(PrimeVue, { theme: { preset: Aura, options: { darkModeSelector: '.dark-mode' } } });
+  app.use(ToastService);
+  app.provide(ITEMS_BY_KEY, host.built.itemsByKey);
+  app.provide(APP_ROUTER, router);
+  app.mount('#app');
+
+  // eslint-disable-next-line no-console
+  console.info(
+    `%c[vue-app] ✅ booted from clientId=${host.state.clientId} → homepage=${host.built.homepageKey} (tokenLevel=${host.state.tokenLevel}, ${host.state.shellMode})`,
+    'color:#4f46e5;font-weight:bold',
+  );
 }
 
-// 3. Boot the page-router (async) — it navigates to the "home" route.
-const router = await bootRouter();
-
-// 3. Create the app, install PrimeVue, provide shared SDK singletons, mount.
-const app = createApp(AppShell, { router });
-app.use(PrimeVue, { theme: { preset: Aura, options: { darkModeSelector: '.dark-mode' } } });
-app.use(ToastService);
-app.provide(CONTEXT_STORE_KEY, contextStore);
-app.provide(WorkflowManagerKey, workflowManager);
-app.mount('#app');
-
-// eslint-disable-next-line no-console
-console.info('%c[vue-app] ✅ mounted — 5 SDKs wired', 'color:#4f46e5;font-weight:bold');
+void start();

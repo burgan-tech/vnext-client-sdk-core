@@ -1,3 +1,4 @@
+import { fileURLToPath } from 'node:url';
 import { defineConfig } from 'vite';
 import vue from '@vitejs/plugin-vue';
 
@@ -17,12 +18,19 @@ const SDK_PACKAGES = [
   'page-router-vue',
   'amorphie-workflow-manager',
   'amorphie-workflow-manager-vue',
+  '@burgan-tech/app-host',
 ];
 
 export default defineConfig({
   plugins: [vue()],
   resolve: {
     dedupe: ['vue', 'primevue'],
+    alias: {
+      // Consume app-host straight from source (no build step needed in dev).
+      '@burgan-tech/app-host': fileURLToPath(
+        new URL('../../packages/app-host/src/index.ts', import.meta.url),
+      ),
+    },
   },
   optimizeDeps: {
     exclude: SDK_PACKAGES,
@@ -34,13 +42,20 @@ export default defineConfig({
   server: {
     port: 5173,
     proxy: {
+      // Local shell domain backend (vnext-configuration, domain "shell").
+      // Browser calls same-origin `/shell/functions/...`; Vite rewrites to the
+      // orchestrator's `/api/v1/shell/...` path. Kept on a distinct prefix so it
+      // does not collide with the `/api/v1` morph-idm proxy below.
+      '/shell': {
+        target: 'http://localhost:4221',
+        changeOrigin: true,
+        rewrite: (p) => p.replace(/^\/shell/, '/api/v1/shell'),
+      },
       // Real morph-idm workflow backend (test env). The browser calls
-      // same-origin `/api/v1/...` (so no CORS — the real API sends none) and
-      // Vite forwards to the backend. MSW handles `/api/accounts` before this.
+      // same-origin `/api/v1/...` and Vite forwards to the backend.
       '/api/v1': {
         target: 'https://test-vnext-morph-idm.apps.nonprod.ebt.bank',
         changeOrigin: true,
-        // The test backend serves a self-signed cert not in Node's CA bundle.
         secure: false,
       },
     },

@@ -1,0 +1,33 @@
+{
+  "name": "@burgan-tech/app-host",
+  "version": "0.1.0",
+  "description": "Bootstrap orchestrator — boots an app from a single clientId by discovering environment, client-config, navigation and token level from the backend, then wiring the 5 vNext SDKs.",
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": ["dist", "README.md"],
+  "engines": { "node": ">=22.0.0" },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "peerDependencies": {
+    "page-router": "*"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "page-router": "*",
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8"
+  },
+  "keywords": ["vnext", "bootstrap", "discovery", "app-host", "client-sdk"],
+  "license": "UNLICENSED"
+}

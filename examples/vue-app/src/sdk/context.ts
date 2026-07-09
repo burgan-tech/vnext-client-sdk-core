@@ -69,3 +69,15 @@ export function setContextValue(
     { storage: opts.storage ?? Storage.localStorage },
   );
 }
+
+/** Plain (non-reactive) read of a context-store value. */
+export function getContextValue<T>(
+  key: string,
+  opts: { boundary?: Boundary; storage?: Storage } = {},
+): T | undefined {
+  return contextStore.getData<T>(
+    opts.boundary ?? Boundary.device,
+    key,
+    { storage: opts.storage ?? Storage.localStorage },
+  );
+}
