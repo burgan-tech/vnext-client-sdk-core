@@ -39,3 +39,11 @@ coverage/
 tmp/
 temp/
 
+
+# Playwright
+test-results/
+playwright-report/
+.playwright/
+
+# E2E test credentials (never commit)
+examples/vue-app/tests/e2e/creds.json

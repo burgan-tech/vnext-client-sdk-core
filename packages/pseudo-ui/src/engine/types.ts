@@ -28,6 +28,17 @@ export interface NestedComponentNode extends ComponentNode {
   bind?: string | Record<string, string>
 }
 
+/**
+ * A placeholder where the HOST injects an arbitrary (framework-native) component
+ * — e.g. a router's active view inside a master-layout view. Unlike
+ * `NestedComponentNode` (which composes another pseudo-ui view), the host resolves
+ * `ref` to a real component via `PseudoViewDelegate.resolveHostComponent`.
+ */
+export interface ContentOutletNode extends ComponentNode {
+  type: 'ContentOutlet'
+  ref: string
+}
+
 export type ButtonAction = 'submit' | 'cancel' | 'back'
 
 export interface ButtonNode extends ComponentNode {
@@ -348,6 +359,12 @@ export type LogLevel = 'debug' | 'info' | 'warn' | 'error'
 export interface PseudoViewDelegate {
   requestData: RequestDataFn
   loadComponent(ref: string): Promise<{ schema: DataSchema; view: ViewDefinition }>
+  /**
+   * Resolve a host-owned component to mount at a `ContentOutlet` node (e.g. the
+   * router's active-view shell). Returns the framework-native component, or
+   * null/undefined if the ref is unknown. Synchronous — the host holds it already.
+   */
+  resolveHostComponent?(ref: string): unknown
   /**
    * Called when a user-triggered action reaches the host. For a plain
    * action, the SDK invokes this with three arguments (the 4th

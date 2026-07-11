@@ -74,6 +74,14 @@ const toast = useToast()
 const log = delegate.onLog ?? (() => {})
 const overlayTarget = useOverlayTarget()
 
+// ContentOutlet: resolve the host-injected component (e.g. the router's active
+// view) via the delegate. Null when the ref is unknown or no resolver is wired.
+const hostOutlet = computed(() => {
+  if (props.node.type !== 'ContentOutlet') return null
+  const ref = String((props.node as { ref?: unknown }).ref ?? '')
+  return (delegate.resolveHostComponent?.(ref) ?? null) as unknown
+})
+
 /**
  * Read/write `ctx.formData` honouring dotted bind paths so view JSON
  * `bind: "notifications.smsNotifications"` produces nested objects
@@ -1152,6 +1160,12 @@ function menuItems(items: any[]) {
       </div>
     </div>
   </ErrorBoundary>
+
+  <!-- === CONTROL: ContentOutlet (host-injected content, e.g. router active view) === -->
+  <template v-else-if="node.type === 'ContentOutlet'">
+    <component :is="hostOutlet" v-if="hostOutlet" />
+    <div v-else class="d-outlet-empty">outlet "{{ String((node as ComponentNode).ref) }}" — no host component</div>
+  </template>
 
   <!-- === CONTAINER: TabView === -->
   <Tabs v-else-if="node.type === 'TabView'" :value="0">

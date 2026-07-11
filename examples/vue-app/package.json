@@ -8,7 +8,8 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "mock:init": "msw init public --save"
+    "test:e2e": "playwright test",
+    "test:e2e:headed": "playwright test --headed"
   },
   "dependencies": {
     "@burgan-tech/pseudo-ui": "*",
@@ -17,25 +18,20 @@
     "@morph/core": "*",
     "@morph/logger": "*",
     "@morph/oauth2": "*",
+    "@primeuix/themes": "^2.0.0",
     "amorphie-workflow-manager": "*",
     "amorphie-workflow-manager-vue": "*",
     "page-router": "*",
     "page-router-vue": "*",
-    "@primeuix/themes": "^2.0.0",
     "primeicons": "^7.0.0",
     "primevue": "^4.5.0",
     "vue": "^3.5.0"
   },
   "devDependencies": {
+    "@playwright/test": "^1.61.1",
     "@vitejs/plugin-vue": "^5.0.0",
-    "msw": "^2.0.0",
     "typescript": "^5.3.3",
     "vite": "^5.0.0",
     "vue-tsc": "^2.0.0"
-  },
-  "msw": {
-    "workerDirectory": [
-      "public"
-    ]
   }
 }

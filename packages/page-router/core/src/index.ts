@@ -17,6 +17,7 @@ export type {
   FindQuery,
   HistoryEntry,
   HomepageConfig,
+  MasterLayoutRef,
   IPageRouter,
   LocalizedString,
   NavigateContext,

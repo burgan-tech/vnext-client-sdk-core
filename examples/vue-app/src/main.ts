@@ -21,7 +21,8 @@ import type { TokenLevel } from '@burgan-tech/app-host';
 import HostShell from './HostShell.vue';
 import NavView from './components/NavView.vue';
 import { bootAppHost } from './boot/appHost';
-import { ITEMS_BY_KEY, APP_ROUTER } from './boot/keys';
+import { loadAndApplyTheme } from './boot/theme';
+import { ITEMS_BY_KEY, APP_ROUTER, APP_SET_TOKEN_LEVEL } from './boot/keys';
 
 let app: App | null = null;
 
@@ -29,6 +30,10 @@ let app: App | null = null;
 async function start(overrideLevel?: TokenLevel): Promise<void> {
   const host = await bootAppHost();
   if (overrideLevel) await host.setTokenLevel(overrideLevel);
+
+  // Apply the default theme (loaded from the shell `theme` workflow) before mount.
+  const themeCfg = host.state.clientConfig.theme as { default?: string } | undefined;
+  await loadAndApplyTheme(themeCfg?.default ?? 'default');
 
   const router = await createPageRouter({
     routeRegistry: host.built.registry,
@@ -40,6 +45,8 @@ async function start(overrideLevel?: TokenLevel): Promise<void> {
     onLog: (level, code) => console.debug(`%c[page-router] ${level}: ${code}`, 'color:#c60'),
   });
   await router.navigate({ routeKey: host.built.homepageKey });
+  // Master layout (app chrome) is a backend view, swapped per token level.
+  router.setMasterLayout(host.state.navigation.masterLayout ?? null);
 
   if (app) app.unmount();
   app = createApp(HostShell, { router, host, onSwitch: (lvl: TokenLevel) => void start(lvl) });
@@ -47,6 +54,7 @@ async function start(overrideLevel?: TokenLevel): Promise<void> {
   app.use(ToastService);
   app.provide(ITEMS_BY_KEY, host.built.itemsByKey);
   app.provide(APP_ROUTER, router);
+  app.provide(APP_SET_TOKEN_LEVEL, (lvl: TokenLevel) => void start(lvl));
   app.mount('#app');
 
   // eslint-disable-next-line no-console

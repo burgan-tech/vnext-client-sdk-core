@@ -56,6 +56,37 @@ const fetchJson: FetchJson = async (path, init) => {
   return res.json();
 };
 
+/**
+ * Fetch a shell-domain View by key and return its pseudo-ui content.
+ * A published sys-views View is queryable as an instance of the `sys-views`
+ * workflow (view key = instance key): GET /workflows/sys-views/instances/{key}.
+ */
+export async function loadShellView(key: string): Promise<Record<string, unknown> | null> {
+  try {
+    const raw = (await fetchJson(`/workflows/sys-views/instances/${key}`, { query: { sync: 'true' } })) as {
+      attributes?: { content?: unknown };
+    };
+    return (raw?.attributes?.content ?? null) as Record<string, unknown> | null;
+  } catch (e) {
+    console.warn(`[shell] loadShellView(${key}) failed`, e);
+    return null;
+  }
+}
+
+/** Fetch a theme by key from the shell `theme` workflow (instance = theme). */
+export async function loadTheme(key: string): Promise<{ mode?: string; tokens?: Record<string, string> } | null> {
+  try {
+    const raw = (await fetchJson(`/workflows/theme/instances/${key}`, { query: { sync: 'true' } })) as {
+      attributes?: { mode?: string; tokens?: Record<string, string> };
+    };
+    const a = raw?.attributes;
+    return a ? { ...(a.mode ? { mode: a.mode } : {}), tokens: a.tokens ?? {} } : null;
+  } catch (e) {
+    console.warn(`[shell] loadTheme(${key}) failed`, e);
+    return null;
+  }
+}
+
 // ── Device identity (web) ────────────────────────────────────────────────
 const identityStore: IdentityStore = {
   getPersistent: (k) => window.localStorage.getItem(k),

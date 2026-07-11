@@ -156,6 +156,16 @@ export interface HomepageConfig {
   extraData?: Record<string, unknown>;
 }
 
+/**
+ * Master layout (app chrome) identity — the persistent frame that wraps the
+ * swappable content. Like `HomepageConfig`, it is NOT a route flag: it is set at
+ * runtime via `setMasterLayout(...)` and swapped when auth level / shell mode
+ * changes. The router only holds + broadcasts this opaque ref; it renders no
+ * chrome — the host renders the layout around `<PageRouterShell>` (which the
+ * layout embeds via a content outlet).
+ */
+export type MasterLayoutRef = Record<string, unknown>;
+
 export interface HistoryEntry {
   at: string;
   shellMode: ShellMode;
@@ -294,6 +304,10 @@ export interface IPageRouter {
   getLocale(): string;
   setLocale(locale: string): void;
 
+  /** Current master layout ref, or null if none set. */
+  getMasterLayout(): MasterLayoutRef | null;
+  /** Set (or clear) the master layout. The host re-renders the chrome; the router renders nothing. */
+  setMasterLayout(ref: MasterLayoutRef | null): void;
   getHomepage(): HomepageConfig | null;
   setHomepage(
     config: HomepageConfig | null,
@@ -335,6 +349,9 @@ export interface IPageRouter {
   onOverlayClosed(handler: (overlayKey: string) => void): Subscription;
   onHomepageChanged(
     handler: (config: HomepageConfig | null) => void,
+  ): Subscription;
+  onMasterLayoutChanged(
+    handler: (ref: MasterLayoutRef | null) => void,
   ): Subscription;
   onHistoryChanged(
     handler: (history: ReadonlyArray<HistoryEntry>) => void,

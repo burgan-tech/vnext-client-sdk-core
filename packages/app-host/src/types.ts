@@ -86,6 +86,8 @@ export interface NavItem {
 }
 
 export interface NavigationResponse {
+  /** Master layout (app chrome) ref for this token level — opaque, host-rendered. */
+  masterLayout?: Record<string, unknown>;
   homepage: string;
   items: NavItem[];
 }

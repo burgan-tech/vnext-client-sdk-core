@@ -17,6 +17,7 @@ import type {
   FindQuery,
   HistoryEntry,
   HomepageConfig,
+  MasterLayoutRef,
   IPageRouter,
   NavigateContext,
   NavigateRequest,
@@ -61,6 +62,8 @@ export class PageRouter implements IPageRouter {
   private shellMode!: ShellMode;
   private locale: string;
   private homepage: HomepageConfig | null = null;
+  // Master layout (app chrome) ref — opaque to the router; host renders it.
+  private masterLayout: MasterLayoutRef | null = null;
   // Tab key currently bound to homepage identity (if any). Used by the
   // homepage swap flow + `goHome()` fast path.
   private homepageTabKey: string | null = null;
@@ -96,6 +99,7 @@ export class PageRouter implements IPageRouter {
   private readonly sigOverlayOpened = createSignal<OpenOverlay>();
   private readonly sigOverlayClosed = createSignal<string>();
   private readonly sigHomepageChanged = createSignal<HomepageConfig | null>();
+  private readonly sigMasterLayoutChanged = createSignal<MasterLayoutRef | null>();
   private readonly sigHistoryChanged = createSignal<ReadonlyArray<HistoryEntry>>();
   private readonly sigLocaleChanged = createSignal<string>();
 
@@ -213,6 +217,16 @@ export class PageRouter implements IPageRouter {
 
   getHomepage(): HomepageConfig | null {
     return this.homepage;
+  }
+
+  getMasterLayout(): MasterLayoutRef | null {
+    return this.masterLayout;
+  }
+
+  setMasterLayout(ref: MasterLayoutRef | null): void {
+    this.masterLayout = ref;
+    this.logger.debug('setMasterLayout', undefined, { hasLayout: ref !== null });
+    this.sigMasterLayoutChanged.emit(ref);
   }
 
   getOpenTabs(): ReadonlyArray<OpenTab> {
@@ -934,6 +948,12 @@ export class PageRouter implements IPageRouter {
 
   onOverlayClosed(handler: (overlayKey: string) => void): Subscription {
     return this.sigOverlayClosed.subscribe(handler);
+  }
+
+  onMasterLayoutChanged(
+    handler: (ref: MasterLayoutRef | null) => void,
+  ): Subscription {
+    return this.sigMasterLayoutChanged.subscribe(handler);
   }
 
   onHomepageChanged(

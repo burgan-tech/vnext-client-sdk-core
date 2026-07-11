@@ -110,6 +110,7 @@ Notlar:
 ## 📚 Dokümantasyon
 
 - [docs/RESTRUCTURE.md](docs/RESTRUCTURE.md) — **bu depoda ne yapıldı**: yeniden yapılandırma, Vue-only pseudo-ui, cleanup kayıtları, mimari kararlar.
+- [docs/device-identity.md](docs/device-identity.md) — **güncel**: deviceId/installationId + device keypair/token; storage katmanları ve ömürleri (localStorage/sessionStorage, cookie yok).
 - [examples/vue-app/README.md](examples/vue-app/README.md) — örnek uygulama.
 
 > **`docs/` içindeki diğer .md dosyaları** (data-manager, navigation, router,

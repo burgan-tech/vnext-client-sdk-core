@@ -89,6 +89,7 @@
 
                 { "$ref": "#/$defs/forEachComponent" },
                 { "$ref": "#/$defs/nestedComponent" },
+                { "$ref": "#/$defs/contentOutletComponent" },
 
                 { "$ref": "#/$defs/timePickerComponent" },
                 { "$ref": "#/$defs/segmentedButtonComponent" },
@@ -817,6 +818,20 @@
             },
             "additionalProperties": false,
             "description": "Embeds another component by reference. Each nested component has its own schema.json (data contract) and view.json (pseudo UI). The renderer fetches and recursively renders the referenced component. The component manages its own isolated data store. Input and output flow through bind: parent properties mapped to child properties bidirectionally. Properties marked with x-binding in the child schema declare the input contract."
+        },
+        "contentOutletComponent": {
+            "type": "object",
+            "required": ["type", "ref"],
+            "properties": {
+                "type": { "const": "ContentOutlet" },
+                "ref": {
+                    "type": "string",
+                    "pattern": "^[a-z0-9-]+$",
+                    "description": "Outlet identifier the host resolves to a native component (e.g. 'router' → the router's active-view shell)."
+                }
+            },
+            "additionalProperties": false,
+            "description": "A placeholder where the HOST injects an arbitrary framework-native component (not another pseudo-ui view). Used by master-layout views to embed the router's swappable content. Resolved via PseudoViewDelegate.resolveHostComponent(ref)."
         },
 
 

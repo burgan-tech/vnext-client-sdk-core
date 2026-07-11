@@ -8,6 +8,7 @@ import {
 import type {
   HistoryEntry,
   HomepageConfig,
+  MasterLayoutRef,
   IPageRouter,
   OpenOverlay,
   OpenTab,
@@ -28,6 +29,7 @@ export interface PageRouterReactive {
   readonly shellMode: Ref<ShellMode>;
   readonly locale: Ref<string>;
   readonly homepage: ShallowRef<HomepageConfig | null>;
+  readonly masterLayout: ShallowRef<MasterLayoutRef | null>;
 }
 
 export function usePageRouter(router: IPageRouter): PageRouterReactive {
@@ -47,6 +49,7 @@ export function usePageRouter(router: IPageRouter): PageRouterReactive {
   const shellMode = ref(router.getShellMode()) as Ref<ShellMode>;
   const locale = ref(router.getLocale());
   const homepage = shallowRef<HomepageConfig | null>(router.getHomepage());
+  const masterLayout = shallowRef<MasterLayoutRef | null>(router.getMasterLayout());
 
   const refreshTabs = (): void => {
     openTabs.value = [...router.getOpenTabs()];
@@ -79,6 +82,9 @@ export function usePageRouter(router: IPageRouter): PageRouterReactive {
       refreshOverlays();
       refreshHistory();
     }),
+    router.onMasterLayoutChanged((m) => {
+      masterLayout.value = m ? { ...m } : null;
+    }),
     router.onHomepageChanged((h) => {
       homepage.value = h;
       refreshTabs();
@@ -99,5 +105,6 @@ export function usePageRouter(router: IPageRouter): PageRouterReactive {
     shellMode,
     locale,
     homepage,
+    masterLayout,
   };
 }
