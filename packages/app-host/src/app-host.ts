@@ -11,9 +11,9 @@
 // discovery chain with the route-registry builder and exposes a token-level
 // switch so the same machine drives all three auth states.
 // ─────────────────────────────────────────────────────────────────────────
-import { discover } from './discovery.js';
+import { discover, loadNavigation } from './discovery.js';
 import { buildRouteRegistry, type BuiltRegistry } from './registry.js';
-import type { AppHostConfig, AppHostDeps, AppHostState, NavigationResponse, TokenLevel } from './types.js';
+import type { AppHostConfig, AppHostDeps, AppHostState, TokenLevel } from './types.js';
 
 export interface AppHost {
   readonly state: AppHostState;
@@ -42,11 +42,7 @@ export async function createAppHost(config: AppHostConfig, deps: AppHostDeps): P
         level === '2fa' && (state.clientConfig.router?.defaultMode ?? 'sdi').toLowerCase() === 'mdi'
           ? 'mdi'
           : 'sdi';
-      const navFn = state.clientConfig.navigation?.endpoint?.function ?? 'navigation';
-      const raw = await deps.fetchJson(`/functions/${navFn}`, {
-        query: { clientId: config.clientId, tokenLevel: level, sync: 'true' },
-      });
-      const navigation = unwrapNavigation(raw);
+      const navigation = await loadNavigation(deps, state.clientConfig, level);
       state = { ...state, navigation, tokenLevel: level, shellMode };
       built = buildRouteRegistry(navigation, shellMode);
       for (const l of listeners) l(host);
@@ -58,13 +54,4 @@ export async function createAppHost(config: AppHostConfig, deps: AppHostDeps): P
   };
 
   return host;
-}
-
-function unwrapNavigation(raw: unknown): NavigationResponse {
-  if (raw && typeof raw === 'object' && !Array.isArray(raw)) {
-    const keys = Object.keys(raw as Record<string, unknown>);
-    const inner = keys.length === 1 ? (raw as Record<string, unknown>)[keys[0]!] : raw;
-    return inner as NavigationResponse;
-  }
-  return raw as NavigationResponse;
 }

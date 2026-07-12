@@ -6,10 +6,17 @@
   in a backend-placed outlet).
 -->
 <script setup lang="ts">
+import { computed } from 'vue';
 import type { IPageRouter } from 'page-router';
+import { usePageRouter } from 'page-router-vue';
 import type { NavItem } from '@burgan-tech/app-host';
+import { localize } from '../sdk/i18n';
 
 const props = defineProps<{ items: NavItem[]; router: IPageRouter }>();
+
+const state = usePageRouter(props.router);
+const locale = computed(() => state.locale.value);
+const t = (v: NavItem['title']) => localize(v, locale.value);
 
 function go(key?: string): void {
   if (key) void props.router.navigate({ routeKey: key });
@@ -23,15 +30,15 @@ function go(key?: string): void {
         v-if="it.key && it.type !== 'group' && it.type !== 'divider'"
         class="nav-item"
         @click="go(it.key)"
-      >{{ it.title ?? it.key }}</button>
+      >{{ t(it.title) || it.key }}</button>
       <div v-else-if="it.type === 'group'" class="nav-group">
-        <div class="nav-group-title">{{ it.title }}</div>
+        <div class="nav-group-title">{{ t(it.title) }}</div>
         <button
           v-for="c in (it.children ?? [])"
           :key="c.key"
           class="nav-item child"
           @click="go(c.key)"
-        >{{ c.title ?? c.key }}</button>
+        >{{ t(c.title) || c.key }}</button>
       </div>
     </template>
   </nav>

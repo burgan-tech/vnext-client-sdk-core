@@ -7,7 +7,14 @@ const { userName: USER, password: PASS, otp: OTP } = CREDS;
 // views, handling either the push or OTP second factor, and asserts the app flips
 // to the 2FA dashboard.
 test('2FA login → 2fa token + navigation flip', async ({ page }) => {
+  // Boot does real IDM work + several config reads; wait for the boot signal
+  // before interacting rather than racing the default assertion timeout.
+  const booted = page.waitForEvent('console', {
+    predicate: (m) => m.text().includes('booted from clientId=IbWeb'),
+    timeout: 120_000,
+  });
   await page.goto('/');
+  await booted;
   await expect(page.getByRole('button', { name: 'Sign In' })).toBeVisible();
   await page.getByRole('button', { name: 'Sign In' }).click();
 
@@ -23,9 +30,22 @@ test('2FA login → 2fa token + navigation flip', async ({ page }) => {
   // Second factor — OTP field or push approve, whichever the backend routes to.
   await handleSecondFactor(page);
 
-  // Flip to 2FA: status line shows the 2fa token, master swaps to the 2FA chrome.
-  await expect(page.getByText(/2fa✓/)).toBeVisible({ timeout: 60_000 });
-  await expect(page.getByText('Burgan · Accounts')).toBeVisible();
+  // Flip to 2FA: the master swaps to the 2FA chrome (authenticated AppBar title).
+  await expect(page.getByText('Burgan · Accounts')).toBeVisible({ timeout: 60_000 });
+
+  // The profile menu now shows the logged-in identity; opening it reveals the
+  // 2fa token flag (the session status moved from the sidebar into the profile).
+  const profile = page.getByRole('button', { name: /Hesabım/ });
+  await expect(profile).toBeVisible();
+  await profile.click();
+  await expect(page.getByText(/2fa ✓/)).toBeVisible();
+
+  // Change-password flow is wired into the 2FA profile menu. Open it and assert
+  // the start form renders (keyed by the logged-in userId). We do NOT submit —
+  // completing the flow would change the test user's real password.
+  await page.getByRole('button', { name: 'Change Password' }).click();
+  await expect(page.getByText('Current Password')).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByText('Confirm New Password')).toBeVisible();
 });
 
 async function handleSecondFactor(page: Page): Promise<void> {

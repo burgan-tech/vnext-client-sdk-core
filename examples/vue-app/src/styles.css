@@ -30,25 +30,54 @@ h2 { font-size: 1.2rem; margin: 1.25rem 0 .75rem; }
 .lead { color: var(--muted); margin-top: 0; }
 code { background: var(--hover); padding: .1rem .35rem; border-radius: 4px; font-size: .85em; }
 
-/* ── Master layout chrome (the master View is pseudo-ui; these style its
-     primitives so the sidebar/content read as an app shell) ────────────────── */
-.app-shell, .app-shell > * { min-height: 100vh; }
-.app-shell .d-row:first-child { min-height: 100vh; align-items: stretch; gap: 0; }
-/* First column of the master row = sidebar */
+/* ── Master layout chrome — fixed-height shell (sidebar fixed + independently
+     scrolling content). The master View is pseudo-ui; these style its
+     primitives (.d-row/.d-column/.d-expanded/.d-appbar). ───────────────────── */
+.app-shell { height: 100vh; overflow: hidden; }
+.app-shell > * { height: 100%; }
+.app-shell .d-row:first-child { height: 100vh; align-items: stretch; gap: 0; overflow: hidden; }
+/* First column of the master row = sidebar (fixed width, own scroll) */
 .app-shell .d-row:first-child > .d-column:first-child {
   width: var(--sidebar-width, 264px);
   flex: 0 0 var(--sidebar-width, 264px);
+  height: 100vh;
+  overflow-y: auto;
   background: var(--color-surface, #fff);
   border-right: 1px solid var(--color-border, #e3e6ef);
   padding: 1rem;
   gap: 1rem;
 }
+/* Content side fills the rest, as a fixed-height flex column */
+.app-shell .d-expanded { height: 100vh; min-width: 0; display: flex; flex-direction: column; overflow: hidden; }
+.app-shell .d-expanded > .d-column { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; gap: 0; }
 .app-shell .d-appbar {
+  flex: 0 0 auto;
   border-bottom: 1px solid var(--color-border, #e3e6ef);
   padding: 0 1.25rem;
   min-height: var(--appbar-height, 56px);
   background: var(--color-surface, #fff);
 }
 .app-shell .d-appbar__title { font-weight: 800; letter-spacing: -.01em; }
-.app-shell .d-expanded { padding: 0; overflow: auto; }
-.app-shell .d-expanded .page-router-shell { padding: 1.5rem 2rem; }
+.app-shell .router-outlet { flex: 1 1 auto; min-height: 0; }
+
+/* Boot splash / error — shown before the app mounts (slow real-IDM discovery). */
+.boot-splash, .boot-error {
+  position: fixed; inset: 0; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; gap: 1rem;
+  font-family: var(--font-family, system-ui, sans-serif);
+  color: var(--color-on-surface, #1f2430); background: var(--color-background, #f4f5f9);
+}
+.boot-spinner {
+  width: 38px; height: 38px; border-radius: 50%;
+  border: 3px solid var(--color-border, #e5e7f0);
+  border-top-color: var(--color-primary, #4f46e5);
+  animation: boot-spin .8s linear infinite;
+}
+@keyframes boot-spin { to { transform: rotate(360deg); } }
+.boot-splash p { color: var(--color-muted, #6b7280); font-size: .95rem; }
+.boot-error h2 { margin: 0; font-size: 1.1rem; }
+.boot-error p { color: var(--color-danger, #c0392b); max-width: 30rem; text-align: center; }
+.boot-error button {
+  padding: .5rem 1rem; border-radius: 8px; cursor: pointer; border: none;
+  background: var(--color-primary, #4f46e5); color: #fff; font-size: .9rem;
+}

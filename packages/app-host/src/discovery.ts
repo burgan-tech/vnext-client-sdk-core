@@ -1,12 +1,14 @@
 // ─────────────────────────────────────────────────────────────────────────
 // Discovery chain — the "new glue" that boots an app from a single clientId.
 //
-//   clientId → environment → (device token, best-effort) → client-config
-//            → tokenLevel → navigation(tokenLevel)
+//   clientId → environment(record) → (device token, best-effort)
+//            → client-config(record) → tokenLevel
+//            → navigation(sidebar + profile records for that level)
 //
-// Every backend function response is wrapped under a single (camelCased) key,
-// e.g. { "clientConfig": {...} }. `unwrap` returns that inner value regardless
-// of the key name, so app-host is decoupled from the wrapping convention.
+// Config is DATA, not code: environment / client-config / navigation are all
+// held as instances of config-carrying workflows and fetched BY KEY
+// (GET /workflows/<workflow>/instances/<key>), exactly like themes and views.
+// There are no C# functions/mappings on the boot path.
 // ─────────────────────────────────────────────────────────────────────────
 import type {
   AppHostConfig,
@@ -15,17 +17,22 @@ import type {
   ClientConfig,
   EnvironmentResponse,
   EnvironmentStage,
+  LevelConfig,
+  NavItem,
   NavigationResponse,
   TokenLevel,
 } from './types.js';
 
-/** Backend wraps `Data` under one top-level key; return that inner value. */
-function unwrap(response: unknown): unknown {
-  if (response && typeof response === 'object' && !Array.isArray(response)) {
-    const keys = Object.keys(response as Record<string, unknown>);
-    if (keys.length === 1) return (response as Record<string, unknown>)[keys[0]!];
-  }
-  return response;
+/** Fetch a config record's instance data (attributes) by key. */
+export async function loadRecord(
+  deps: AppHostDeps,
+  workflow: string,
+  key: string,
+): Promise<Record<string, unknown> | undefined> {
+  const raw = (await deps.fetchJson(`/workflows/${workflow}/instances/${key}`, {
+    query: { sync: 'true' },
+  })) as { attributes?: Record<string, unknown> } | undefined;
+  return raw?.attributes;
 }
 
 function pickStage(env: EnvironmentResponse): EnvironmentStage {
@@ -35,21 +42,46 @@ function pickStage(env: EnvironmentResponse): EnvironmentStage {
   return stage;
 }
 
+/** Resolve the level manifest for a token level (1fa falls back to 2fa, then device). */
+export function resolveLevel(clientConfig: ClientConfig, tokenLevel: TokenLevel): LevelConfig {
+  const levels = clientConfig.levels ?? {};
+  const level = levels[tokenLevel] ?? levels['2fa'] ?? levels['device'];
+  if (!level) throw new Error(`[app-host] client-config has no level manifest for "${tokenLevel}"`);
+  return level;
+}
+
+/** Load the resolved navigation (master + homepage + sidebar/profile records) for a level. */
+export async function loadNavigation(
+  deps: AppHostDeps,
+  clientConfig: ClientConfig,
+  tokenLevel: TokenLevel,
+): Promise<NavigationResponse> {
+  const level = resolveLevel(clientConfig, tokenLevel);
+  const items = async (wf: string, key: string): Promise<NavItem[]> =>
+    ((await loadRecord(deps, wf, key))?.['items'] as NavItem[] | undefined) ?? [];
+
+  // The two nav records are independent — fetch them concurrently.
+  const [sidebar, profile] = await Promise.all([
+    items(level.nav.sidebar.workflow ?? 'navigation', level.nav.sidebar.key),
+    items(level.nav.profile.workflow ?? 'navigation', level.nav.profile.key),
+  ]);
+
+  return {
+    ...(level.masterLayout ? { masterLayout: level.masterLayout as Record<string, unknown> } : {}),
+    homepage: level.homepage,
+    sidebar,
+    profile,
+  };
+}
+
 export async function discover(config: AppHostConfig, deps: AppHostDeps): Promise<AppHostState> {
   const log = deps.log ?? (() => undefined);
   const { clientId } = config;
-  const envFn = config.environmentFunction ?? 'environment';
 
-  const callFn = async (fn: string, query: Record<string, string>): Promise<unknown> => {
-    const raw = await deps.fetchJson(`/functions/${fn}`, {
-      query: { ...query, clientId, sync: 'true' },
-    });
-    return unwrap(raw);
-  };
-
-  // 1. environment — the first and only pre-configured call.
+  // 1. environment record — the first call (keyed by clientId).
   log('info', `discovering environment for clientId=${clientId}`);
-  const environment = (await callFn(envFn, {})) as EnvironmentResponse;
+  const environment = (await loadRecord(deps, 'environment', clientId)) as EnvironmentResponse | undefined;
+  if (!environment?.stages) throw new Error(`[app-host] environment record "${clientId}" not found`);
   const stage = pickStage(environment);
   log('info', `stage selected: ${stage.key}`);
 
@@ -58,6 +90,10 @@ export async function discover(config: AppHostConfig, deps: AppHostDeps): Promis
   if (deviceIdentity) {
     log('info', `device identity: deviceId=${deviceIdentity.deviceId} installationId=${deviceIdentity.installationId}`);
   }
+
+  // client-config only needs the clientId (not the device token), so fetch it
+  // concurrently with the slow device registration/token round-trips below.
+  const clientConfigPromise = loadRecord(deps, 'client-config', clientId);
 
   // 3. device registration (device-manager) — ensures a device keypair + registers. Tolerant.
   let deviceRegistration: import('./types.js').DeviceRegistration | undefined;
@@ -85,22 +121,20 @@ export async function discover(config: AppHostConfig, deps: AppHostDeps): Promis
     }
   }
 
-  // 4. token level (device unless a user token is present).
+  // 5. token level (device unless a user token is present).
   const tokenLevel: TokenLevel = deps.resolveTokenLevel ? await deps.resolveTokenLevel() : 'device';
 
-  // 5. client-config.
-  const configFn = stage.configEndpoint?.function ?? 'client-config';
-  const clientConfig = (await callFn(configFn, {})) as ClientConfig;
+  // 6. client-config record (kicked off in parallel above).
+  const clientConfig = (await clientConfigPromise) as ClientConfig | undefined;
+  if (!clientConfig) throw new Error(`[app-host] client-config record "${clientId}" not found`);
 
-  // 6. navigation for this token level.
-  const navFn = clientConfig.navigation?.endpoint?.function ?? 'navigation';
-  const navigation = (await callFn(navFn, { tokenLevel })) as NavigationResponse;
-  log('info', `navigation loaded: homepage=${navigation.homepage}, tokenLevel=${tokenLevel}`);
+  // 7. navigation for this token level (sidebar + profile records).
+  const navigation = await loadNavigation(deps, clientConfig, tokenLevel);
+  log('info', `navigation loaded: homepage=${navigation.homepage}, tokenLevel=${tokenLevel} (sidebar ${navigation.sidebar.length}, profile ${navigation.profile.length})`);
 
-  // 7. shell mode: device/1FA always SDI (override); 2FA honors client-config.
+  // 8. shell mode: device/1FA always SDI (override); 2FA honors client-config.
   const configured = (clientConfig.router?.defaultMode ?? 'sdi').toLowerCase();
-  const shellMode: 'sdi' | 'mdi' =
-    tokenLevel === '2fa' && configured === 'mdi' ? 'mdi' : 'sdi';
+  const shellMode: 'sdi' | 'mdi' = tokenLevel === '2fa' && configured === 'mdi' ? 'mdi' : 'sdi';
 
   return {
     clientId,

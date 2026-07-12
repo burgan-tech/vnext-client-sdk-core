@@ -25,15 +25,20 @@ export interface DeviceRegistration {
   fromCache?: boolean;
 }
 
-/** A descriptor for a backend function endpoint (domain- or instance-scoped). */
-export interface FunctionEndpoint {
+/**
+ * A backend grant-flow descriptor (how to acquire a token). The device-token
+ * adapter reads its fields (domain/workflow/grantType/clientId/...).
+ */
+export interface GrantFlow {
   type?: string;
   runtime?: string;
-  domain: string;
+  domain?: string;
   workflow?: string;
-  key?: string;
-  function: string;
-  body?: Record<string, unknown>;
+  function?: string;
+  grantType?: string;
+  clientId?: string;
+  clientSecret?: string;
+  idmBase?: string;
   requiredToken?: Array<{ provider: string; token: string }>;
   [k: string]: unknown;
 }
@@ -41,7 +46,7 @@ export interface FunctionEndpoint {
 export interface AuthProvider {
   key: string;
   type: string;
-  grantFlow?: FunctionEndpoint;
+  grantFlow?: GrantFlow;
   tokenTypes?: Record<string, unknown>;
   [k: string]: unknown;
 }
@@ -50,7 +55,6 @@ export interface EnvironmentStage {
   key: string;
   title?: string;
   baseUrl?: string;
-  configEndpoint?: FunctionEndpoint;
   authProviders?: AuthProvider[];
   [k: string]: unknown;
 }
@@ -61,22 +65,58 @@ export interface EnvironmentResponse {
   stages: EnvironmentStage[];
 }
 
+/** Reference to a config record held as a workflow instance (fetched by key). */
+export interface RecordRef {
+  key: string;
+  domain?: string;
+  workflow?: string;
+  version?: string;
+  flow?: string;
+  [k: string]: unknown;
+}
+
+/** Per-token-level manifest: which master chrome, homepage, and nav records. */
+export interface LevelConfig {
+  /** Master layout (app chrome) ref — opaque, host-rendered. */
+  masterLayout?: RecordRef;
+  homepage: string;
+  nav: {
+    /** Sidebar navigation record ref (instance of the `navigation` workflow). */
+    sidebar: RecordRef;
+    /** Profile-dropdown navigation record ref. */
+    profile: RecordRef;
+  };
+}
+
 export interface ClientConfig {
   theme?: Record<string, unknown>;
   api?: Record<string, unknown>;
   router?: { defaultMode?: string; allowChangeMode?: boolean; [k: string]: unknown };
-  navigation?: { endpoint?: FunctionEndpoint };
+  /** Per-token-level chrome + navigation manifest. */
+  levels?: Record<string, LevelConfig>;
   initialization?: unknown[];
   [k: string]: unknown;
 }
+
+/** One localized label entry — mirrors the core definition convention. */
+export interface LabelEntry {
+  language: string; // e.g. "tr-TR", "en-US"
+  label: string;
+}
+/**
+ * Localizable text: the array-of-{language,label} form is preferred (open to new
+ * languages); a plain string or a { <lang>: text } map are also accepted so older
+ * records keep working. The host resolves it against the active locale.
+ */
+export type LocalizedText = string | LabelEntry[] | Record<string, string>;
 
 export interface NavItem {
   type: string; // group | divider | dynamicView | staticView | webView | workflow | search | instance
   version?: string;
   key?: string;
   order?: number;
-  title?: string;
-  subtitle?: string;
+  title?: LocalizedText;
+  subtitle?: LocalizedText;
   iconUrn?: string;
   disabled?: boolean;
   badge?: { isNew?: boolean; isHot?: boolean; count?: boolean | number };
@@ -85,11 +125,19 @@ export interface NavItem {
   [k: string]: unknown;
 }
 
+/**
+ * Resolved navigation for a token level: the master chrome + homepage (from the
+ * level manifest) plus the two navigation records (sidebar + profile), each a
+ * `navigation`-workflow instance fetched by key.
+ */
 export interface NavigationResponse {
   /** Master layout (app chrome) ref for this token level — opaque, host-rendered. */
   masterLayout?: Record<string, unknown>;
   homepage: string;
-  items: NavItem[];
+  /** Sidebar navigation items. */
+  sidebar: NavItem[];
+  /** Profile-dropdown navigation items. */
+  profile: NavItem[];
 }
 
 /** Everything app-host resolves during a boot. */
@@ -117,12 +165,11 @@ export type FetchJson = (
 ) => Promise<unknown>;
 
 export interface AppHostConfig {
-  /** The ONLY hardcoded value in the app. */
+  /** The ONLY hardcoded value in the app. It is the instance key of the
+   * `environment` and `client-config` config records. */
   clientId: string;
-  /** Base path all shell-domain function calls are built on (e.g. "/shell" in dev, proxied to the backend). */
+  /** Base path all shell-domain calls are built on (e.g. "/shell" in dev, proxied to the backend). */
   shellBase: string;
-  /** Key of the environment boot function. Defaults to "environment". */
-  environmentFunction?: string;
 }
 
 export interface AppHostDeps {

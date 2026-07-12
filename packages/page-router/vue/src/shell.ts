@@ -35,7 +35,11 @@ export const PageRouterShell = defineComponent({
       return h('div', { class: 'page-router-shell' }, [
         tabMount
           ? h('div', { class: 'page-router-active', 'data-tab-key': tab!.tabKey }, [
-              h(tabMount.component, { ...tabMount.props }),
+              // Key by tabKey so each tab is its OWN surface instance: switching
+              // tabs mounts a fresh component (and its own data load) instead of
+              // reusing one instance that would keep showing the previous tab's
+              // content until an async refetch lands.
+              h(tabMount.component, { ...tabMount.props, key: tab!.tabKey }),
             ])
           : h('div', { class: 'page-router-empty' }, 'No active view'),
         overlayNodes.length > 0

@@ -15,7 +15,7 @@ import '@burgan-tech/pseudo-ui/vue/style.css';
 import './styles.css';
 
 import { createPageRouter } from 'page-router';
-import { createVueSurfaceFactory } from 'page-router-vue';
+import { createVueSurfaceFactory, bindBrowserHistory } from 'page-router-vue';
 import type { TokenLevel } from '@burgan-tech/app-host';
 
 import HostShell from './HostShell.vue';
@@ -25,6 +25,7 @@ import { loadAndApplyTheme } from './boot/theme';
 import { ITEMS_BY_KEY, APP_ROUTER, APP_SET_TOKEN_LEVEL } from './boot/keys';
 
 let app: App | null = null;
+let disposeHistory: (() => void) | null = null;
 
 /** Boot (or re-boot for a token-level switch) the whole app from app-host. */
 async function start(overrideLevel?: TokenLevel): Promise<void> {
@@ -48,6 +49,11 @@ async function start(overrideLevel?: TokenLevel): Promise<void> {
   // Master layout (app chrome) is a backend view, swapped per token level.
   router.setMasterLayout(host.state.navigation.masterLayout ?? null);
 
+  // Wire the browser Back/Forward buttons to the router's own history so SDI
+  // navigation doesn't unload the SPA. Re-bind on re-boot (fresh router).
+  disposeHistory?.();
+  disposeHistory = bindBrowserHistory(router);
+
   if (app) app.unmount();
   app = createApp(HostShell, { router, host, onSwitch: (lvl: TokenLevel) => void start(lvl) });
   app.use(PrimeVue, { theme: { preset: Aura, options: { darkModeSelector: '.dark-mode' } } });
@@ -64,4 +70,21 @@ async function start(overrideLevel?: TokenLevel): Promise<void> {
   );
 }
 
-void start();
+/** Minimal boot splash so the (slow, real-IDM) discovery never shows a blank page. */
+function showSplash(): void {
+  const el = document.getElementById('app');
+  if (el) el.innerHTML = '<div class="boot-splash"><div class="boot-spinner"></div><p>Yükleniyor…</p></div>';
+}
+function showBootError(e: unknown): void {
+  const el = document.getElementById('app');
+  const msg = e instanceof Error ? e.message : String(e);
+  if (el) {
+    el.innerHTML =
+      `<div class="boot-error"><h2>Başlatılamadı</h2><p>${msg}</p>` +
+      `<button onclick="location.reload()">Tekrar dene</button></div>`;
+  }
+  console.error('[vue-app] boot failed', e);
+}
+
+showSplash();
+start().catch(showBootError);

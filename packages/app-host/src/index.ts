@@ -20,8 +20,12 @@ export type {
   EnvironmentResponse,
   EnvironmentStage,
   FetchJson,
-  FunctionEndpoint,
+  GrantFlow,
+  LabelEntry,
+  LevelConfig,
+  LocalizedText,
   NavItem,
   NavigationResponse,
+  RecordRef,
   TokenLevel,
 } from './types.js';

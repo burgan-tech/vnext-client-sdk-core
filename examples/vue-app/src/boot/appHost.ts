@@ -44,33 +44,58 @@ function withTimeout<T>(p: Promise<T>, ms: number, label: string): Promise<T> {
   ]);
 }
 const STARTUP_TIMEOUT_MS = 10000;
+// Shell config reads run `sync=true` (synchronous instance materialization) and
+// can legitimately take 10–18s on the slow bank test backend; cap each so a true
+// hang surfaces as a boot error (retryable) instead of an endless blank screen.
+const SHELL_FETCH_TIMEOUT_MS = 30000;
 
 const fetchJson: FetchJson = async (path, init) => {
   const url = new URL(SHELL_BASE + path, window.location.origin);
   for (const [k, v] of Object.entries(init?.query ?? {})) url.searchParams.set(k, v);
-  const res = await fetch(url, {
-    method: init?.method ?? 'GET',
-    ...(init?.body ? { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(init.body) } : {}),
-  });
-  if (!res.ok) throw new Error(`[shell] HTTP ${res.status} for ${path}`);
-  return res.json();
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), SHELL_FETCH_TIMEOUT_MS);
+  try {
+    const res = await fetch(url, {
+      method: init?.method ?? 'GET',
+      signal: ctrl.signal,
+      ...(init?.body ? { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(init.body) } : {}),
+    });
+    if (!res.ok) throw new Error(`[shell] HTTP ${res.status} for ${path}`);
+    return res.json();
+  } catch (e) {
+    if (ctrl.signal.aborted) throw new Error(`[shell] timeout after ${SHELL_FETCH_TIMEOUT_MS}ms for ${path}`);
+    throw e;
+  } finally {
+    clearTimeout(timer);
+  }
 };
 
 /**
  * Fetch a shell-domain View by key and return its pseudo-ui content.
  * A published sys-views View is queryable as an instance of the `sys-views`
  * workflow (view key = instance key): GET /workflows/sys-views/instances/{key}.
+ *
+ * Views are immutable per key (a published definition), so results are cached
+ * per session (by the in-flight promise) — this collapses the duplicate fetches
+ * that repeated tab activations would otherwise fire at the slow backend.
  */
-export async function loadShellView(key: string): Promise<Record<string, unknown> | null> {
-  try {
-    const raw = (await fetchJson(`/workflows/sys-views/instances/${key}`, { query: { sync: 'true' } })) as {
-      attributes?: { content?: unknown };
-    };
-    return (raw?.attributes?.content ?? null) as Record<string, unknown> | null;
-  } catch (e) {
-    console.warn(`[shell] loadShellView(${key}) failed`, e);
-    return null;
+const shellViewCache = new Map<string, Promise<Record<string, unknown> | null>>();
+export function loadShellView(key: string): Promise<Record<string, unknown> | null> {
+  let p = shellViewCache.get(key);
+  if (!p) {
+    p = (async () => {
+      const raw = (await fetchJson(`/workflows/sys-views/instances/${key}`, { query: { sync: 'true' } })) as {
+        attributes?: { content?: unknown };
+      };
+      return (raw?.attributes?.content ?? null) as Record<string, unknown> | null;
+    })().catch((e) => {
+      console.warn(`[shell] loadShellView(${key}) failed`, e);
+      shellViewCache.delete(key); // allow a retry on next call
+      return null;
+    });
+    shellViewCache.set(key, p);
   }
+  return p;
 }
 
 /** Fetch a theme by key from the shell `theme` workflow (instance = theme). */

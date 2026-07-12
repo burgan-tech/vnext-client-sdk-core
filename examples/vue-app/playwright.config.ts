@@ -5,7 +5,9 @@ import { defineConfig } from '@playwright/test';
 // and a real browser where WebCrypto (device keypair) works.
 export default defineConfig({
   testDir: './tests/e2e',
-  timeout: 90_000,
+  // The bank test IDM + sync=true shell reads are slow and highly variable, so
+  // boot alone can take 60–90s; give the whole flow generous headroom.
+  timeout: 180_000,
   expect: { timeout: 15_000 },
   fullyParallel: false,
   workers: 1,

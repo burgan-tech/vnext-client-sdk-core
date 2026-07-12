@@ -6,3 +6,4 @@ export {
   type VueViewSurface,
 } from './surface.js';
 export { PageRouterShell } from './shell.js';
+export { bindBrowserHistory, type BrowserHistoryOptions } from './browser-history.js';

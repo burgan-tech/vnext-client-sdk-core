@@ -28,7 +28,9 @@ export function buildRouteRegistry(
   navigation: NavigationResponse,
   shellMode: 'sdi' | 'mdi',
 ): BuiltRegistry {
-  const flat = flatten(navigation.items);
+  // Both nav records are routable: the sidebar content AND the profile-dropdown
+  // actions (e.g. login) each become routes.
+  const flat = flatten([...navigation.sidebar, ...navigation.profile]);
   const itemsByKey = new Map<string, NavItem>();
   for (const item of flat) itemsByKey.set(item.key!, item);
 
@@ -42,8 +44,10 @@ export function buildRouteRegistry(
   const registry = {
     config: {
       shellMode,
-      locale: 'tr',
-      fallbackLocale: 'en',
+      // Default UI locale; the profile menu lets the user switch TR/EN at runtime.
+      // (Later this can come from client-config.)
+      locale: 'en',
+      fallbackLocale: 'tr',
       defaultLifetime: 'singleton',
       defaultShellModeOnConflict: 'cancel',
     },

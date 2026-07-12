@@ -5,12 +5,22 @@
   transition key) fires the next transition. Emits `success` on a terminal state.
 -->
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue';
+import { computed, onMounted, reactive, ref, watch } from 'vue';
 import { useWorkflow } from 'amorphie-workflow-manager-vue';
 import type { ViewDefinition } from '@burgan-tech/pseudo-ui';
 import PseudoRenderer from './PseudoRenderer.vue';
 import { idmWorkflowManager } from '../boot/idmWorkflow';
 import { createPkce, type Pkce } from '../boot/pkce';
+import { contextStore } from '../sdk/context';
+import { localize } from '../sdk/i18n';
+import type { LocalizedText } from '@burgan-tech/app-host';
+
+/** A start-payload field collected by a host form before the instance is started. */
+export interface StartField {
+  name: string;
+  label?: LocalizedText;
+  type?: string; // "password" | "text" | ...
+}
 
 const props = defineProps<{
   domain: string;
@@ -19,7 +29,23 @@ const props = defineProps<{
   start?: Record<string, unknown>;
   /** Enable PKCE (authorization_code login): inject codeChallenge on `login`, keep verifier. */
   pkce?: boolean;
+  /** Where the instance key comes from: "activeUser" → the logged-in userId. */
+  keyFrom?: string;
+  /** If set, collect these fields in a host form and start only on submit. */
+  startFields?: StartField[];
+  /** Active locale for field labels. */
+  lang?: string;
 }>();
+
+// Instance key: some flows (e.g. user-change-password) resolve the subject from
+// the instance key, so start keyed by the logged-in userId.
+const startKey = computed<string | undefined>(() =>
+  props.keyFrom === 'activeUser' ? (contextStore.activeUser ?? undefined) : undefined,
+);
+const needsForm = computed(() => (props.startFields?.length ?? 0) > 0);
+const formModel = reactive<Record<string, string>>({});
+const started = ref(false);
+const flabel = (f: StartField) => localize(f.label, props.lang ?? 'en') || f.name;
 
 const emit = defineEmits<{ (e: 'success', instanceId: string, extra: { codeVerifier?: string }): void }>();
 
@@ -44,11 +70,20 @@ const errorText = computed(() => {
 const instanceId = ref<string | undefined>();
 let pkce: Pkce | undefined;
 
-onMounted(() => void begin());
+// Flows with a start form wait for user input; others start immediately on mount.
+onMounted(() => {
+  if (!needsForm.value) void begin();
+});
 
 async function begin() {
   if (props.pkce) pkce = await createPkce();
-  const res = await wf.start({ attributes: props.start ?? {}, sync: true });
+  started.value = true;
+  const attributes = { ...(props.start ?? {}), ...(needsForm.value ? { ...formModel } : {}) };
+  const res = await wf.start({
+    attributes,
+    ...(startKey.value ? { key: startKey.value } : {}),
+    sync: true,
+  });
   if (res.ok && res.instanceId) instanceId.value = res.instanceId;
 }
 
@@ -89,6 +124,16 @@ watch(
 
 <template>
   <div class="runner">
+    <!-- Start form: collect the start payload before creating the instance. -->
+    <form v-if="needsForm && !started" class="start-form" @submit.prevent="begin">
+      <label v-for="f in startFields" :key="f.name" class="field">
+        <span>{{ flabel(f) }}</span>
+        <input v-model="formModel[f.name]" :type="f.type ?? 'text'" required autocomplete="off" />
+      </label>
+      <button type="submit" class="start-btn">Başlat</button>
+    </form>
+
+    <template v-else>
     <div class="statusbar">
       <span>state: <strong>{{ wf.currentState.value ?? '—' }}</strong></span>
       <span>status: <strong>{{ wf.status.value ?? '—' }}</strong></span>
@@ -116,11 +161,22 @@ watch(
       <summary>workflow data</summary>
       <pre>{{ JSON.stringify(wf.data.value ?? {}, null, 2) }}</pre>
     </details>
+    </template>
   </div>
 </template>
 
 <style scoped>
 .runner { max-width: 640px; }
+.start-form { display: flex; flex-direction: column; gap: .9rem; max-width: 360px; }
+.start-form .field { display: flex; flex-direction: column; gap: .3rem; font-size: .85rem; color: var(--color-muted, #667); }
+.start-form .field input {
+  padding: .55rem .7rem; border: 1px solid var(--color-border, #e3e6ef); border-radius: 8px;
+  font-size: .95rem; background: var(--color-surface, #fff); color: var(--color-on-surface, #1f2430);
+}
+.start-btn {
+  align-self: flex-start; padding: .55rem 1.2rem; border: none; border-radius: 8px; cursor: pointer;
+  background: var(--color-primary, #4f46e5); color: #fff; font-size: .9rem; font-weight: 600;
+}
 .statusbar { display: flex; gap: 1rem; align-items: center; margin-bottom: .75rem; font-size: .9rem; }
 .statusbar .loading { color: var(--accent, #4f46e5); }
 .statusbar .terminal { color: #2a9d3f; }

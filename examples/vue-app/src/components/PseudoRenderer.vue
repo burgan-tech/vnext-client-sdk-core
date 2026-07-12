@@ -14,6 +14,8 @@ const props = defineProps<{
   initialData?: Record<string, unknown>;
   // Read-only instance attributes resolved by `$instance.*` bindings in the view.
   instanceData?: Record<string, unknown>;
+  // Active locale (TR/EN) for LocalizedString rendering. Default 'en'.
+  lang?: string;
 }>();
 
 const emit = defineEmits<{
@@ -61,7 +63,7 @@ function onFormChange(data: Record<string, unknown>) {
     :view="view"
     :form-data="formData"
     :instance-data="instanceData"
-    lang="en"
+    :lang="lang ?? 'en'"
     :delegate="delegate"
     @form-change="onFormChange"
   />
