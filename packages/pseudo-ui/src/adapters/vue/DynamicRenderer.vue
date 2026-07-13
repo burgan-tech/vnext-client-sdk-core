@@ -2,7 +2,7 @@
 import { computed, watch, onMounted, ref } from 'vue'
 import type { ComponentNode, SchemaProperty, LovItem, ForEachNode, NestedComponentNode, NavigationNode, TabStripNode, WorkflowViewNode, ActionDescriptor, CardNode, ButtonNode, TextNode, TabViewNode, MultiLangText, DataSchema, ViewDefinition } from '../../engine/types'
 import { useFormContext } from './useFormContext'
-import { resolveTextContent, resolveExpression, resolveMultiLang } from '../../engine/expressionResolver'
+import { resolveTextContent, resolveExpression, resolveMultiLang, localizeLabel } from '../../engine/expressionResolver'
 import { resolveNestedBind, applyNestedUpdate, getByPath, setByPath } from '../../engine/bindResolver'
 import { getSchemaProperty, getFieldLabel, getEnumOptions, isFieldRequired, mapLovItemsToOptions, validateField, getArrayItemSchema } from '../../engine/schemaResolver'
 import { evaluateConditional } from '../../engine/conditionalEngine'
@@ -205,18 +205,9 @@ const navigationItems = computed<Record<string, unknown>[]>(() => {
   return Array.isArray(resolved) ? (resolved as Record<string, unknown>[]) : []
 })
 
-/** Localize a nav label: array [{language,label}] (preferred), { <lang>: text } map, or plain string. */
+/** Localize a nav label — delegates to the canonical localizeLabel. */
 function navLabel(v: unknown): string {
-  if (v == null) return ''
-  if (typeof v === 'string') return v
-  const base = (l: string) => (l || '').toLowerCase().split(/[-_]/)[0]
-  if (Array.isArray(v)) {
-    const want = base(ctx.lang || 'en')
-    const list = v as Array<{ language?: string; label?: string }>
-    const hit = list.find((e) => base(e.language ?? '') === want) ?? list[0]
-    return hit?.label ?? ''
-  }
-  return resolveMultiLang(v as MultiLangText, ctx.lang)
+  return localizeLabel(v, ctx.lang)
 }
 
 // TabStrip: live open-tab list (MDI), resolved from bound host state.

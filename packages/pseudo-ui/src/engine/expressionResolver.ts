@@ -110,6 +110,34 @@ export function resolveMultiLang(text: MultiLangText | undefined, lang: string):
   return text[lang] || text['en'] || text['tr'] || Object.values(text)[0] || ''
 }
 
+/** First subtag, lowercased: "en-US" → "en". */
+function baseLang(l: string): string {
+  return (l || '').toLowerCase().split(/[-_]/)[0] ?? ''
+}
+
+/**
+ * Canonical label localizer. Accepts a plain string, a `{ <locale>: text }`
+ * map, or the core `[{ language, label }]` array. Matches the exact locale
+ * first, then the base language ("en" ↔ "en-US"), then falls back to the first
+ * entry. Single source of truth for nav/field/button labels (navLabel,
+ * WorkflowView start-form labels, and the vue-app host all delegate here).
+ */
+export function localizeLabel(value: unknown, lang: string): string {
+  if (value == null) return ''
+  if (typeof value === 'string') return value
+  const want = baseLang(lang || 'en')
+  if (Array.isArray(value)) {
+    const list = value as Array<{ language?: string; label?: string }>
+    const hit =
+      list.find((e) => e.language === lang) ??
+      list.find((e) => baseLang(e.language ?? '') === want) ??
+      list[0]
+    return hit?.label ?? ''
+  }
+  const map = value as Record<string, string>
+  return map[lang] ?? map[want] ?? Object.values(map)[0] ?? ''
+}
+
 export function resolveFilterParams(
   filter: LovFilterParam[],
   formData: Record<string, unknown>,

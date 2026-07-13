@@ -16,7 +16,7 @@ import type {
   WorkflowViewConfig,
   WorkflowViewNode,
 } from '../../engine/types'
-import { resolveExpression } from '../../engine/expressionResolver'
+import { resolveExpression, localizeLabel } from '../../engine/expressionResolver'
 import { useFormContext } from './useFormContext'
 import { useDelegate, provideDelegate } from './injection'
 import NestedComponentWrapper from './NestedComponentWrapper.vue'
@@ -51,22 +51,7 @@ const needsForm = computed(() => startFields.value.length > 0)
 const started = ref(false)
 const formModel = ref<Record<string, string>>({})
 
-// Field labels arrive in any of the accepted forms: a plain string, a
-// { en, tr } lang map, or the core [{ language, label }] array. Match by
-// base-language prefix (ctx.lang is short e.g. "en"; labels use "en-US").
-function labelText(l: unknown): string {
-  if (l == null) return ''
-  if (typeof l === 'string') return l
-  const base = ctx.lang.split('-')[0]
-  if (Array.isArray(l)) {
-    const arr = l as Array<{ language?: string; label?: string }>
-    const hit = arr.find((e) => (e.language ?? '').split('-')[0] === base) ?? arr[0]
-    return hit?.label ?? ''
-  }
-  const map = l as Record<string, string>
-  return map[ctx.lang] || map[base] || map['en'] || map['tr'] || Object.values(map)[0] || ''
-}
-const flabel = (f: WorkflowStartField) => labelText(f.label) || f.name
+const flabel = (f: WorkflowStartField) => localizeLabel(f.label, ctx.lang) || f.name
 
 // The host owns the workflow lifecycle; we only render + submit into it.
 let session: WorkflowSession | null = null

@@ -1,5 +1,5 @@
 export * from './types'
-export { resolveExpression, resolveTextContent, resolveMultiLang, resolveFilterParams, extractDynamicFilterFields, areRequiredFiltersMet, navigatePath } from './expressionResolver'
+export { resolveExpression, resolveTextContent, resolveMultiLang, localizeLabel, resolveFilterParams, extractDynamicFilterFields, areRequiredFiltersMet, navigatePath } from './expressionResolver'
 export { resolveNestedBind, applyNestedUpdate } from './bindResolver'
 export type { BindResult } from './bindResolver'
 export type { DynamicFilterFields } from './expressionResolver'
