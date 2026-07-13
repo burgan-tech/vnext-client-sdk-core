@@ -67,6 +67,9 @@ export interface ActionPipelineDeps {
    * (Vue uses dotted writeForm helper, React uses its own, Angular too).
    */
   applySelect: (descriptor: ActionDescriptor, item?: Record<string, unknown>) => void
+  /** Apply the SDK-internal `toggle` side effect: flip the boolean at `descriptor.bind`
+   *  (typically a `$ui.*` flag, e.g. a dropdown open/close). Adapter-specific. */
+  applyToggle: (descriptor: ActionDescriptor) => void
   /** Clear ctx.formData + ctx.errors (adapter-specific because Vue reactive
    *  needs the explicit Object.keys iteration). */
   applyReset: () => void
@@ -144,6 +147,13 @@ async function dispatchSingle(
   // Hooks are skipped because no host dispatch happens.
   if (typeof descriptor === 'object' && descriptor.action === 'select' && descriptor.bind && descriptor.value !== undefined) {
     deps.applySelect(descriptor, item)
+    deps.notifyChange?.()
+    return
+  }
+
+  // SDK-internal: toggle → adapter flips the boolean at `bind` (e.g. $ui.open). Host NOT called.
+  if (typeof descriptor === 'object' && descriptor.action === 'toggle' && descriptor.bind) {
+    deps.applyToggle(descriptor)
     deps.notifyChange?.()
     return
   }

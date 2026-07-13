@@ -373,6 +373,16 @@ function handleAction(action: string | ActionDescriptor | ActionDescriptor[], co
       else if (bind.startsWith('$form.')) writeForm(ctx.formData, bind.slice(6), resolvedValue)
       else writeForm(ctx.formData, bind, resolvedValue)
     },
+    applyToggle: (descriptor) => {
+      const bind = descriptor.bind!
+      if (bind.startsWith('$ui.')) {
+        const key = bind.slice(4)
+        ctx.uiState[key] = !ctx.uiState[key]
+      } else if (bind.startsWith('$form.')) {
+        const key = bind.slice(6)
+        writeForm(ctx.formData, key, !getByPath(ctx.formData, key.split('.')))
+      }
+    },
     applyReset: () => {
       for (const k of Object.keys(ctx.formData)) delete ctx.formData[k]
       for (const k of Object.keys(ctx.errors)) delete ctx.errors[k]
@@ -477,7 +487,8 @@ function menuItems(items: any[]) {
   <!-- === LAYOUT: Column === -->
   <div
     v-if="node.type === 'Column'"
-    class="d-column"
+    v-show="(node as any).visible === undefined || resolveVisibility((node as any).visible)"
+    :class="['d-column', (node as any).class]"
     :style="{
       ...gapStyle(node.gap as string),
       justifyContent: alignmentClass(node.mainAxisAlignment as string),

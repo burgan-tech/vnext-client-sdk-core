@@ -45,9 +45,12 @@ onMounted(async () => {
 
 const status = computed(() => {
   const r = props.host.state.deviceRegistration;
+  const loggedIn = tokenLevel.value !== 'device';
   return {
-    contexts: tokenStatus.value.map((s) => ({ key: s.contextKey, ok: s.hasAccessToken })),
+    contexts: tokenStatus.value.map((s) => ({ label: `${s.contextKey} ${s.hasAccessToken ? '✓' : '·'}` })),
     registered: r?.deviceInstanceId ? `${r.deviceInstanceId.slice(0, 8)}(${r.status})` : 'no',
+    identity: loggedIn ? 'Hesabım' : 'Misafir',
+    isLoggedIn: loggedIn,
   };
 });
 

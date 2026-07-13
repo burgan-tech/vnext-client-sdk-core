@@ -12,10 +12,10 @@ import type { IPageRouter } from 'page-router';
 import { usePageRouter } from 'page-router-vue';
 import { PseudoView } from '@burgan-tech/pseudo-ui/vue';
 import type { ViewDefinition, PseudoViewDelegate } from '@burgan-tech/pseudo-ui';
+import { ShellMode } from 'page-router';
 import type { NavItem, TokenLevel } from '@burgan-tech/app-host';
 import { loadShellView } from '../boot/appHost';
 import RouterOutlet from './RouterOutlet.vue';
-import ProfileMenu from './ProfileMenu.vue';
 
 const props = defineProps<{
   master: Record<string, unknown> | null;
@@ -23,7 +23,7 @@ const props = defineProps<{
   navItems: NavItem[];
   profileItems: NavItem[];
   tokenLevel: TokenLevel;
-  status: { registered: string; contexts: Array<{ key: string; ok: boolean }> };
+  status: { registered: string; contexts: Array<{ label: string }>; identity: string; isLoggedIn: boolean };
   onToken: (level: TokenLevel) => void;
   onLogout: () => void;
 }>();
@@ -32,10 +32,14 @@ const props = defineProps<{
 const routerState = usePageRouter(props.router);
 const lang = computed(() => routerState.locale.value);
 
-// Nav items fed to the backend view's `Navigation` components via bound instance data.
+// Data fed to the backend chrome view (Navigation lists + the profile sub-view)
+// via bound instance data. No UI here — just the values the views bind to.
 const instanceData = computed(() => ({
   sidebarItems: props.navItems,
   profileItems: props.profileItems,
+  status: props.status,
+  identity: props.status.identity,
+  isLoggedIn: props.status.isLoggedIn,
 }));
 
 // The master is a ref { key, ... }; fetch its View content by key.
@@ -58,28 +62,26 @@ const delegate: PseudoViewDelegate = {
     const content = await loadShellView(ref);
     return { schema: { type: 'object', properties: {} }, view: (content ?? { view: {} }) as ViewDefinition };
   },
-  // ContentOutlets → host components (placement is backend; content is host).
+  // Only the router surface is a host component now; the profile is a backend view.
   resolveHostComponent: (ref) => {
     if (ref === 'router') return () => h(RouterOutlet, { router: props.router });
-    if (ref === 'profile')
-      return () =>
-        h(ProfileMenu, {
-          router: props.router,
-          tokenLevel: props.tokenLevel,
-          navItems: props.profileItems,
-          status: props.status,
-          onToken: props.onToken,
-          onLogout: props.onLogout,
-        });
     return null;
   },
-  // The `Navigation` component emits a `navigate` intent with the tapped item;
-  // map it to the router (the one generic seam — no per-item UI in the client).
-  onAction: async (action, data) => {
+  // The single generic seam: backend chrome components emit intents, mapped here
+  // to the router / session handlers. `navigate` (Navigation taps) + urn:shell:*
+  // commands (profile switches / logout). No per-item UI in the client.
+  onAction: async (action, data, command) => {
     if (action === 'navigate') {
       const key = (data as { key?: string } | undefined)?.key;
       if (key) void props.router.navigate({ routeKey: key });
+      return;
     }
+    const cmd = command ?? '';
+    let m: RegExpExecArray | null;
+    if ((m = /^urn:shell:locale:(\w+)$/.exec(cmd))) props.router.setLocale(m[1]!);
+    else if ((m = /^urn:shell:mode:(sdi|mdi)$/.exec(cmd))) void props.router.setShellMode(m[1] as ShellMode);
+    else if ((m = /^urn:shell:token:(device|1fa|2fa)$/.exec(cmd))) props.onToken(m[1] as TokenLevel);
+    else if (cmd === 'urn:shell:logout') props.onLogout();
   },
   onLog: () => undefined,
 };
