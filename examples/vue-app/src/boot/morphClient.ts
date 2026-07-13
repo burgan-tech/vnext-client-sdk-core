@@ -73,6 +73,12 @@ export function getMorphClient(): MorphClient | null {
   return client;
 }
 
+/** Token levels in privilege order (highest first), declared in morphConfig.
+ * Drives resolveTokenLevel so the ordering isn't a client-side convention. */
+export function getTokenLevelOrder(): string[] {
+  return (lastEnv?.morphConfig?.tokenLevels as string[] | undefined) ?? [];
+}
+
 /**
  * The interactive login workflow ref (`{ domain, workflow }`) declared in
  * morphConfig — the context whose `delegateMetadata.interaction` is "interactive"

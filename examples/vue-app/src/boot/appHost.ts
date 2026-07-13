@@ -26,7 +26,7 @@ import { Boundary, Storage, getContextValue, setContextValue } from '../sdk/cont
 import { getOrCreateDeviceKeyPair } from './deviceCrypto';
 import { CLIENT_ID, APP_VERSION, SHELL_BASE, CTX } from './constants';
 import { standardHeaders } from './apiHeaders';
-import { initMorphClient, setMorphTokens, getMorphClient } from './morphClient';
+import { initMorphClient, setMorphTokens, getMorphClient, getTokenLevelOrder } from './morphClient';
 import { detectOs } from './platform';
 
 export { CLIENT_ID };
@@ -245,14 +245,19 @@ async function afterEnvironment(ctx: {
   }
 }
 
-/** Derive the token level from the auth client's status (which context has a token).
- * The context KEYS are config-defined; only the privilege order is a convention. */
+/** Derive the token level from the auth client's status (which context has a
+ * token), walking the config-declared privilege order (morphConfig.tokenLevels,
+ * highest first). Both the context keys and their order come from config; the
+ * TokenLevel union is just a convenience cast at this boundary. */
 async function resolveTokenLevel(): Promise<TokenLevel> {
   const status = (await getMorphClient()?.getTokenStatus()) ?? [];
   const has = (ctxKey: string) => status.some((s) => s.contextKey === ctxKey && s.hasAccessToken);
-  if (has('2fa')) return '2fa';
-  if (has('1fa')) return '1fa';
-  return 'device';
+  const order = getTokenLevelOrder();
+  for (const level of order) {
+    if (has(level)) return level as TokenLevel;
+  }
+  // No token for any declared level → the lowest-privilege one (last in order).
+  return (order[order.length - 1] ?? 'device') as TokenLevel;
 }
 
 export function bootAppHost(): Promise<AppHost> {
