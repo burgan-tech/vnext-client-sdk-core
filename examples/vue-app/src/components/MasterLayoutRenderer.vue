@@ -32,7 +32,10 @@ const props = defineProps<{
   };
   /** Supported UI locales (from client-config i18n) for the language switch. */
   locales: Array<{ code: string; label: string }>;
+  /** Theme switch options (from client-config theme.available), with active flag. */
+  themeOptions: Array<{ label: string; command: string; active: boolean }>;
   onToken: (level: TokenLevel) => void;
+  onTheme: (key: string) => void;
   onLogout: () => void;
 }>();
 
@@ -85,6 +88,7 @@ const instanceData = computed(() => ({
   localeOptions: localeOptions.value,
   modeOptions: modeOptions.value,
   tokenOptions: tokenOptions.value,
+  themeOptions: props.themeOptions,
 }));
 
 // The master is a ref { key, ... }; fetch its View content by key.
@@ -139,6 +143,7 @@ const delegate: PseudoViewDelegate = {
     let m: RegExpExecArray | null;
     if ((m = /^urn:shell:locale:(\w+)$/.exec(cmd))) props.router.setLocale(m[1]!);
     else if ((m = /^urn:shell:mode:(sdi|mdi)$/.exec(cmd))) void props.router.setShellMode(m[1] as ShellMode);
+    else if ((m = /^urn:shell:theme:(.+)$/.exec(cmd))) props.onTheme(m[1]!);
     // Any token context the client advertises is switchable — no hardcoded levels.
     else if ((m = /^urn:shell:token:(.+)$/.exec(cmd))) props.onToken(m[1] as TokenLevel);
     else if (cmd === 'urn:shell:logout') props.onLogout();

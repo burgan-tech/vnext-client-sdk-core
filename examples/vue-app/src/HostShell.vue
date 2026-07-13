@@ -16,6 +16,7 @@ import type { MorphTokenStatus } from '@morph/core';
 import type { AppHost, NavItem, TokenLevel } from '@burgan-tech/app-host';
 import { contextStore } from './sdk/context';
 import { getMorphClient } from './boot/morphClient';
+import { loadAndApplyTheme } from './boot/theme';
 import MasterLayoutRenderer from './components/MasterLayoutRenderer.vue';
 
 const props = defineProps<{
@@ -40,6 +41,24 @@ const tokenLevel = computed<TokenLevel>(() => props.host.state.tokenLevel);
 // not hardcoded in the chrome.
 const locales = computed<Array<{ code: string; label: string }>>(
   () => props.host.state.clientConfig.i18n?.locales ?? [],
+);
+
+// Theme switch — available themes + default come from client-config; the active
+// theme is applied at runtime via the shell `theme` workflow (loadAndApplyTheme).
+const themeCfg = computed(
+  () => props.host.state.clientConfig.theme as { default?: string; available?: string[] } | undefined,
+);
+const activeTheme = ref<string>(themeCfg.value?.default ?? 'default');
+async function onTheme(key: string): Promise<void> {
+  await loadAndApplyTheme(key);
+  activeTheme.value = key;
+}
+const themeOptions = computed(() =>
+  (themeCfg.value?.available ?? []).map((key) => ({
+    label: key,
+    command: `urn:shell:theme:${key}`,
+    active: key === activeTheme.value,
+  })),
 );
 
 // Token presence comes from the generic client (getTokenStatus) — no hardcoded
@@ -89,7 +108,9 @@ async function onLogout(): Promise<void> {
     :token-level="tokenLevel"
     :status="status"
     :locales="locales"
+    :theme-options="themeOptions"
     :on-token="props.onSwitch"
+    :on-theme="onTheme"
     :on-logout="onLogout"
   />
 </template>
