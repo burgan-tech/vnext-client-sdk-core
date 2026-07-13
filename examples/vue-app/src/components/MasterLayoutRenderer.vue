@@ -16,6 +16,7 @@ import { ShellMode, type OpenTab } from 'page-router';
 import { PageRouterShell } from 'page-router-vue';
 import type { NavItem, TokenLevel, LocalizedText } from '@burgan-tech/app-host';
 import { loadShellView } from '../boot/appHost';
+import { getTokenLevels } from '../boot/morphClient';
 import { localize } from '../sdk/i18n';
 
 const props = defineProps<{
@@ -26,7 +27,7 @@ const props = defineProps<{
   tokenLevel: TokenLevel;
   status: {
     registered: string;
-    contexts: Array<{ key: string; label: string; command: string }>;
+    contexts: Array<{ key: string; has: boolean; command: string }>;
     identity: string;
     isLoggedIn: boolean;
   };
@@ -71,16 +72,26 @@ const modeOptions = computed(() => [
   { label: 'SDI', command: 'urn:shell:mode:sdi', active: !isMdi.value },
   { label: 'MDI', command: 'urn:shell:mode:mdi', active: isMdi.value },
 ]);
+// Localized token-level name (from config), falling back to the raw key.
+function tokenLabel(key: string): string {
+  const def = getTokenLevels().find((t) => t.key === key);
+  return (def?.label ? localize(def.label as LocalizedText, lang.value) : '') || key;
+}
 const tokenOptions = computed(() =>
-  props.status.contexts.map((c) => ({ label: c.key, command: c.command, active: c.key === props.tokenLevel })),
+  props.status.contexts.map((c) => ({ label: tokenLabel(c.key), command: c.command, active: c.key === props.tokenLevel })),
 );
+// SESSION status line: localized level name + presence glyph.
+const statusForView = computed(() => ({
+  registered: props.status.registered,
+  contexts: props.status.contexts.map((c) => ({ label: `${tokenLabel(c.key)} ${c.has ? '✓' : '·'}` })),
+}));
 
 // Data fed to the backend chrome view (Navigation lists, tab strip, profile
 // sub-view) via bound instance data. No UI here — just values the views bind to.
 const instanceData = computed(() => ({
   sidebarItems: props.navItems,
   profileItems: props.profileItems,
-  status: props.status,
+  status: statusForView.value,
   identity: props.status.identity,
   isLoggedIn: props.status.isLoggedIn,
   tabs: tabs.value,
@@ -145,7 +156,7 @@ const delegate: PseudoViewDelegate = {
     else if ((m = /^urn:shell:mode:(sdi|mdi)$/.exec(cmd))) void props.router.setShellMode(m[1] as ShellMode);
     else if ((m = /^urn:shell:theme:(.+)$/.exec(cmd))) props.onTheme(m[1]!);
     // Any token context the client advertises is switchable — no hardcoded levels.
-    else if ((m = /^urn:shell:token:(.+)$/.exec(cmd))) props.onToken(m[1] as TokenLevel);
+    else if ((m = /^urn:shell:token:(.+)$/.exec(cmd))) props.onToken(m[1]!);
     else if (cmd === 'urn:shell:logout') props.onLogout();
   },
   onLog: () => undefined,

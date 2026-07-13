@@ -72,11 +72,12 @@ const status = computed(() => {
   const r = props.host.state.deviceRegistration;
   const loggedIn = tokenLevel.value !== 'device';
   return {
-    // One dynamic source (the client's token contexts) feeds both the status
-    // display and the token-level switch buttons — no hardcoded device/1fa/2fa.
+    // Raw token contexts (key + presence). The chrome localizes the level
+    // labels (from config) and formats the status glyph — no hardcoded levels
+    // or presentation strings here.
     contexts: tokenStatus.value.map((s) => ({
       key: s.contextKey,
-      label: `${s.contextKey} ${s.hasAccessToken ? '✓' : '·'}`,
+      has: s.hasAccessToken,
       command: `urn:shell:token:${s.contextKey}`,
     })),
     registered: r?.deviceInstanceId ? `${r.deviceInstanceId.slice(0, 8)}(${r.status})` : 'no',

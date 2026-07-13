@@ -254,10 +254,10 @@ async function resolveTokenLevel(): Promise<TokenLevel> {
   const has = (ctxKey: string) => status.some((s) => s.contextKey === ctxKey && s.hasAccessToken);
   const order = getTokenLevelOrder();
   for (const level of order) {
-    if (has(level)) return level as TokenLevel;
+    if (has(level)) return level;
   }
   // No token for any declared level → the lowest-privilege one (last in order).
-  return (order[order.length - 1] ?? 'device') as TokenLevel;
+  return order[order.length - 1] ?? 'device';
 }
 
 export function bootAppHost(): Promise<AppHost> {

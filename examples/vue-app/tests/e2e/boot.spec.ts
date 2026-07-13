@@ -27,7 +27,7 @@ test('clientId → backend master chrome + device homepage', async ({ page }) =>
   const profile = page.getByRole('button', { name: /Misafir/ });
   await expect(profile).toBeVisible();
   await profile.click();
-  await expect(page.getByText(/device ✓/)).toBeVisible(); // device token flag
+  await expect(page.getByText(/Device ✓/)).toBeVisible(); // device token flag (localized level label)
   await expect(page.getByText(/\(B\)/)).toBeVisible(); // registration status
 
   // Language toggle (profile menu) → backend nav labels are localized: switching

@@ -7,7 +7,13 @@
 import type { DeviceIdentity } from './identity.js';
 
 /** The three user auth states. Drives which navigation variant is shown. */
-export type TokenLevel = 'device' | '1fa' | '2fa';
+/**
+ * A token level = a config-defined auth context key (e.g. "device", "1fa",
+ * "2fa"). A plain string, NOT a closed union: the set of levels and their
+ * privilege order are declared in backend config (morphConfig.tokenLevels /
+ * contexts), never hardcoded in the client.
+ */
+export type TokenLevel = string;
 
 /** Result of registering the device with the IDM (device-manager flow). */
 export interface DeviceRegistration {

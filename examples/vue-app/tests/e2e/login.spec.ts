@@ -38,7 +38,7 @@ test('2FA login → 2fa token + navigation flip', async ({ page }) => {
   const profile = page.getByRole('button', { name: /Hesabım/ });
   await expect(profile).toBeVisible();
   await profile.click();
-  await expect(page.getByText(/2fa ✓/)).toBeVisible();
+  await expect(page.getByText(/2-Factor ✓/)).toBeVisible();
 
   // Change-password flow is wired into the 2FA profile menu. Open it and assert
   // the start form renders (keyed by the logged-in userId). We do NOT submit —

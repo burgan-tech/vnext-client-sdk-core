@@ -73,10 +73,21 @@ export function getMorphClient(): MorphClient | null {
   return client;
 }
 
-/** Token levels in privilege order (highest first), declared in morphConfig.
- * Drives resolveTokenLevel so the ordering isn't a client-side convention. */
+/** Token levels declared in morphConfig, in privilege order (highest first),
+ * each with a localizable label. Backing data for the token switch + status. */
+export interface TokenLevelDef {
+  key: string;
+  label?: unknown;
+}
+export function getTokenLevels(): TokenLevelDef[] {
+  const raw = (lastEnv?.morphConfig?.tokenLevels ?? []) as Array<string | TokenLevelDef>;
+  // Tolerate the older plain-string form.
+  return raw.map((t) => (typeof t === 'string' ? { key: t } : t));
+}
+
+/** Just the level keys in privilege order — drives resolveTokenLevel. */
 export function getTokenLevelOrder(): string[] {
-  return (lastEnv?.morphConfig?.tokenLevels as string[] | undefined) ?? [];
+  return getTokenLevels().map((t) => t.key);
 }
 
 /**

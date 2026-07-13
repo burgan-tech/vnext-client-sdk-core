@@ -68,7 +68,7 @@ export function makeDriveWorkflow(opts: WorkflowDriverOptions = {}) {
           // The level a completed interactive login grants = the interactive
           // context's key from config (e.g. "2fa"), not a hardcoded literal.
           const level = getInteractiveLoginWorkflow()?.contextKey;
-          if (tokens && level) opts.setTokenLevel?.(level as TokenLevel);
+          if (tokens && level) opts.setTokenLevel?.(level);
         }
       },
     );
