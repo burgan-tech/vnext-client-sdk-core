@@ -30,6 +30,8 @@ const props = defineProps<{
     identity: string;
     isLoggedIn: boolean;
   };
+  /** Supported UI locales (from client-config i18n) for the language switch. */
+  locales: Array<{ code: string; label: string }>;
   onToken: (level: TokenLevel) => void;
   onLogout: () => void;
 }>();
@@ -55,10 +57,13 @@ const tabs = computed(() =>
 // Switch groups (locale / shell-mode / token) as option arrays with the active
 // flag — so the profile view renders them uniformly (ForEach) and shows which is
 // selected. Options are data (like nav items); the backend view holds no buttons.
-const localeOptions = computed(() => [
-  { label: 'TR', command: 'urn:shell:locale:tr', active: lang.value.split('-')[0] === 'tr' },
-  { label: 'EN', command: 'urn:shell:locale:en', active: lang.value.split('-')[0] === 'en' },
-]);
+const localeOptions = computed(() =>
+  props.locales.map((l) => ({
+    label: l.label,
+    command: `urn:shell:locale:${l.code}`,
+    active: lang.value.split('-')[0] === l.code,
+  })),
+);
 const modeOptions = computed(() => [
   { label: 'SDI', command: 'urn:shell:mode:sdi', active: !isMdi.value },
   { label: 'MDI', command: 'urn:shell:mode:mdi', active: isMdi.value },

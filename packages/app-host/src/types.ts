@@ -121,6 +121,8 @@ export interface LevelConfig {
 
 export interface ClientConfig {
   theme?: Record<string, unknown>;
+  /** Supported UI locales for the language switch. */
+  i18n?: { default?: string; locales?: Array<{ code: string; label: string }> };
   api?: Record<string, unknown>;
   router?: { defaultMode?: string; allowChangeMode?: boolean; [k: string]: unknown };
   /** Per-token-level chrome + navigation manifest. */

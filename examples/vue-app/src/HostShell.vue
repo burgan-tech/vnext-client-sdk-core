@@ -36,6 +36,12 @@ const profileItems = computed<NavItem[]>(() =>
 
 const tokenLevel = computed<TokenLevel>(() => props.host.state.tokenLevel);
 
+// Supported UI locales for the language switch come from client-config (i18n),
+// not hardcoded in the chrome.
+const locales = computed<Array<{ code: string; label: string }>>(
+  () => props.host.state.clientConfig.i18n?.locales ?? [],
+);
+
 // Token presence comes from the generic client (getTokenStatus) — no hardcoded
 // provider/level/context-store keys. Refreshed on mount (re-boot re-mounts).
 const tokenStatus = ref<MorphTokenStatus[]>([]);
@@ -82,6 +88,7 @@ async function onLogout(): Promise<void> {
     :profile-items="profileItems"
     :token-level="tokenLevel"
     :status="status"
+    :locales="locales"
     :on-token="props.onSwitch"
     :on-logout="onLogout"
   />
