@@ -1,20 +1,21 @@
 <!--
   Generic view surface for one navigation item. page-router mounts this for every
-  route and passes `item` (which carries the route key). The full NavItem (with its
-  type + config) is resolved from the app-host `itemsByKey` map provided at boot.
-  Renders by item type — the seam where server-driven navigation meets the UI.
+  route and passes `item` (route key). The full NavItem (type + config) is resolved
+  from the app-host `itemsByKey` map. Each item renders through pseudo-ui:
+  - dynamicView → the referenced shell View (fetched by key)
+  - workflow    → a WorkflowView node (pseudo-ui drives + renders the workflow)
+  - group/webView → a small backend-shaped view built from the item's children
+  No per-type host UI/business rules — pseudo-ui renders, this maps intents.
 -->
 <script setup lang="ts">
 import { computed, inject, ref, watch } from 'vue';
 import type { IPageRouter } from 'page-router';
 import { usePageRouter } from 'page-router-vue';
-import type { NavItem } from '@burgan-tech/app-host';
-import type { ViewDefinition } from '@burgan-tech/pseudo-ui';
-import type { TokenLevel } from '@burgan-tech/app-host';
-import PseudoRenderer from './PseudoRenderer.vue';
-import WorkflowRunner from './WorkflowRunner.vue';
-import { completeLogin } from '../boot/login';
+import type { NavItem, TokenLevel } from '@burgan-tech/app-host';
+import type { ViewDefinition, PseudoViewDelegate } from '@burgan-tech/pseudo-ui';
+import { PseudoView } from '@burgan-tech/pseudo-ui/vue';
 import { loadShellView } from '../boot/appHost';
+import { makeDriveWorkflow } from '../boot/workflowDriver';
 import { localize } from '../sdk/i18n';
 import { ITEMS_BY_KEY, APP_ROUTER, APP_SET_TOKEN_LEVEL } from '../boot/keys';
 
@@ -30,9 +31,14 @@ const lang = computed(() => routerState?.locale.value ?? 'en');
 const t = (v: NavItem['title']) => localize(v, lang.value);
 
 const nav = computed<NavItem | undefined>(() => itemsByKey.get(props.item.key));
-const children = computed<NavItem[]>(() => nav.value?.children ?? []);
 
-// dynamicView: fetch the referenced View's content by key from the shell backend.
+function go(key?: string) {
+  if (key && router) void router.navigate({ routeKey: key });
+}
+
+// ── The view rendered for this item, as a pseudo-ui ViewDefinition ──────────
+// dynamicView content is fetched by key; the others are synthesized so every
+// item flows through the same renderer + delegate (no bespoke host markup).
 const dynView = ref<ViewDefinition | null>(null);
 const loading = ref(false);
 watch(
@@ -56,44 +62,52 @@ watch(
   { immediate: true },
 );
 
-function go(key?: string) {
-  if (key && router) void router.navigate({ routeKey: key });
-}
-
-// pseudo-ui button `command` convention: urn:shell:navigate:<type>:<key>
-function onSubmit(payload: { command?: string; data: Record<string, unknown> }) {
-  const cmd = payload.command ?? '';
-  const m = /^urn:shell:navigate:[^:]+:(.+)$/.exec(cmd);
-  if (m) go(m[1]);
-  else console.info('[NavView] submit', payload);
-}
-
-// A workflow nav item carries { key: <workflow name>, domain, version, start }.
-const wfConfig = computed(() => {
-  const c = nav.value?.config ?? {};
-  const start = (c['start'] as Record<string, unknown> | undefined) ?? {};
+// A workflow nav item carries { key: <workflow name>, domain, version, start, ... }
+// → a WorkflowView node pseudo-ui renders and drives via delegate.driveWorkflow.
+function workflowView(n: NavItem): ViewDefinition {
+  const c = n.config ?? {};
   return {
-    domain: String(c['domain'] ?? 'morph-idm'),
-    name: String(c['key'] ?? nav.value?.key ?? ''),
-    version: c['version'] ? String(c['version']) : undefined,
-    start,
-    // authorization_code login needs PKCE (codeChallenge on login → verifier at redeem).
-    pkce: start['grantType'] === 'authorization_code',
-    // Some flows key the instance by the logged-in userId + collect a start form.
-    keyFrom: c['keyFrom'] ? String(c['keyFrom']) : undefined,
-    startFields: (c['startFields'] as { name: string; label?: unknown; type?: string }[] | undefined) ?? undefined,
-  };
+    view: {
+      type: 'WorkflowView',
+      domain: String(c['domain'] ?? 'morph-idm'),
+      name: String(c['key'] ?? n.key ?? ''),
+      ...(c['version'] ? { version: String(c['version']) } : {}),
+      ...(c['keyFrom'] ? { keyFrom: String(c['keyFrom']) } : {}),
+      ...(c['start'] ? { start: c['start'] as Record<string, unknown> } : {}),
+      ...(c['startFields'] ? { startFields: c['startFields'] } : {}),
+    },
+  } as unknown as ViewDefinition;
+}
+
+const viewDef = computed<ViewDefinition | null>(() => {
+  const n = nav.value;
+  if (!n) return null;
+  if (n.type === 'dynamicView') return dynView.value;
+  if (n.type === 'workflow') return workflowView(n);
+  return null;
 });
 
-async function onWorkflowSuccess(instanceId: string, extra: { codeVerifier?: string }) {
-  if (!wfConfig.value.pkce || !extra.codeVerifier) {
-    console.info(`[NavView] workflow ${wfConfig.value.name} success, instance=${instanceId}`);
-    return;
-  }
-  // 2FA login done → redeem the token subflow, then flip the app to 2FA.
-  const tokens = await completeLogin(instanceId, extra.codeVerifier);
-  if (tokens && setTokenLevel) setTokenLevel('2fa');
-}
+const children = computed<NavItem[]>(() => nav.value?.children ?? []);
+
+// ── One delegate for every rendered view ────────────────────────────────────
+const delegate: PseudoViewDelegate = {
+  requestData: async (ref) => {
+    throw new Error(`[NavView] no data source for "${ref}"`);
+  },
+  loadComponent: async (ref) => {
+    const content = await loadShellView(ref);
+    return { schema: { type: 'object', properties: {} }, view: (content ?? { view: {} }) as ViewDefinition };
+  },
+  // The workflow driver (owns the workflow client + interactive-login success).
+  driveWorkflow: makeDriveWorkflow({ setTokenLevel: setTokenLevel ?? undefined }),
+  async onAction(action, _data, command) {
+    if (action !== 'submit') return;
+    // pseudo-ui button `command` convention: urn:shell:navigate:<type>:<key>
+    const m = /^urn:shell:navigate:[^:]+:(.+)$/.exec(command ?? '');
+    if (m) go(m[1]);
+  },
+  onLog: (level, message) => console.debug(`%c[pseudo-ui] ${level}: ${message}`, 'color:#06c'),
+};
 </script>
 
 <template>
@@ -103,10 +117,30 @@ async function onWorkflowSuccess(instanceId: string, extra: { codeVerifier?: str
     </template>
 
     <!-- dynamicView: pseudo-ui content fetched by key from shell/Views -->
-    <PseudoRenderer v-else-if="nav.type === 'dynamicView' && dynView" :view="dynView" :lang="lang" @submit="onSubmit" />
+    <PseudoView
+      v-else-if="viewDef && nav.type === 'dynamicView'"
+      :schema="{ type: 'object', properties: {} }"
+      :view="viewDef"
+      :form-data="{}"
+      :lang="lang"
+      :delegate="delegate"
+    />
     <div v-else-if="nav.type === 'dynamicView' && loading" class="navview-loading">
       <div class="boot-spinner" />
     </div>
+
+    <!-- workflow: pseudo-ui drives + renders the backend state machine -->
+    <section v-else-if="nav.type === 'workflow' && viewDef">
+      <h2>{{ t(nav.title) || nav.key }}</h2>
+      <p v-if="nav.subtitle" class="muted">{{ t(nav.subtitle) }}</p>
+      <PseudoView
+        :schema="{ type: 'object', properties: {} }"
+        :view="viewDef"
+        :form-data="{}"
+        :lang="lang"
+        :delegate="delegate"
+      />
+    </section>
 
     <!-- group: render children as a card menu -->
     <section v-else-if="nav.type === 'group'">
@@ -125,23 +159,6 @@ async function onWorkflowSuccess(instanceId: string, extra: { codeVerifier?: str
     <section v-else-if="nav.type === 'webView'">
       <h2>{{ t(nav.title) }}</h2>
       <a :href="String(nav.config?.url ?? '#')" target="_blank" rel="noopener">{{ nav.config?.url }}</a>
-    </section>
-
-    <!-- workflow: drive the backend state machine via workflow-manager + pseudo-ui -->
-    <section v-else-if="nav.type === 'workflow'">
-      <h2>{{ t(nav.title) || nav.key }}</h2>
-      <p v-if="nav.subtitle" class="muted">{{ t(nav.subtitle) }}</p>
-      <WorkflowRunner
-        :domain="wfConfig.domain"
-        :name="wfConfig.name"
-        :version="wfConfig.version"
-        :start="wfConfig.start"
-        :pkce="wfConfig.pkce"
-        :key-from="wfConfig.keyFrom"
-        :start-fields="wfConfig.startFields"
-        :lang="lang"
-        @success="onWorkflowSuccess"
-      />
     </section>
 
     <!-- staticView / other: phase-2 placeholder -->

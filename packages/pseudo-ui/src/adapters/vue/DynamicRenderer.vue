@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, watch, onMounted, ref } from 'vue'
-import type { ComponentNode, SchemaProperty, LovItem, ForEachNode, NestedComponentNode, NavigationNode, ActionDescriptor, CardNode, ButtonNode, TextNode, TabViewNode, MultiLangText, DataSchema, ViewDefinition } from '../../engine/types'
+import type { ComponentNode, SchemaProperty, LovItem, ForEachNode, NestedComponentNode, NavigationNode, WorkflowViewNode, ActionDescriptor, CardNode, ButtonNode, TextNode, TabViewNode, MultiLangText, DataSchema, ViewDefinition } from '../../engine/types'
 import { useFormContext } from './useFormContext'
 import { resolveTextContent, resolveExpression, resolveMultiLang } from '../../engine/expressionResolver'
 import { resolveNestedBind, applyNestedUpdate, getByPath, setByPath } from '../../engine/bindResolver'
@@ -11,6 +11,7 @@ import { useLovLoader } from './useLovLoader'
 import { useDelegate, useOverlayTarget } from './injection'
 import { useToast } from 'primevue/usetoast'
 import NestedComponentWrapper from './NestedComponentWrapper.vue'
+import WorkflowViewWrapper from './WorkflowViewWrapper.vue'
 import ErrorBoundary from './ErrorBoundary.vue'
 import DesignerNode from './DesignerNode.vue'
 
@@ -1217,6 +1218,11 @@ function menuItems(items: any[]) {
         Loading {{ (node as NestedComponentNode).ref }}...
       </div>
     </div>
+  </ErrorBoundary>
+
+  <!-- === CONTROL: WorkflowView (host drives the workflow; we render its states) === -->
+  <ErrorBoundary v-else-if="node.type === 'WorkflowView'" :label="(node as WorkflowViewNode).name">
+    <WorkflowViewWrapper :node="node as WorkflowViewNode" :item="item" />
   </ErrorBoundary>
 
   <!-- === CONTROL: ContentOutlet (host-injected content, e.g. router active view) === -->

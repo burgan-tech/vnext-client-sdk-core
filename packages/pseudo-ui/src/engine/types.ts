@@ -53,6 +53,77 @@ export interface ContentOutletNode extends ComponentNode {
   ref: string
 }
 
+/**
+ * Drives a backend workflow instance and renders each state's server-defined
+ * view inline. pseudo-ui stays a pure renderer: the HOST owns the workflow
+ * client (start/transition/terminal) and returns a {@link WorkflowSession} from
+ * `PseudoViewDelegate.driveWorkflow`; this node renders `session.view` and
+ * bridges its `submit` actions back into `session.submit`. Config fields are
+ * literals, or `$instance.*`/`$item.*` expressions resolved against the ctx.
+ */
+export interface WorkflowViewNode extends ComponentNode {
+  type: 'WorkflowView'
+  /** Workflow domain (e.g. "morph-idm"). */
+  domain: string
+  /** Workflow name/key. */
+  name: string
+  /** Optional pinned workflow version. */
+  version?: string
+  /** Where the instance key comes from (e.g. "activeUser"); host-interpreted. */
+  keyFrom?: string
+  /** Static start-payload merged into the instance on start. */
+  start?: Record<string, unknown>
+  /** Fields collected in a start form before the instance is created. */
+  startFields?: WorkflowStartField[]
+}
+
+/** A start-payload field collected by the WorkflowView before the instance starts. */
+export interface WorkflowStartField {
+  name: string
+  /** String, an { en, tr } map, or the core [{ language, label }] array. */
+  label?: MultiLangText | string | Array<{ language: string; label: string }>
+  type?: string
+}
+
+/** Resolved config the host receives to drive a {@link WorkflowViewNode}. */
+export interface WorkflowViewConfig {
+  domain: string
+  name: string
+  version?: string
+  keyFrom?: string
+  start?: Record<string, unknown>
+  startFields?: WorkflowStartField[]
+}
+
+/**
+ * A minimal readable reactive cell. Structurally satisfied by a Vue `Ref<T>`,
+ * so the host can return Vue refs without pseudo-ui depending on Vue here.
+ */
+export interface ReadableRef<T> {
+  readonly value: T
+}
+
+/**
+ * The reactive handle a host returns from `driveWorkflow`. pseudo-ui reads the
+ * refs to render, and calls `start`/`submit` as the user interacts.
+ */
+export interface WorkflowSession {
+  /** Current state's view (null until started / when a state has no view). */
+  view: ReadableRef<ViewDefinition | null>
+  /** Current instance attributes, exposed to the view via `$instance.*`. */
+  data: ReadableRef<Record<string, unknown>>
+  /** True once an instance is started and its view is available. */
+  ready: ReadableRef<boolean>
+  /** Human-readable error text; empty string when there is none. */
+  error: ReadableRef<string>
+  /** Start the instance, merging any collected start-form values. */
+  start(values?: Record<string, unknown>): Promise<void>
+  /** Fire a transition for a pseudo-ui submit (command = transition key/URN). */
+  submit(command: string, data: Record<string, unknown>): Promise<void>
+  /** Release the underlying workflow subscription (called on unmount). */
+  dispose?(): void
+}
+
 export type ButtonAction = 'submit' | 'cancel' | 'back'
 
 export interface ButtonNode extends ComponentNode {
@@ -379,6 +450,13 @@ export interface PseudoViewDelegate {
    * null/undefined if the ref is unknown. Synchronous — the host holds it already.
    */
   resolveHostComponent?(ref: string): unknown
+  /**
+   * Drive a backend workflow for a `WorkflowView` node. The host owns the
+   * workflow client; pseudo-ui renders each state's view and bridges submits.
+   * Returns a reactive {@link WorkflowSession}. Required only if views use
+   * `WorkflowView` nodes.
+   */
+  driveWorkflow?(config: WorkflowViewConfig): WorkflowSession
   /**
    * Called when a user-triggered action reaches the host. For a plain
    * action, the SDK invokes this with three arguments (the 4th

@@ -91,6 +91,7 @@
                 { "$ref": "#/$defs/nestedComponent" },
                 { "$ref": "#/$defs/contentOutletComponent" },
                 { "$ref": "#/$defs/navigationComponent" },
+                { "$ref": "#/$defs/workflowViewComponent" },
 
                 { "$ref": "#/$defs/timePickerComponent" },
                 { "$ref": "#/$defs/segmentedButtonComponent" },
@@ -847,6 +848,35 @@
             },
             "additionalProperties": false,
             "description": "Amorphie navigation list: renders data-bound nav items (groups + leaves) and emits a 'navigate' action (via delegate.onAction) carrying the tapped item, so the host maps the intent to its router. Render-only + intent."
+        },
+
+        "workflowViewComponent": {
+            "type": "object",
+            "required": ["type", "domain", "name"],
+            "properties": {
+                "type": { "const": "WorkflowView" },
+                "domain": { "type": "string", "description": "Workflow domain (literal or $instance/$item expression), e.g. 'morph-idm'." },
+                "name": { "type": "string", "description": "Workflow name/key (literal or expression)." },
+                "version": { "type": "string", "description": "Optional pinned workflow version." },
+                "keyFrom": { "type": "string", "description": "Where the instance key comes from (host-interpreted), e.g. 'activeUser'." },
+                "start": { "type": "object", "description": "Static start payload merged into the instance on start.", "additionalProperties": true },
+                "startFields": {
+                    "type": "array",
+                    "description": "Fields collected in a start form before the instance is created.",
+                    "items": {
+                        "type": "object",
+                        "required": ["name"],
+                        "properties": {
+                            "name": { "type": "string" },
+                            "label": { "description": "Field label (string or MultiLangText map)." },
+                            "type": { "type": "string", "description": "Input type, e.g. 'password' | 'text'." }
+                        },
+                        "additionalProperties": false
+                    }
+                }
+            },
+            "additionalProperties": false,
+            "description": "Drives a backend workflow (via delegate.driveWorkflow) and renders each state's server-defined view inline, bridging its 'submit' actions into transitions. The host owns the workflow client; this node is a pure renderer + submit bridge."
         },
 
         "timePickerComponent": {
