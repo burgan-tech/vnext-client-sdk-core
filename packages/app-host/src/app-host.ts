@@ -26,7 +26,8 @@ export interface AppHost {
 
 export async function createAppHost(config: AppHostConfig, deps: AppHostDeps): Promise<AppHost> {
   let state = await discover(config, deps);
-  let built = buildRouteRegistry(state.navigation, state.shellMode);
+  const localeCfg = () => ({ locale: state.clientConfig.i18n?.default });
+  let built = buildRouteRegistry(state.navigation, state.shellMode, localeCfg());
   const listeners = new Set<(h: AppHost) => void>();
 
   const host: AppHost = {
@@ -41,7 +42,7 @@ export async function createAppHost(config: AppHostConfig, deps: AppHostDeps): P
       const shellMode = resolveShellMode(state.clientConfig, level);
       const navigation = await loadNavigation(deps, state.clientConfig, level);
       state = { ...state, navigation, tokenLevel: level, shellMode };
-      built = buildRouteRegistry(navigation, shellMode);
+      built = buildRouteRegistry(navigation, shellMode, localeCfg());
       for (const l of listeners) l(host);
     },
     onChange(listener) {

@@ -24,9 +24,17 @@ function flatten(items: NavItem[], out: NavItem[] = []): NavItem[] {
   return out;
 }
 
+export interface LocaleConfig {
+  /** Initial UI locale (users switch at runtime via the profile menu). */
+  locale?: string;
+  /** Locale used when a label lacks the active locale. */
+  fallbackLocale?: string;
+}
+
 export function buildRouteRegistry(
   navigation: NavigationResponse,
   shellMode: 'sdi' | 'mdi',
+  localeConfig: LocaleConfig = {},
 ): BuiltRegistry {
   // Both nav records are routable: the sidebar content AND the profile-dropdown
   // actions (e.g. login) each become routes.
@@ -44,10 +52,10 @@ export function buildRouteRegistry(
   const registry = {
     config: {
       shellMode,
-      // Default UI locale; the profile menu lets the user switch TR/EN at runtime.
-      // (Later this can come from client-config.)
-      locale: 'en',
-      fallbackLocale: 'tr',
+      // Initial UI locale from client-config (i18n.default); users switch at
+      // runtime via the profile menu. Falls back to 'en' pre-config.
+      locale: localeConfig.locale ?? 'en',
+      fallbackLocale: localeConfig.fallbackLocale ?? localeConfig.locale ?? 'en',
       defaultLifetime: 'singleton',
       defaultShellModeOnConflict: 'cancel',
     },
