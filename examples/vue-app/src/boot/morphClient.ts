@@ -1,29 +1,31 @@
 // ─────────────────────────────────────────────────────────────────────────
-// morph-api-client wiring (Phase 1 — additive, does not yet replace the stopgap).
+// morph-api-client wiring — the generic auth layer.
 //
 // Builds a MorphConfig from the backend `environment` record (providers/contexts
 // in MorphConfig shape + hosts) and initializes MorphClient. The client is fully
 // generic: it knows no provider/context/level — all of that is config. `$vars`
 // (idmBase/deviceId/installationId/subject) are resolved from the shared bus.
 //
-// Later phases route device/login/status/http through this client and delete the
-// hand-rolled auth in appHost.
+// Initialized early (right after the environment is fetched, before token-level
+// resolution) so getTokenStatus is authoritative for the token level + nav.
 // ─────────────────────────────────────────────────────────────────────────
 import { MorphClient, type MorphConfig, type TokenSet } from '@morph/core';
 import { oauth2Plugin } from '@morph/oauth2';
 import { browserStoragePlugin } from '@morph/browser-storage';
 import { loggerPlugin } from '@morph/logger';
-import type { AppHost } from '@burgan-tech/app-host';
+import type { EnvironmentResponse } from '@burgan-tech/app-host';
 import { Boundary, Storage, contextStore, getContextValue } from '../sdk/context';
 import { CTX } from './constants';
 
 let client: MorphClient | null = null;
+let lastEnv: EnvironmentResponse | null = null;
+let lastIdmBase: string | undefined;
 
-/** `$variable` values the config interpolates — all from the shared bus / host state. */
-function morphVariables(host: AppHost): Record<string, string> {
+/** `$variable` values the config interpolates — all from the shared bus. */
+function morphVariables(idmBase: string | undefined): Record<string, string> {
   const mem = { boundary: Boundary.device, storage: Storage.memory };
   return {
-    idmBase: host.state.idmBase ?? '',
+    idmBase: idmBase ?? '',
     deviceId: getContextValue<string>(CTX.deviceId, mem) ?? '',
     installationId: getContextValue<string>(CTX.installationId, mem) ?? '',
     subject: contextStore.activeUser ?? '',
@@ -31,39 +33,50 @@ function morphVariables(host: AppHost): Record<string, string> {
 }
 
 /** Build MorphConfig from the environment record (providers + hosts). */
-function buildMorphConfig(host: AppHost): MorphConfig {
-  const env = host.state.environment as unknown as {
-    morphConfig?: { providers?: unknown[]; rootCallbackAuthId?: string };
-    hosts?: Array<{ key: string; baseUrl: string; allowedAuth?: string[]; headers?: Record<string, string> }>;
-  };
+function buildMorphConfig(env: EnvironmentResponse): MorphConfig {
   const mc = env.morphConfig ?? {};
   return {
     providers: (mc.providers ?? []) as MorphConfig['providers'],
     hosts: (env.hosts ?? []).map((h) => ({
       key: h.key,
       baseUrl: h.baseUrl,
-      allowedAuth: h.allowedAuth ?? [],
-      ...(h.headers ? { headers: h.headers } : {}),
+      allowedAuth: (h.allowedAuth as string[] | undefined) ?? [],
+      ...(h.headers ? { headers: h.headers as Record<string, string> } : {}),
     })),
     ...(mc.rootCallbackAuthId ? { rootCallbackAuthId: mc.rootCallbackAuthId } : {}),
   } as MorphConfig;
 }
 
 /** Initialize (or re-initialize) the generic MorphClient from backend config. */
-export function initMorphClient(host: AppHost): MorphClient {
+export function initMorphClient(env: EnvironmentResponse, idmBase: string | undefined): MorphClient {
+  lastEnv = env;
+  lastIdmBase = idmBase;
   const logger = loggerPlugin();
   const storage = browserStoragePlugin('morph', 'session');
   client?.dispose();
-  client = MorphClient.init(buildMorphConfig(host), {
+  client = MorphClient.init(buildMorphConfig(env), {
     plugins: [logger, storage, oauth2Plugin()],
-    variables: morphVariables(host),
+    variables: morphVariables(idmBase),
     onLog: (level, message) => console.debug(`%c[morph] ${level}: ${message}`, 'color:#8a2be2'),
   });
   return client;
 }
 
+/** Re-init with refreshed variables (e.g. `subject` after login) so subject-scoped
+ * storage keys resolve correctly. Persisted tokens survive (same storage prefix). */
+export function reinitMorphClient(): MorphClient | null {
+  if (!lastEnv) return client;
+  return initMorphClient(lastEnv, lastIdmBase);
+}
+
 export function getMorphClient(): MorphClient | null {
   return client;
+}
+
+/** The primary interactive login auth id (config `rootCallbackAuthId`, e.g.
+ * "morph-idm/2fa") — where a completed login flow's tokens are handed off. */
+export function getLoginAuthId(): string | null {
+  return (lastEnv?.morphConfig?.rootCallbackAuthId as string | undefined) ?? null;
 }
 
 /**

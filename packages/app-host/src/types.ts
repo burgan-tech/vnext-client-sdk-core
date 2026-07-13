@@ -187,8 +187,6 @@ export interface AppHostState {
   deviceIdentity?: DeviceIdentity;
   /** Device registration result (device-manager), if provisioning ran. */
   deviceRegistration?: DeviceRegistration;
-  /** The pre-login (device) access token, if acquisition succeeded. */
-  deviceToken?: string | null;
 }
 
 /** Injected transport — keeps app-host free of any HTTP/framework choice. */
@@ -223,17 +221,19 @@ export interface AppHostDeps {
     provisioningEndpoint?: string;
   }) => Promise<DeviceRegistration | void>;
   /**
-   * Best-effort device-token acquisition against the real bank IDM. Tolerant:
-   * if it throws/rejects, boot continues at "device" level (shell endpoints are open).
-   * Receives the selected stage + resolved identity + IDM base; returns the access token if any.
+   * Runs after the environment is fetched, BEFORE token-level resolution. The
+   * adapter initializes the generic auth client (MorphClient) from the config and
+   * acquires the pre-login device token, so `resolveTokenLevel` can read an
+   * authoritative token status. Tolerant: failure does not block boot.
    */
-  acquireDeviceToken?: (ctx: {
+  afterEnvironment?: (ctx: {
+    environment: EnvironmentResponse;
     stage: EnvironmentStage;
-    deviceIdentity?: DeviceIdentity;
     idmBase?: string;
-    /** Device-token endpoint from the device context config (no client-side path building). */
+    deviceIdentity?: DeviceIdentity;
+    /** Device-token endpoint from the device context config. */
     tokenEndpoint?: string;
-  }) => Promise<string | void>;
+  }) => Promise<void>;
   /** Reads the current token level from wherever tokens live (default: always "device"). */
   resolveTokenLevel?: () => TokenLevel | Promise<TokenLevel>;
   log?: (level: 'info' | 'warn' | 'error' | 'debug', message: string, extra?: unknown) => void;

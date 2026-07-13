@@ -6,8 +6,9 @@
 // it with the codeVerifier, reads the issued tokens, and stores them in
 // context-store under the user boundary.
 // ─────────────────────────────────────────────────────────────────────────
-import { Boundary, Storage, contextStore, setContextValue } from '../sdk/context';
+import { contextStore } from '../sdk/context';
 import { idmFetch } from './idmWorkflow';
+import { reinitMorphClient, getLoginAuthId, setMorphTokens } from './morphClient';
 
 /** Decode a JWT payload's subject (sub, or act_sub for delegated tokens). */
 function jwtSubject(token: string): string | null {
@@ -94,13 +95,19 @@ export async function completeLogin(
     return null;
   }
 
-  // 4. Establish the user identity so the `user` boundary resolves a key prefix
-  //    (context-store user/subject scoping needs activeUser set), then persist.
+  // 4. Establish the subject, then hand the tokens to the generic auth client.
+  //    Re-init first so the subject-scoped storage keys ("…$subject") resolve, then
+  //    setTokens under the config's login auth id (rootCallbackAuthId). The re-boot
+  //    that follows re-reads these persisted tokens → tokenLevel = 2fa.
   contextStore.activeUser = jwtSubject(tokens.accessToken) ?? 'user';
-  setContextValue('auth.token.morph-idm-2fa.access', tokens.accessToken, { boundary: Boundary.user, storage: Storage.memory });
-  if (tokens.refreshToken) {
-    setContextValue('auth.token.morph-idm-2fa.refresh', tokens.refreshToken, { boundary: Boundary.user, storage: Storage.localStorage });
+  reinitMorphClient();
+  const authId = getLoginAuthId();
+  if (authId) {
+    await setMorphTokens(authId, {
+      accessToken: tokens.accessToken,
+      ...(tokens.refreshToken ? { refreshToken: tokens.refreshToken } : {}),
+    });
   }
-  console.info(`%c[login] ✅ 2FA tokens acquired (access ${tokens.accessToken.slice(0, 12)}…)`, 'color:#2a9d3f;font-weight:bold');
+  console.info(`%c[login] ✅ tokens acquired for ${authId} (access ${tokens.accessToken.slice(0, 12)}…)`, 'color:#2a9d3f;font-weight:bold');
   return tokens;
 }

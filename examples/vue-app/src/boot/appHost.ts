@@ -17,7 +17,7 @@ import {
   type DeviceIdentity,
   type DeviceInfo,
   type DeviceRegistration,
-  type EnvironmentStage,
+  type EnvironmentResponse,
   type FetchJson,
   type IdentityStore,
   type TokenLevel,
@@ -26,6 +26,7 @@ import { Boundary, Storage, getContextValue, setContextValue } from '../sdk/cont
 import { getOrCreateDeviceKeyPair } from './deviceCrypto';
 import { CLIENT_ID, APP_VERSION, SHELL_BASE, CTX } from './constants';
 import { standardHeaders } from './apiHeaders';
+import { initMorphClient, setMorphTokens, getMorphClient } from './morphClient';
 
 export { CLIENT_ID };
 
@@ -192,61 +193,68 @@ async function provisionDevice(ctx: {
   return reg;
 }
 
-// ── Device token (real bank IDM, tolerant) ─────────────────────────────────
-async function acquireDeviceToken(ctx: {
-  stage: EnvironmentStage;
-  deviceIdentity?: DeviceIdentity;
+// ── Auth client init + device token (generic, config-driven, tolerant) ─────
+// Runs after the environment is fetched, before token-level resolution. Inits
+// the generic MorphClient from config, then acquires the pre-login device token
+// by running the machine (client_credentials) context's vNext workflow and
+// handing the result to the client via setTokens. No provider/level literals.
+type CtxCfg = {
+  key: string;
+  clientId?: string;
+  clientSecret?: string;
+  token?: { endpoint?: string; grantType?: string };
+  delegateMetadata?: { grantHint?: string };
+};
+
+async function afterEnvironment(ctx: {
+  environment: EnvironmentResponse;
   idmBase?: string;
-  tokenEndpoint?: string;
-}): Promise<string | void> {
-  const provider = ctx.stage.authProviders?.find((p) => p.key === 'morph-idm-device');
-  const gf = provider?.grantFlow;
-  if (!gf) throw new Error('no morph-idm-device grantFlow in environment');
+}): Promise<void> {
+  initMorphClient(ctx.environment, ctx.idmBase);
 
-  const idmBase = ctx.idmBase; // single source: environment `hosts` (config)
-  const endpoint = ctx.tokenEndpoint; // from device-context config
-  if (!idmBase || !endpoint) throw new Error('[app-host] device token not configured (hosts.idm / device.token)');
-  const url = new URL(idmBase + endpoint, window.location.origin);
-  url.searchParams.set('sync', 'true');
-
-  // Ambient claims are read from the shared bus (context-store), not passed in.
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...standardHeaders() },
-    body: JSON.stringify({
-      attributes: {
-        clientId: gf['clientId'] ?? getContextValue(CTX.clientId, AMBIENT) ?? CLIENT_ID,
-        clientSecret: gf['clientSecret'],
-        grantType: gf['grantType'] ?? 'client_credentials',
-        // clientId already encodes the channel (IbWeb); the IDM doesn't read a
-        // separate `channel` claim, so it isn't sent.
-        customClaims: {
-          deviceId: getContextValue(CTX.deviceId, AMBIENT) ?? '',
-          installationId: getContextValue(CTX.installationId, AMBIENT) ?? '',
-        },
-      },
-    }),
-  });
-  if (!res.ok) throw new Error(`IDM token HTTP ${res.status}`);
-
-  const body = (await res.json()) as { access_token?: string; attributes?: { tokenCreation?: { access_token?: string } } };
-  const token = body.access_token ?? body.attributes?.tokenCreation?.access_token;
-  if (!token) throw new Error('IDM token response had no access_token');
-
-  // Persist under the key the environment declared, device boundary.
-  const key = String(provider?.tokenTypes && (provider.tokenTypes as { access?: { storage?: { key?: string } } }).access?.storage?.key)
-    || 'auth.token.morph-idm-device.access';
-  setContextValue(key, token, { boundary: Boundary.device, storage: Storage.memory });
-
-  return token;
+  const idmBase = ctx.idmBase;
+  const providers = (ctx.environment.morphConfig?.providers ?? []) as Array<{ key: string; contexts?: CtxCfg[] }>;
+  for (const p of providers) {
+    for (const c of p.contexts ?? []) {
+      // The device/machine context: non-interactive client_credentials.
+      const isMachine = c.delegateMetadata?.grantHint === 'client_credentials' || c.token?.grantType === 'client_credentials';
+      if (!isMachine || !idmBase || !c.token?.endpoint) continue;
+      try {
+        const url = new URL(idmBase + c.token.endpoint, window.location.origin);
+        url.searchParams.set('sync', 'true');
+        const res = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', ...standardHeaders() },
+          body: JSON.stringify({
+            attributes: {
+              clientId: c.clientId ?? CLIENT_ID,
+              clientSecret: c.clientSecret,
+              grantType: c.token.grantType ?? 'client_credentials',
+              customClaims: {
+                deviceId: getContextValue(CTX.deviceId, AMBIENT) ?? '',
+                installationId: getContextValue(CTX.installationId, AMBIENT) ?? '',
+              },
+            },
+          }),
+        });
+        if (!res.ok) throw new Error(`device token HTTP ${res.status}`);
+        const body = (await res.json()) as { access_token?: string; attributes?: { tokenCreation?: { access_token?: string } } };
+        const token = body.access_token ?? body.attributes?.tokenCreation?.access_token;
+        if (token) await setMorphTokens(`${p.key}/${c.key}`, { accessToken: token });
+      } catch (e) {
+        console.warn('[app-host] device token acquisition failed — continuing', e);
+      }
+    }
+  }
 }
 
-/** Derive the token level from which access token is present in context-store. */
-function resolveTokenLevel(): TokenLevel {
-  const held = (key: string, b: Boundary) =>
-    !!getContextValue(key, { boundary: b, storage: Storage.memory });
-  if (held('auth.token.morph-idm-2fa.access', Boundary.user)) return '2fa';
-  if (held('auth.token.morph-idm-1fa.access', Boundary.user)) return '1fa';
+/** Derive the token level from the auth client's status (which context has a token).
+ * The context KEYS are config-defined; only the privilege order is a convention. */
+async function resolveTokenLevel(): Promise<TokenLevel> {
+  const status = (await getMorphClient()?.getTokenStatus()) ?? [];
+  const has = (ctxKey: string) => status.some((s) => s.contextKey === ctxKey && s.hasAccessToken);
+  if (has('2fa')) return '2fa';
+  if (has('1fa')) return '1fa';
   return 'device';
 }
 
@@ -262,7 +270,7 @@ export function bootAppHost(): Promise<AppHost> {
       resolveIdentity,
       resolveTokenLevel,
       provisionDevice: (ctx) => withTimeout(provisionDevice(ctx), STARTUP_TIMEOUT_MS, 'device registration'),
-      acquireDeviceToken: (ctx) => withTimeout(acquireDeviceToken(ctx), STARTUP_TIMEOUT_MS, 'device token'),
+      afterEnvironment: (ctx) => withTimeout(afterEnvironment(ctx), STARTUP_TIMEOUT_MS, 'auth client / device token'),
       log: (level, message, extra) => {
         const style = level === 'error' || level === 'warn' ? 'color:#c0392b;font-weight:bold' : 'color:#4f46e5';
         // eslint-disable-next-line no-console

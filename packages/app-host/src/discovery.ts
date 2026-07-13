@@ -132,24 +132,23 @@ export async function discover(config: AppHostConfig, deps: AppHostDeps): Promis
     }
   }
 
-  // 4. device token — best-effort against the real bank IDM. Tolerant.
-  let deviceToken: string | null = null;
-  if (deps.acquireDeviceToken) {
+  // 4. init the generic auth client + acquire the device token (adapter), BEFORE
+  //    resolving the token level so getTokenStatus is authoritative. Tolerant.
+  if (deps.afterEnvironment) {
     try {
-      const t = await deps.acquireDeviceToken({
+      await deps.afterEnvironment({
+        environment,
         stage,
-        ...(deviceIdentity ? { deviceIdentity } : {}),
         ...(idmBase ? { idmBase } : {}),
+        ...(deviceIdentity ? { deviceIdentity } : {}),
         ...(tokenEndpoint ? { tokenEndpoint } : {}),
       });
-      deviceToken = typeof t === 'string' ? t : null;
-      log('info', `device token acquired${deviceToken ? ` (${deviceToken.slice(0, 12)}…)` : ''}`);
     } catch (e) {
-      log('warn', 'device token acquisition failed — continuing at device level', e);
+      log('warn', 'afterEnvironment (auth client / device token) failed — continuing', e);
     }
   }
 
-  // 5. token level (device unless a user token is present).
+  // 5. token level — derived from the auth client's token status (adapter).
   const tokenLevel: TokenLevel = deps.resolveTokenLevel ? await deps.resolveTokenLevel() : 'device';
 
   // 6. client-config record (kicked off in parallel above).
@@ -174,6 +173,5 @@ export async function discover(config: AppHostConfig, deps: AppHostDeps): Promis
     ...(idmBase ? { idmBase } : {}),
     ...(deviceIdentity ? { deviceIdentity } : {}),
     ...(deviceRegistration ? { deviceRegistration } : {}),
-    deviceToken,
   };
 }
