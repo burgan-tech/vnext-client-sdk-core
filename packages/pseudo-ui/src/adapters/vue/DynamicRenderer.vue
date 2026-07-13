@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, watch, onMounted, ref } from 'vue'
-import type { ComponentNode, SchemaProperty, LovItem, ForEachNode, NestedComponentNode, NavigationNode, WorkflowViewNode, ActionDescriptor, CardNode, ButtonNode, TextNode, TabViewNode, MultiLangText, DataSchema, ViewDefinition } from '../../engine/types'
+import type { ComponentNode, SchemaProperty, LovItem, ForEachNode, NestedComponentNode, NavigationNode, TabStripNode, WorkflowViewNode, ActionDescriptor, CardNode, ButtonNode, TextNode, TabViewNode, MultiLangText, DataSchema, ViewDefinition } from '../../engine/types'
 import { useFormContext } from './useFormContext'
 import { resolveTextContent, resolveExpression, resolveMultiLang } from '../../engine/expressionResolver'
 import { resolveNestedBind, applyNestedUpdate, getByPath, setByPath } from '../../engine/bindResolver'
@@ -217,6 +217,21 @@ function navLabel(v: unknown): string {
     return hit?.label ?? ''
   }
   return resolveMultiLang(v as MultiLangText, ctx.lang)
+}
+
+// TabStrip: live open-tab list (MDI), resolved from bound host state.
+const tabStripItems = computed<Record<string, unknown>[]>(() => {
+  if (props.node.type !== 'TabStrip') return []
+  const resolved = resolveExpression((props.node as TabStripNode).tabs, ctx, props.item)
+  return Array.isArray(resolved) ? (resolved as Record<string, unknown>[]) : []
+})
+
+/** Emit the tab-activate/close intents; the host maps them to its router. */
+function onTabActivate(tabKey: unknown): void {
+  if (tabKey != null) void delegate.onAction?.('tab:activate', { tabKey })
+}
+function onTabClose(tabKey: unknown): void {
+  if (tabKey != null) void delegate.onAction?.('tab:close', { tabKey })
 }
 
 /** Emit the navigation intent for a tapped nav item; the host maps it to its router. */
@@ -1201,6 +1216,30 @@ function menuItems(items: any[]) {
     </template>
   </nav>
 
+  <!-- === CONTROL: TabStrip (MDI open-tabs, emits tab:activate/tab:close) === -->
+  <div
+    v-else-if="node.type === 'TabStrip'"
+    v-show="(node as any).visible === undefined || resolveVisibility((node as any).visible)"
+    class="d-tabstrip"
+  >
+    <div
+      v-for="(tab, i) in tabStripItems"
+      :key="(tab.tabKey as string) ?? i"
+      class="d-tab"
+      :class="{ 'd-tab--active': tab.active }"
+      @click="onTabActivate(tab.tabKey)"
+    >
+      <span>{{ tab.label ?? tab.tabKey }}</span>
+      <button
+        v-if="tab.closable"
+        class="d-tab__close"
+        type="button"
+        title="Close"
+        @click.stop="onTabClose(tab.tabKey)"
+      >×</button>
+    </div>
+  </div>
+
   <!-- === CONTROL: Component (nested) === -->
   <ErrorBoundary v-else-if="node.type === 'Component'" :label="(node as NestedComponentNode).ref">
     <div class="d-nested">
@@ -1544,6 +1583,17 @@ function menuItems(items: any[]) {
 .d-nav-item:hover { background: var(--color-hover, #f1f2f8); }
 .d-nav-item--child { padding-left: 1.2rem; font-size: .88rem; opacity: .9; }
 .d-nav-divider { border: none; border-top: 1px solid var(--color-border, #e5e7f0); margin: .35rem .5rem; }
+.d-tabstrip {
+  display: flex; gap: .25rem; padding: .5rem .75rem 0; flex: 0 0 auto; overflow-x: auto;
+  background: var(--color-surface, #fff); border-bottom: 1px solid var(--color-border, #e3e6ef);
+}
+.d-tab {
+  display: flex; align-items: center; gap: .4rem; padding: .4rem .8rem; cursor: pointer; white-space: nowrap;
+  font-size: .85rem; border: 1px solid var(--color-border, #e3e6ef); border-bottom: none;
+  border-radius: 8px 8px 0 0; background: var(--color-hover, #f1f2f8);
+}
+.d-tab--active { background: var(--color-surface, #fff); font-weight: 600; }
+.d-tab__close { border: none; background: transparent; cursor: pointer; font-size: 1rem; line-height: 1; color: var(--color-muted, #667); padding: 0 .1rem; }
 .d-column {
   display: flex;
   flex-direction: column;

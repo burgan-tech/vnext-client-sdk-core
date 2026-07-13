@@ -54,6 +54,18 @@ export interface ContentOutletNode extends ComponentNode {
 }
 
 /**
+ * A tab strip bound to the host's live open-tab state (MDI). Renders a tab per
+ * item and emits `tab:activate` / `tab:close` actions (via delegate.onAction)
+ * carrying `{ tabKey }`, so the host maps them to its router. Render-only +
+ * intent. Toggle visibility with the generic `visible` prop (e.g. "$instance.isMdi").
+ */
+export interface TabStripNode extends ComponentNode {
+  type: 'TabStrip'
+  /** Expression → array of { tabKey, label, active?, closable? }. */
+  tabs: string
+}
+
+/**
  * Drives a backend workflow instance and renders each state's server-defined
  * view inline. pseudo-ui stays a pure renderer: the HOST owns the workflow
  * client (start/transition/terminal) and returns a {@link WorkflowSession} from

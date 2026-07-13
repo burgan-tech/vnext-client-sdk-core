@@ -12,10 +12,11 @@ import type { IPageRouter } from 'page-router';
 import { usePageRouter } from 'page-router-vue';
 import { PseudoView } from '@burgan-tech/pseudo-ui/vue';
 import type { ViewDefinition, PseudoViewDelegate } from '@burgan-tech/pseudo-ui';
-import { ShellMode } from 'page-router';
-import type { NavItem, TokenLevel } from '@burgan-tech/app-host';
+import { ShellMode, type OpenTab } from 'page-router';
+import { PageRouterShell } from 'page-router-vue';
+import type { NavItem, TokenLevel, LocalizedText } from '@burgan-tech/app-host';
 import { loadShellView } from '../boot/appHost';
-import RouterOutlet from './RouterOutlet.vue';
+import { localize } from '../sdk/i18n';
 
 const props = defineProps<{
   master: Record<string, unknown> | null;
@@ -32,14 +33,30 @@ const props = defineProps<{
 const routerState = usePageRouter(props.router);
 const lang = computed(() => routerState.locale.value);
 
-// Data fed to the backend chrome view (Navigation lists + the profile sub-view)
-// via bound instance data. No UI here — just the values the views bind to.
+// Live MDI state → the backend TabStrip component (open tabs + shell mode).
+const isMdi = computed(() => routerState.shellMode.value === ShellMode.mdi);
+const tabs = computed(() =>
+  routerState.openTabs.value.map((t: OpenTab) => {
+    const item = t.item as { title?: LocalizedText; key?: string } | undefined;
+    return {
+      tabKey: t.tabKey,
+      label: localize(item?.title, lang.value) || item?.key || t.tabKey,
+      active: t.tabKey === routerState.activeTab.value?.tabKey,
+      closable: t.isClosable,
+    };
+  }),
+);
+
+// Data fed to the backend chrome view (Navigation lists, tab strip, profile
+// sub-view) via bound instance data. No UI here — just values the views bind to.
 const instanceData = computed(() => ({
   sidebarItems: props.navItems,
   profileItems: props.profileItems,
   status: props.status,
   identity: props.status.identity,
   isLoggedIn: props.status.isLoggedIn,
+  tabs: tabs.value,
+  isMdi: isMdi.value,
 }));
 
 // The master is a ref { key, ... }; fetch its View content by key.
@@ -62,9 +79,12 @@ const delegate: PseudoViewDelegate = {
     const content = await loadShellView(ref);
     return { schema: { type: 'object', properties: {} }, view: (content ?? { view: {} }) as ViewDefinition };
   },
-  // Only the router surface is a host component now; the profile is a backend view.
+  // The router active-view surface (page-router-vue's own shell) is the only
+  // host component; the tab strip is now the backend TabStrip. The scroll
+  // wrapper is layout plumbing (keeps the chrome fixed), not content.
   resolveHostComponent: (ref) => {
-    if (ref === 'router') return () => h(RouterOutlet, { router: props.router });
+    if (ref === 'router')
+      return () => h('div', { class: 'router-body' }, [h(PageRouterShell, { router: props.router })]);
     return null;
   },
   // The single generic seam: backend chrome components emit intents, mapped here
@@ -74,6 +94,17 @@ const delegate: PseudoViewDelegate = {
     if (action === 'navigate') {
       const key = (data as { key?: string } | undefined)?.key;
       if (key) void props.router.navigate({ routeKey: key });
+      return;
+    }
+    // TabStrip intents (MDI): activate / close an open tab.
+    if (action === 'tab:activate') {
+      const tabKey = (data as { tabKey?: string } | undefined)?.tabKey;
+      if (tabKey) props.router.activateTab(tabKey);
+      return;
+    }
+    if (action === 'tab:close') {
+      const tabKey = (data as { tabKey?: string } | undefined)?.tabKey;
+      if (tabKey) props.router.closeTab(tabKey);
       return;
     }
     const cmd = command ?? '';
@@ -98,6 +129,6 @@ const delegate: PseudoViewDelegate = {
       :lang="lang"
       :delegate="delegate"
     />
-    <RouterOutlet v-else :router="router" />
+    <div v-else class="router-body"><PageRouterShell :router="router" /></div>
   </div>
 </template>

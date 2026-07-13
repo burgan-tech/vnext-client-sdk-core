@@ -91,6 +91,7 @@
                 { "$ref": "#/$defs/nestedComponent" },
                 { "$ref": "#/$defs/contentOutletComponent" },
                 { "$ref": "#/$defs/navigationComponent" },
+                { "$ref": "#/$defs/tabStripComponent" },
                 { "$ref": "#/$defs/workflowViewComponent" },
 
                 { "$ref": "#/$defs/timePickerComponent" },
@@ -848,6 +849,18 @@
             },
             "additionalProperties": false,
             "description": "Amorphie navigation list: renders data-bound nav items (groups + leaves) and emits a 'navigate' action (via delegate.onAction) carrying the tapped item, so the host maps the intent to its router. Render-only + intent."
+        },
+
+        "tabStripComponent": {
+            "type": "object",
+            "required": ["type", "tabs"],
+            "properties": {
+                "type": { "const": "TabStrip" },
+                "tabs": { "type": "string", "description": "Expression → array of { tabKey, label, active?, closable? } (e.g. '$instance.tabs')." },
+                "visible": { "type": "string", "description": "Optional visibility expression (e.g. '$instance.isMdi')." }
+            },
+            "additionalProperties": false,
+            "description": "MDI tab strip bound to the host's live open-tab state; emits 'tab:activate'/'tab:close' actions carrying { tabKey } for the host to route. Render-only + intent."
         },
 
         "workflowViewComponent": {
