@@ -47,3 +47,6 @@ playwright-report/
 
 # E2E test credentials (never commit)
 examples/vue-app/tests/e2e/creds.json
+
+# Local Claude Code MCP config (machine-specific path/ports)
+.mcp.json
