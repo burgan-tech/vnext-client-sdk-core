@@ -24,7 +24,12 @@ const props = defineProps<{
   navItems: NavItem[];
   profileItems: NavItem[];
   tokenLevel: TokenLevel;
-  status: { registered: string; contexts: Array<{ label: string }>; identity: string; isLoggedIn: boolean };
+  status: {
+    registered: string;
+    contexts: Array<{ key: string; label: string; command: string }>;
+    identity: string;
+    isLoggedIn: boolean;
+  };
   onToken: (level: TokenLevel) => void;
   onLogout: () => void;
 }>();
@@ -111,7 +116,8 @@ const delegate: PseudoViewDelegate = {
     let m: RegExpExecArray | null;
     if ((m = /^urn:shell:locale:(\w+)$/.exec(cmd))) props.router.setLocale(m[1]!);
     else if ((m = /^urn:shell:mode:(sdi|mdi)$/.exec(cmd))) void props.router.setShellMode(m[1] as ShellMode);
-    else if ((m = /^urn:shell:token:(device|1fa|2fa)$/.exec(cmd))) props.onToken(m[1] as TokenLevel);
+    // Any token context the client advertises is switchable — no hardcoded levels.
+    else if ((m = /^urn:shell:token:(.+)$/.exec(cmd))) props.onToken(m[1] as TokenLevel);
     else if (cmd === 'urn:shell:logout') props.onLogout();
   },
   onLog: () => undefined,

@@ -47,7 +47,13 @@ const status = computed(() => {
   const r = props.host.state.deviceRegistration;
   const loggedIn = tokenLevel.value !== 'device';
   return {
-    contexts: tokenStatus.value.map((s) => ({ label: `${s.contextKey} ${s.hasAccessToken ? '✓' : '·'}` })),
+    // One dynamic source (the client's token contexts) feeds both the status
+    // display and the token-level switch buttons — no hardcoded device/1fa/2fa.
+    contexts: tokenStatus.value.map((s) => ({
+      key: s.contextKey,
+      label: `${s.contextKey} ${s.hasAccessToken ? '✓' : '·'}`,
+      command: `urn:shell:token:${s.contextKey}`,
+    })),
     registered: r?.deviceInstanceId ? `${r.deviceInstanceId.slice(0, 8)}(${r.status})` : 'no',
     identity: loggedIn ? 'Hesabım' : 'Misafir',
     isLoggedIn: loggedIn,

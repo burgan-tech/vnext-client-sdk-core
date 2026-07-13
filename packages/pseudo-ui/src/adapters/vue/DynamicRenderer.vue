@@ -374,6 +374,12 @@ function removeArrayItem(index: number) {
  * `runValidation` and surfaces the validation-error toast.
  */
 function handleAction(action: string | ActionDescriptor | ActionDescriptor[], command?: string): Promise<void> {
+  // A `command` may be a literal URN or an expression (e.g. "$item.command"),
+  // so items in a ForEach can each carry their own command. Resolve if bound.
+  const resolvedCommand =
+    typeof command === 'string' && command.startsWith('$')
+      ? String(resolveExpression(command, ctx, props.item) ?? '')
+      : command
   return dispatchAction(action, {
     ctx,
     delegate,
@@ -415,7 +421,7 @@ function handleAction(action: string | ActionDescriptor | ActionDescriptor[], co
       })
       return false
     },
-  }, command, undefined, props.item)
+  }, resolvedCommand, undefined, props.item)
 }
 
 function validateAllFields() {
