@@ -10,6 +10,7 @@
 // ─────────────────────────────────────────────────────────────────────────
 import { Boundary, Storage, contextStore, getContextValue } from '../sdk/context';
 import { CLIENT_ID, APP_VERSION, CTX } from './constants';
+import { detectOs, detectBrowser } from './platform';
 
 const AMBIENT = { boundary: Boundary.device, storage: Storage.memory } as const;
 
@@ -27,11 +28,7 @@ function traceparent(): string {
 /** Coarse "OS; Browser" for the app-identity header. */
 function platform(): string {
   const ua = navigator.userAgent;
-  const os = /Windows/.test(ua) ? 'Windows' : /Mac OS X/.test(ua) ? 'macOS' : /Android/.test(ua) ? 'Android'
-    : /(iPhone|iPad|iPod)/.test(ua) ? 'iOS' : /Linux/.test(ua) ? 'Linux' : 'Web';
-  const br = /Edg\//.test(ua) ? 'Edge' : /Chrome\//.test(ua) ? 'Chrome' : /Firefox\//.test(ua) ? 'Firefox'
-    : /Safari\//.test(ua) ? 'Safari' : 'Browser';
-  return `${os}; ${br}`;
+  return `${detectOs(ua)}; ${detectBrowser(ua)}`;
 }
 
 /** The standard headers every API call carries. */

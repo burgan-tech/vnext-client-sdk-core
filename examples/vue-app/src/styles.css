@@ -4,18 +4,8 @@
   as --<token> CSS variables on :root at boot (see boot/theme.ts). This file only
   wires those tokens to the chrome's layout primitives; it holds no design values
   of its own beyond pre-theme fallbacks used by the boot splash (before the theme
-  loads). Legacy aliases below let pseudo-ui primitives that read --panel/--accent/
-  etc. pick up the same theme tokens.
+  loads).
 */
-:root {
-  --bg: var(--color-background, #f6f7fb);
-  --panel: var(--color-surface, #ffffff);
-  --border: var(--color-border, #e3e6ef);
-  --hover: var(--color-hover, #eef1f8);
-  --muted: var(--color-muted, #6b7280);
-  --accent: var(--color-primary, #4f46e5);
-}
-
 * { box-sizing: border-box; }
 
 html, body, #app { margin: 0; min-height: 100vh; }
@@ -29,8 +19,8 @@ body {
 
 h1 { font-size: 1.6rem; margin: 0 0 .5rem; letter-spacing: -.02em; }
 h2 { font-size: 1.2rem; margin: 1.25rem 0 .75rem; }
-.lead { color: var(--muted); margin-top: 0; }
-code { background: var(--hover); padding: .1rem .35rem; border-radius: var(--radius-sm, 6px); font-size: .85em; }
+.lead { color: var(--color-muted); margin-top: 0; }
+code { background: var(--color-hover); padding: .1rem .35rem; border-radius: var(--radius-sm, 6px); font-size: .85em; }
 
 /* ── Master layout chrome — fixed-height shell (sidebar fixed + independently
      scrolling content). The master View is pseudo-ui; these style its

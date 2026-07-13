@@ -1,7 +1,7 @@
 // ─────────────────────────────────────────────────────────────────────────
 // Bootstrap constants + the canonical context-store keys for ambient values.
 //
-// Ambient values (clientId, app version, channel, device/installation id, locale)
+// Ambient values (clientId, app version, device/installation id, locale, idmBase)
 // are written to context-store ONCE at init and read from there by everyone —
 // context-store is the shared bus every layer already knows. This is also the
 // contract the backend `x-context-source` annotations will reference (see

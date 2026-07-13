@@ -27,6 +27,7 @@ import { getOrCreateDeviceKeyPair } from './deviceCrypto';
 import { CLIENT_ID, APP_VERSION, SHELL_BASE, CTX } from './constants';
 import { standardHeaders } from './apiHeaders';
 import { initMorphClient, setMorphTokens, getMorphClient } from './morphClient';
+import { detectOs } from './platform';
 
 export { CLIENT_ID };
 
@@ -120,19 +121,15 @@ const identityStore: IdentityStore = {
 };
 
 function webDeviceInfo(): DeviceInfo {
-  const ua = navigator.userAgent;
-  const os =
-    /Windows/.test(ua) ? 'Windows' : /Mac OS X/.test(ua) ? 'macOS' : /Android/.test(ua) ? 'Android' :
-    /(iPhone|iPad|iPod)/.test(ua) ? 'iOS' : /Linux/.test(ua) ? 'Linux' : 'Web';
   return {
-    osName: os,
+    osName: detectOs(navigator.userAgent),
     osVersion: (navigator as { appVersion?: string }).appVersion ?? 'unknown',
     deviceModel: 'browser',
     manufacturer: navigator.vendor || 'unknown',
     screenResolution: `${window.screen.width}x${window.screen.height}`,
     language: navigator.language,
     timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-    userAgent: ua,
+    userAgent: navigator.userAgent,
   };
 }
 
