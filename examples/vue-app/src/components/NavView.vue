@@ -63,18 +63,27 @@ watch(
 );
 
 // A workflow nav item carries { key: <workflow name>, domain, version, start, ... }
-// → a WorkflowView node pseudo-ui renders and drives via delegate.driveWorkflow.
+// → a titled Column with a WorkflowView node pseudo-ui renders and drives via
+// delegate.driveWorkflow. Title/subtitle come from instance data (no host chrome).
 function workflowView(n: NavItem): ViewDefinition {
   const c = n.config ?? {};
   return {
     view: {
-      type: 'WorkflowView',
-      domain: String(c['domain'] ?? 'morph-idm'),
-      name: String(c['key'] ?? n.key ?? ''),
-      ...(c['version'] ? { version: String(c['version']) } : {}),
-      ...(c['keyFrom'] ? { keyFrom: String(c['keyFrom']) } : {}),
-      ...(c['start'] ? { start: c['start'] as Record<string, unknown> } : {}),
-      ...(c['startFields'] ? { startFields: c['startFields'] } : {}),
+      type: 'Column',
+      gap: 'md',
+      children: [
+        { type: 'Text', variant: 'title', content: '$instance.title' },
+        { type: 'Text', variant: 'caption', content: '$instance.subtitle', visible: '$instance.subtitle' },
+        {
+          type: 'WorkflowView',
+          domain: String(c['domain'] ?? 'morph-idm'),
+          name: String(c['key'] ?? n.key ?? ''),
+          ...(c['version'] ? { version: String(c['version']) } : {}),
+          ...(c['keyFrom'] ? { keyFrom: String(c['keyFrom']) } : {}),
+          ...(c['start'] ? { start: c['start'] as Record<string, unknown> } : {}),
+          ...(c['startFields'] ? { startFields: c['startFields'] } : {}),
+        },
+      ],
     },
   } as unknown as ViewDefinition;
 }
@@ -105,11 +114,16 @@ const viewDef = computed<ViewDefinition | null>(() => {
   return null;
 });
 
-// Instance data fed to the rendered view (group needs its localized labels + items).
+// Instance data fed to the rendered view: localized title/subtitle (workflow +
+// group headers) and the child items (group). Empty for dynamicView.
 const instanceData = computed<Record<string, unknown>>(() => {
   const n = nav.value;
-  if (n?.type === 'group') {
+  if (!n) return {};
+  if (n.type === 'group') {
     return { title: t(n.title), subtitle: n.subtitle ? t(n.subtitle) : '', items: children.value };
+  }
+  if (n.type === 'workflow') {
+    return { title: t(n.title) || n.key, subtitle: n.subtitle ? t(n.subtitle) : '' };
   }
   return {};
 });
@@ -142,39 +156,12 @@ const delegate: PseudoViewDelegate = {
 
 <template>
   <div class="navview">
-    <template v-if="!nav">
-      <p class="muted">Unknown route: {{ props.item.key }}</p>
-    </template>
+    <!-- Every routable nav type (dynamicView / workflow / group) normalizes to a
+         single ViewDefinition rendered through one PseudoView + delegate. -->
+    <p v-if="!nav" class="muted">Unknown route: {{ props.item.key }}</p>
 
-    <!-- dynamicView: pseudo-ui content fetched by key from shell/Views -->
     <PseudoView
-      v-else-if="viewDef && nav.type === 'dynamicView'"
-      :schema="{ type: 'object', properties: {} }"
-      :view="viewDef"
-      :form-data="{}"
-      :lang="lang"
-      :delegate="delegate"
-    />
-    <div v-else-if="nav.type === 'dynamicView' && loading" class="navview-loading">
-      <div class="boot-spinner" />
-    </div>
-
-    <!-- workflow: pseudo-ui drives + renders the backend state machine -->
-    <section v-else-if="nav.type === 'workflow' && viewDef">
-      <h2>{{ t(nav.title) || nav.key }}</h2>
-      <p v-if="nav.subtitle" class="muted">{{ t(nav.subtitle) }}</p>
-      <PseudoView
-        :schema="{ type: 'object', properties: {} }"
-        :view="viewDef"
-        :form-data="{}"
-        :lang="lang"
-        :delegate="delegate"
-      />
-    </section>
-
-    <!-- group: children rendered as a pseudo-ui Navigation view -->
-    <PseudoView
-      v-else-if="nav.type === 'group' && viewDef"
+      v-else-if="viewDef"
       :schema="{ type: 'object', properties: {} }"
       :view="viewDef"
       :form-data="{}"
@@ -182,6 +169,10 @@ const delegate: PseudoViewDelegate = {
       :lang="lang"
       :delegate="delegate"
     />
+
+    <div v-else-if="loading" class="navview-loading">
+      <div class="boot-spinner" />
+    </div>
 
     <!-- staticView / other: phase-2 placeholder -->
     <section v-else>
