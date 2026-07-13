@@ -419,3 +419,49 @@
 .pseudo-designer-delete-btn:hover {
   filter: brightness(0.92);
 }
+
+/* ── Amorphie chrome components (Navigation / TabStrip / WorkflowView) ─────────
+   Added alongside the component <style scoped> blocks; this curated sheet is
+   what consumers load via `@burgan-tech/pseudo-ui/vue/style.css`. Keep in sync. */
+.d-text--caption { font-size: 0.75rem; font-weight: 400; }
+.d-text--body { font-size: 0.9rem; font-weight: 400; }
+.d-text--title { font-size: 1.15rem; font-weight: 700; letter-spacing: -0.01em; }
+
+.d-navigation { display: flex; flex-direction: column; gap: 0.25rem; }
+.d-nav-group { display: flex; flex-direction: column; gap: 0.15rem; }
+.d-nav-group__title {
+  font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.04em;
+  color: var(--color-muted, #889); padding: 0.4rem 0.7rem 0;
+}
+.d-nav-item {
+  text-align: left; background: transparent; border: none; color: inherit; cursor: pointer;
+  padding: 0.55rem 0.7rem; border-radius: var(--radius-sm, 8px); font-size: 0.92rem; width: 100%;
+}
+.d-nav-item:hover { background: var(--color-hover, #f1f2f8); }
+.d-nav-item--child { padding-left: 1.2rem; font-size: 0.88rem; opacity: 0.9; }
+.d-nav-divider { border: none; border-top: 1px solid var(--color-border, #e5e7f0); margin: 0.35rem 0.5rem; }
+
+.d-tabstrip {
+  display: flex; gap: 0.25rem; padding: 0.5rem 0.75rem 0; flex: 0 0 auto; overflow-x: auto;
+  background: var(--color-surface, #fff); border-bottom: 1px solid var(--color-border, #e3e6ef);
+}
+.d-tab {
+  display: flex; align-items: center; gap: 0.4rem; padding: 0.4rem 0.8rem; cursor: pointer; white-space: nowrap;
+  font-size: 0.85rem; border: 1px solid var(--color-border, #e3e6ef); border-bottom: none;
+  border-radius: var(--radius-sm, 8px) var(--radius-sm, 8px) 0 0; background: var(--color-hover, #f1f2f8);
+}
+.d-tab--active { background: var(--color-surface, #fff); font-weight: 600; }
+.d-tab__close { border: none; background: transparent; cursor: pointer; font-size: 1rem; line-height: 1; color: var(--color-muted, #667); padding: 0 0.1rem; }
+
+.d-workflow-startform { display: flex; flex-direction: column; gap: 0.9rem; max-width: 360px; }
+.d-workflow-field { display: flex; flex-direction: column; gap: 0.3rem; font-size: 0.85rem; color: var(--color-muted, #667); }
+.d-workflow-field input {
+  padding: 0.55rem 0.7rem; border: 1px solid var(--color-border, #e3e6ef); border-radius: var(--radius-sm, 8px);
+  font-size: 0.95rem; background: var(--color-surface, #fff); color: var(--color-on-surface, #1f2430);
+}
+.d-workflow-start {
+  align-self: flex-start; padding: 0.55rem 1.2rem; border: none; border-radius: var(--radius-sm, 8px); cursor: pointer;
+  background: var(--color-primary, #4f46e5); color: #fff; font-size: 0.9rem; font-weight: 600;
+}
+.d-workflow-error { background: #fdecea; color: var(--color-danger, #b3261e); padding: 0.6rem 0.9rem; border-radius: var(--radius-sm, 6px); margin-bottom: 1rem; }
+.d-workflow-loading { display: flex; justify-content: center; padding: 2rem 0; color: var(--color-primary, #4f46e5); }
