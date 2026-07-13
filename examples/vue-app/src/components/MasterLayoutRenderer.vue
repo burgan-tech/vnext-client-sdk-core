@@ -14,7 +14,6 @@ import { PseudoView } from '@burgan-tech/pseudo-ui/vue';
 import type { ViewDefinition, PseudoViewDelegate } from '@burgan-tech/pseudo-ui';
 import type { NavItem, TokenLevel } from '@burgan-tech/app-host';
 import { loadShellView } from '../boot/appHost';
-import NavMenu from './NavMenu.vue';
 import RouterOutlet from './RouterOutlet.vue';
 import ProfileMenu from './ProfileMenu.vue';
 
@@ -32,6 +31,12 @@ const props = defineProps<{
 // Active locale (TR/EN) for the chrome's LocalizedString bindings.
 const routerState = usePageRouter(props.router);
 const lang = computed(() => routerState.locale.value);
+
+// Nav items fed to the backend view's `Navigation` components via bound instance data.
+const instanceData = computed(() => ({
+  sidebarItems: props.navItems,
+  profileItems: props.profileItems,
+}));
 
 // The master is a ref { key, ... }; fetch its View content by key.
 const view = ref<ViewDefinition | null>(null);
@@ -56,7 +61,6 @@ const delegate: PseudoViewDelegate = {
   // ContentOutlets → host components (placement is backend; content is host).
   resolveHostComponent: (ref) => {
     if (ref === 'router') return () => h(RouterOutlet, { router: props.router });
-    if (ref === 'nav') return () => h(NavMenu, { items: props.navItems, router: props.router });
     if (ref === 'profile')
       return () =>
         h(ProfileMenu, {
@@ -69,9 +73,14 @@ const delegate: PseudoViewDelegate = {
         });
     return null;
   },
-  // The master chrome has no pseudo-ui action buttons (nav/profile/router are
-  // host outlets that call the router directly), so actions are a no-op.
-  onAction: async () => undefined,
+  // The `Navigation` component emits a `navigate` intent with the tapped item;
+  // map it to the router (the one generic seam — no per-item UI in the client).
+  onAction: async (action, data) => {
+    if (action === 'navigate') {
+      const key = (data as { key?: string } | undefined)?.key;
+      if (key) void props.router.navigate({ routeKey: key });
+    }
+  },
   onLog: () => undefined,
 };
 </script>
@@ -83,7 +92,7 @@ const delegate: PseudoViewDelegate = {
       :schema="{ type: 'object', properties: {} }"
       :view="view"
       :form-data="{}"
-      :instance-data="{}"
+      :instance-data="instanceData"
       :lang="lang"
       :delegate="delegate"
     />

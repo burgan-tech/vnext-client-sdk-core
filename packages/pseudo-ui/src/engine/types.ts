@@ -29,6 +29,20 @@ export interface NestedComponentNode extends ComponentNode {
 }
 
 /**
+ * Amorphie navigation list: renders a data-bound array of nav items (groups +
+ * leaves), and on tap emits a `navigate` action carrying the tapped item via the
+ * delegate — so the host maps the intent to its router (open a view / start a
+ * workflow) using the item's own `{type, key, config}`. Solves what a plain
+ * ForEach+Button cannot (per-item navigation intent). Render-only + intent; the
+ * component knows nothing about HTTP/routing.
+ */
+export interface NavigationNode extends ComponentNode {
+  type: 'Navigation'
+  /** Expression resolving to the nav-item array (e.g. "$instance.sidebarItems"). */
+  items: string
+}
+
+/**
  * A placeholder where the HOST injects an arbitrary (framework-native) component
  * — e.g. a router's active view inside a master-layout view. Unlike
  * `NestedComponentNode` (which composes another pseudo-ui view), the host resolves

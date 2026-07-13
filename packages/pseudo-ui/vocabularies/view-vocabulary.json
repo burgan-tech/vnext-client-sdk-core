@@ -90,6 +90,7 @@
                 { "$ref": "#/$defs/forEachComponent" },
                 { "$ref": "#/$defs/nestedComponent" },
                 { "$ref": "#/$defs/contentOutletComponent" },
+                { "$ref": "#/$defs/navigationComponent" },
 
                 { "$ref": "#/$defs/timePickerComponent" },
                 { "$ref": "#/$defs/segmentedButtonComponent" },
@@ -834,6 +835,19 @@
             "description": "A placeholder where the HOST injects an arbitrary framework-native component (not another pseudo-ui view). Used by master-layout views to embed the router's swappable content. Resolved via PseudoViewDelegate.resolveHostComponent(ref)."
         },
 
+        "navigationComponent": {
+            "type": "object",
+            "required": ["type", "items"],
+            "properties": {
+                "type": { "const": "Navigation" },
+                "items": {
+                    "type": "string",
+                    "description": "Expression resolving to the nav-item array (e.g. '$instance.sidebarItems'). Each item: { type, key, title, subtitle?, iconUrn?, children? }."
+                }
+            },
+            "additionalProperties": false,
+            "description": "Amorphie navigation list: renders data-bound nav items (groups + leaves) and emits a 'navigate' action (via delegate.onAction) carrying the tapped item, so the host maps the intent to its router. Render-only + intent."
+        },
 
         "timePickerComponent": {
             "type": "object",

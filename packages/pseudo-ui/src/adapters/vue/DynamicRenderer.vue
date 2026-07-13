@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, watch, onMounted, ref } from 'vue'
-import type { ComponentNode, SchemaProperty, LovItem, ForEachNode, NestedComponentNode, ActionDescriptor, CardNode, ButtonNode, TextNode, TabViewNode, MultiLangText, DataSchema, ViewDefinition } from '../../engine/types'
+import type { ComponentNode, SchemaProperty, LovItem, ForEachNode, NestedComponentNode, NavigationNode, ActionDescriptor, CardNode, ButtonNode, TextNode, TabViewNode, MultiLangText, DataSchema, ViewDefinition } from '../../engine/types'
 import { useFormContext } from './useFormContext'
 import { resolveTextContent, resolveExpression, resolveMultiLang } from '../../engine/expressionResolver'
 import { resolveNestedBind, applyNestedUpdate, getByPath, setByPath } from '../../engine/bindResolver'
@@ -196,6 +196,32 @@ const forEachItems = computed<Record<string, unknown>[]>(() => {
   if (ctx.designerMode && arr.length === 0) return [{}]
   return arr
 })
+
+// --- Navigation (Amorphie nav list) ---
+const navigationItems = computed<Record<string, unknown>[]>(() => {
+  if (props.node.type !== 'Navigation') return []
+  const resolved = resolveExpression((props.node as NavigationNode).items, ctx, props.item)
+  return Array.isArray(resolved) ? (resolved as Record<string, unknown>[]) : []
+})
+
+/** Localize a nav label: array [{language,label}] (preferred), { <lang>: text } map, or plain string. */
+function navLabel(v: unknown): string {
+  if (v == null) return ''
+  if (typeof v === 'string') return v
+  const base = (l: string) => (l || '').toLowerCase().split(/[-_]/)[0]
+  if (Array.isArray(v)) {
+    const want = base(ctx.lang || 'en')
+    const list = v as Array<{ language?: string; label?: string }>
+    const hit = list.find((e) => base(e.language ?? '') === want) ?? list[0]
+    return hit?.label ?? ''
+  }
+  return resolveMultiLang(v as MultiLangText, ctx.lang)
+}
+
+/** Emit the navigation intent for a tapped nav item; the host maps it to its router. */
+function onNavItem(item: Record<string, unknown>): void {
+  void delegate.onAction?.('navigate', item)
+}
 
 // --- Nested component ---
 const nestedSchema = ref<DataSchema | null>(null)
@@ -1142,6 +1168,27 @@ function menuItems(items: any[]) {
     </template>
   </ErrorBoundary>
 
+  <!-- === CONTROL: Navigation (Amorphie nav list, emits navigate intent) === -->
+  <nav v-else-if="node.type === 'Navigation'" class="d-navigation">
+    <template v-for="(navIt, i) in navigationItems" :key="(navIt.key as string) ?? i">
+      <div v-if="navIt.type === 'group'" class="d-nav-group">
+        <div class="d-nav-group__title">{{ navLabel(navIt.title) }}</div>
+        <button
+          v-for="child in ((navIt.children as Record<string, unknown>[]) ?? [])"
+          :key="child.key as string"
+          class="d-nav-item d-nav-item--child"
+          @click="onNavItem(child)"
+        >{{ navLabel(child.title) || child.key }}</button>
+      </div>
+      <hr v-else-if="navIt.type === 'divider'" class="d-nav-divider" />
+      <button
+        v-else-if="navIt.key"
+        class="d-nav-item"
+        @click="onNavItem(navIt)"
+      >{{ navLabel(navIt.title) || navIt.key }}</button>
+    </template>
+  </nav>
+
   <!-- === CONTROL: Component (nested) === -->
   <ErrorBoundary v-else-if="node.type === 'Component'" :label="(node as NestedComponentNode).ref">
     <div class="d-nested">
@@ -1466,6 +1513,20 @@ function menuItems(items: any[]) {
 </template>
 
 <style scoped>
+/* Navigation (Amorphie nav list) */
+.d-navigation { display: flex; flex-direction: column; gap: .25rem; }
+.d-nav-group { display: flex; flex-direction: column; gap: .15rem; }
+.d-nav-group__title {
+  font-size: .72rem; text-transform: uppercase; letter-spacing: .04em;
+  color: var(--color-muted, #889); padding: .4rem .7rem 0;
+}
+.d-nav-item {
+  text-align: left; background: transparent; border: none; color: inherit; cursor: pointer;
+  padding: .55rem .7rem; border-radius: 8px; font-size: .92rem; width: 100%;
+}
+.d-nav-item:hover { background: var(--color-hover, #f1f2f8); }
+.d-nav-item--child { padding-left: 1.2rem; font-size: .88rem; opacity: .9; }
+.d-nav-divider { border: none; border-top: 1px solid var(--color-border, #e5e7f0); margin: .35rem .5rem; }
 .d-column {
   display: flex;
   flex-direction: column;
