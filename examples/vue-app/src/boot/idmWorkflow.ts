@@ -1,33 +1,34 @@
 // ─────────────────────────────────────────────────────────────────────────
 // workflow-manager wired to the REAL bank IDM (morph-idm), transport-only.
 //
-// A tiny fetch-based HttpDelegate (no morph) posts to the IDM via the Vite
-// `/api/v1` proxy and attaches the device-context headers the login flow needs
-// (X-Device-Id / X-Installation-Id / user_reference). Used to drive the
-// interactive 2FA `user-login` workflow through pseudo-ui.
+// A tiny fetch-based HttpDelegate posts to the IDM host (base from the
+// environment `hosts` config, mirrored to context-store) and attaches the
+// standard headers (docs/http-headers-standard.md) plus X-Workflow. Used to
+// drive the interactive 2FA `user-login` workflow through pseudo-ui.
 // ─────────────────────────────────────────────────────────────────────────
 import { WorkflowManager } from 'amorphie-workflow-manager';
 import type { HttpDelegate, HttpRequest, HttpResponse } from 'amorphie-workflow-manager';
-import { DEVICE_ID_KEY, INSTALLATION_ID_KEY } from '@burgan-tech/app-host';
+import { Boundary, Storage, getContextValue } from '../sdk/context';
+import { CTX } from './constants';
+import { standardHeaders, workflowHeader } from './apiHeaders';
 
-const IDM_API_BASE = '/api/v1'; // proxied to test-vnext-morph-idm
+/** IDM host base from the shared bus (seeded from environment `hosts` at boot). */
+function idmBase(): string {
+  const base = getContextValue<string>(CTX.idmBase, { boundary: Boundary.device, storage: Storage.memory });
+  if (!base) throw new Error('[idm-wf] IDM host not seeded — boot must resolve environment.hosts.idm first');
+  return base;
+}
 
-function deviceHeaders(): Record<string, string> {
-  const deviceId = window.localStorage.getItem(DEVICE_ID_KEY) ?? 'unknown-device';
-  const installationId = window.sessionStorage.getItem(INSTALLATION_ID_KEY) ?? 'unknown-install';
-  return {
-    'Accept-Language': 'tr-TR',
-    'X-Request-Id': crypto.randomUUID(),
-    'X-Token-Id': crypto.randomUUID(),
-    'X-Device-Id': deviceId,
-    'X-Installation-Id': installationId,
-    'X-Device-Info': 'vnext-web/0.1',
-    user_reference: 'anonymous',
-  };
+/** Best-effort X-Workflow from a `/{domain}/workflows/{wf}/instances/{id}/…` path. */
+function workflowHeaderFor(path: string): Record<string, string> {
+  const m = /^\/([^/]+)\/workflows\/([^/]+)\/instances\/([^/?]+)/.exec(path);
+  if (!m) return {};
+  const [, domain, workflow, instance] = m;
+  return workflowHeader(domain!, workflow!, '1.0.0', instance === 'start' ? undefined : instance);
 }
 
 function buildUrl(path: string, query?: HttpRequest['query']): string {
-  const url = new URL(IDM_API_BASE + path, window.location.origin);
+  const url = new URL(idmBase() + path, window.location.origin);
   for (const [k, v] of Object.entries(query ?? {})) {
     if (v === undefined) continue;
     if (Array.isArray(v)) v.forEach((x) => url.searchParams.append(k, x));
@@ -42,7 +43,8 @@ export const idmHttpDelegate: HttpDelegate = {
     const res = await fetch(buildUrl(req.path, req.query), {
       method: req.method,
       headers: {
-        ...deviceHeaders(),
+        ...standardHeaders(),
+        ...workflowHeaderFor(req.path),
         ...(req.body !== undefined ? { 'Content-Type': 'application/json' } : {}),
         ...(req.headers ?? {}),
       },
@@ -73,7 +75,11 @@ export async function idmFetch<T = unknown>(
 ): Promise<{ ok: boolean; status: number; data: T | null }> {
   const res = await fetch(buildUrl(path, opts.query), {
     method: opts.method ?? 'GET',
-    headers: { ...deviceHeaders(), ...(opts.body !== undefined ? { 'Content-Type': 'application/json' } : {}) },
+    headers: {
+      ...standardHeaders(),
+      ...workflowHeaderFor(path),
+      ...(opts.body !== undefined ? { 'Content-Type': 'application/json' } : {}),
+    },
     ...(opts.body !== undefined ? { body: JSON.stringify(opts.body) } : {}),
   });
   const text = await res.text();
@@ -88,7 +94,9 @@ export async function idmFetch<T = unknown>(
 
 export const idmWorkflowManager = WorkflowManager.create({
   http: idmHttpDelegate,
-  workflows: [{ domain: 'morph-idm', name: 'user-login', version: '1.0.0' }],
+  // Managed-workflow list is not enforced by the SDK; the actual domain/name for
+  // each operation come per-call from the backend nav config (no client hardcode).
+  workflows: [],
   defaultLongPollingConfig: { intervalSeconds: 2, durationSeconds: 30, timeoutSeconds: 10, useETag: true },
   onLog: (level, message) => console.debug(`%c[idm-wf] ${level}: ${message}`, 'color:#0a0'),
 });

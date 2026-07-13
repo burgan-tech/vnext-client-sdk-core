@@ -21,7 +21,10 @@ import type { TokenLevel } from '@burgan-tech/app-host';
 import HostShell from './HostShell.vue';
 import NavView from './components/NavView.vue';
 import { bootAppHost } from './boot/appHost';
+import { initMorphClient, setMorphTokens } from './boot/morphClient';
 import { loadAndApplyTheme } from './boot/theme';
+import { CTX } from './boot/constants';
+import { Boundary, Storage, getContextValue, setContextValue } from './sdk/context';
 import { ITEMS_BY_KEY, APP_ROUTER, APP_SET_TOKEN_LEVEL } from './boot/keys';
 
 let app: App | null = null;
@@ -48,6 +51,38 @@ async function start(overrideLevel?: TokenLevel): Promise<void> {
   await router.navigate({ routeKey: host.built.homepageKey });
   // Master layout (app chrome) is a backend view, swapped per token level.
   router.setMasterLayout(host.state.navigation.masterLayout ?? null);
+
+  // Mirror the active locale onto the shared bus (context-store) so API clients
+  // (e.g. Accept-Language) follow the selected language without hardcoding.
+  const mem = { boundary: Boundary.device, storage: Storage.memory };
+  const writeLocale = (l: string) => setContextValue(CTX.locale, l, mem);
+  writeLocale(router.getLocale());
+  router.onLocaleChanged(writeLocale);
+  // IDM host base resolved from the environment `hosts` config → shared bus.
+  if (host.state.idmBase) setContextValue(CTX.idmBase, host.state.idmBase, mem);
+
+  // Phase 1 (additive): initialize the generic morph-api-client from backend
+  // config. Does not yet drive auth — verifies config → MorphClient wiring.
+  try {
+    const morph = initMorphClient(host);
+    // Hand tokens acquired by host-run vNext workflows to the client. (Transitional:
+    // read from context-store; Phase 4 makes the client the sole token store.)
+    if (host.state.deviceToken) await setMorphTokens('morph-idm/device', { accessToken: host.state.deviceToken });
+    const twofa = getContextValue<string>('auth.token.morph-idm-2fa.access', { boundary: Boundary.user, storage: Storage.memory });
+    if (twofa) {
+      const refresh = getContextValue<string>('auth.token.morph-idm-2fa.refresh', { boundary: Boundary.user, storage: Storage.localStorage });
+      await setMorphTokens('morph-idm/2fa', { accessToken: twofa, ...(refresh ? { refreshToken: refresh } : {}) });
+    }
+    const status = await morph.getTokenStatus();
+    // eslint-disable-next-line no-console
+    console.info(
+      `%c[morph] ✅ initialized — providers=${morph.getProviders().map((p) => p.key).join(',')} ` +
+        `hosts=${morph.getHosts().map((h) => h.key).join(',')} tokens=[${status.map((s) => `${s.providerKey}/${s.contextKey}:${s.hasAccessToken ? '✓' : '·'}`).join(' ')}]`,
+      'color:#8a2be2;font-weight:bold',
+    );
+  } catch (e) {
+    console.error('[morph] init failed', e);
+  }
 
   // Wire the browser Back/Forward buttons to the router's own history so SDI
   // navigation doesn't unload the SPA. Re-bind on re-boot (fresh router).

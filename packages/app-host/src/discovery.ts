@@ -50,6 +50,16 @@ export function resolveLevel(clientConfig: ClientConfig, tokenLevel: TokenLevel)
   return level;
 }
 
+/** Shell mode for a level — backend-declared in the level manifest (not a client rule). */
+export function resolveShellMode(clientConfig: ClientConfig, tokenLevel: TokenLevel): 'sdi' | 'mdi' {
+  return resolveLevel(clientConfig, tokenLevel).shellMode ?? 'sdi';
+}
+
+/** Base URL of a named host from the environment `hosts` (config home for URLs). */
+export function resolveHostBase(env: EnvironmentResponse, key: string): string | undefined {
+  return env.hosts?.find((h) => h.key === key)?.baseUrl;
+}
+
 /** Load the resolved navigation (master + homepage + sidebar/profile records) for a level. */
 export async function loadNavigation(
   deps: AppHostDeps,
@@ -85,6 +95,15 @@ export async function discover(config: AppHostConfig, deps: AppHostDeps): Promis
   const stage = pickStage(environment);
   log('info', `stage selected: ${stage.key}`);
 
+  // IDM host base — single source of truth is the environment `hosts` config.
+  const idmBase = resolveHostBase(environment, 'idm');
+  // Device-context endpoints from the morph-api config (no client-side path building).
+  const deviceCtx = (environment.morphConfig?.providers ?? [])
+    .flatMap((p) => p.contexts ?? [])
+    .find((c) => c.key === 'device');
+  const provisioningEndpoint = deviceCtx?.provisioning?.endpoint;
+  const tokenEndpoint = deviceCtx?.token?.endpoint;
+
   // 2. device identity (deviceId/installationId/...) — resolved before any token.
   const deviceIdentity = deps.resolveIdentity?.();
   if (deviceIdentity) {
@@ -99,7 +118,11 @@ export async function discover(config: AppHostConfig, deps: AppHostDeps): Promis
   let deviceRegistration: import('./types.js').DeviceRegistration | undefined;
   if (deps.provisionDevice && deviceIdentity) {
     try {
-      const r = await deps.provisionDevice({ deviceIdentity });
+      const r = await deps.provisionDevice({
+        deviceIdentity,
+        ...(idmBase ? { idmBase } : {}),
+        ...(provisioningEndpoint ? { provisioningEndpoint } : {}),
+      });
       if (r) {
         deviceRegistration = r;
         log('info', `device registered: instance=${r.deviceInstanceId ?? '?'} status=${r.status ?? '?'}${r.fromCache ? ' (cached)' : ''}`);
@@ -113,7 +136,12 @@ export async function discover(config: AppHostConfig, deps: AppHostDeps): Promis
   let deviceToken: string | null = null;
   if (deps.acquireDeviceToken) {
     try {
-      const t = await deps.acquireDeviceToken({ stage, ...(deviceIdentity ? { deviceIdentity } : {}) });
+      const t = await deps.acquireDeviceToken({
+        stage,
+        ...(deviceIdentity ? { deviceIdentity } : {}),
+        ...(idmBase ? { idmBase } : {}),
+        ...(tokenEndpoint ? { tokenEndpoint } : {}),
+      });
       deviceToken = typeof t === 'string' ? t : null;
       log('info', `device token acquired${deviceToken ? ` (${deviceToken.slice(0, 12)}…)` : ''}`);
     } catch (e) {
@@ -132,9 +160,8 @@ export async function discover(config: AppHostConfig, deps: AppHostDeps): Promis
   const navigation = await loadNavigation(deps, clientConfig, tokenLevel);
   log('info', `navigation loaded: homepage=${navigation.homepage}, tokenLevel=${tokenLevel} (sidebar ${navigation.sidebar.length}, profile ${navigation.profile.length})`);
 
-  // 8. shell mode: device/1FA always SDI (override); 2FA honors client-config.
-  const configured = (clientConfig.router?.defaultMode ?? 'sdi').toLowerCase();
-  const shellMode: 'sdi' | 'mdi' = tokenLevel === '2fa' && configured === 'mdi' ? 'mdi' : 'sdi';
+  // 8. shell mode — declared per level in the client-config manifest.
+  const shellMode = resolveShellMode(clientConfig, tokenLevel);
 
   return {
     clientId,
@@ -144,6 +171,7 @@ export async function discover(config: AppHostConfig, deps: AppHostDeps): Promis
     navigation,
     tokenLevel,
     shellMode,
+    ...(idmBase ? { idmBase } : {}),
     ...(deviceIdentity ? { deviceIdentity } : {}),
     ...(deviceRegistration ? { deviceRegistration } : {}),
     deviceToken,

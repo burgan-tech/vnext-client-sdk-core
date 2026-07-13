@@ -21,6 +21,7 @@ export type {
   EnvironmentStage,
   FetchJson,
   GrantFlow,
+  HostConfig,
   LabelEntry,
   LevelConfig,
   LocalizedText,

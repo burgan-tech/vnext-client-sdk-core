@@ -16,7 +16,7 @@ const props = defineProps<{
   router: IPageRouter;
   tokenLevel: TokenLevel;
   navItems: NavItem[];
-  status: { registered: string; device: string; oneFa: string; twoFa: string };
+  status: { registered: string; contexts: Array<{ key: string; ok: boolean }> };
   onToken: (level: TokenLevel) => void;
   onLogout: () => void;
 }>();
@@ -78,9 +78,7 @@ function setLocale(l: string): void {
           <span class="muted">{{ status.registered }}</span>
         </div>
         <div class="status-flags">
-          <span>device {{ status.device }}</span>
-          <span>1fa {{ status.oneFa }}</span>
-          <span>2fa {{ status.twoFa }}</span>
+          <span v-for="c in status.contexts" :key="c.key">{{ c.key }} {{ c.ok ? '✓' : '·' }}</span>
         </div>
       </div>
 

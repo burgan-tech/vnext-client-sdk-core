@@ -59,10 +59,39 @@ export interface EnvironmentStage {
   [k: string]: unknown;
 }
 
+/** A named API host (morph-api-client `hosts[]` shape): base URL + allowed auth. */
+export interface HostConfig {
+  key: string;
+  baseUrl: string;
+  headers?: Record<string, string>;
+  allowedAuth?: string[];
+  [k: string]: unknown;
+}
+
+/** morph-api-client config carried in the environment record (providers/contexts). */
+export interface MorphConfigBlob {
+  rootCallbackAuthId?: string;
+  providers?: Array<{
+    key: string;
+    contexts?: Array<{
+      key: string;
+      token?: { endpoint?: string; grantType?: string };
+      provisioning?: { endpoint?: string };
+      [k: string]: unknown;
+    }>;
+    [k: string]: unknown;
+  }>;
+  [k: string]: unknown;
+}
+
 export interface EnvironmentResponse {
   multiStageMode?: string;
   defaultStage?: string;
   stages: EnvironmentStage[];
+  /** Named API hosts (idm, shell, …) — the config home for base URLs. */
+  hosts?: HostConfig[];
+  /** morph-api-client config (MorphConfig shape) — providers/contexts. */
+  morphConfig?: MorphConfigBlob;
 }
 
 /** Reference to a config record held as a workflow instance (fetched by key). */
@@ -75,11 +104,13 @@ export interface RecordRef {
   [k: string]: unknown;
 }
 
-/** Per-token-level manifest: which master chrome, homepage, and nav records. */
+/** Per-token-level manifest: which master chrome, homepage, nav records, shell mode. */
 export interface LevelConfig {
   /** Master layout (app chrome) ref — opaque, host-rendered. */
   masterLayout?: RecordRef;
   homepage: string;
+  /** Shell mode for this level (sdi/mdi). Backend-declared, not a client rule. */
+  shellMode?: 'sdi' | 'mdi';
   nav: {
     /** Sidebar navigation record ref (instance of the `navigation` workflow). */
     sidebar: RecordRef;
@@ -148,8 +179,10 @@ export interface AppHostState {
   clientConfig: ClientConfig;
   navigation: NavigationResponse;
   tokenLevel: TokenLevel;
-  /** Effective shell router mode after the device/1FA SDI override. */
+  /** Effective shell router mode for this level (from the level manifest). */
   shellMode: 'sdi' | 'mdi';
+  /** Resolved IDM host base URL (from environment `hosts`), for IDM API clients. */
+  idmBase?: string;
   /** Device identity resolved at startup (deviceId/installationId/...). */
   deviceIdentity?: DeviceIdentity;
   /** Device registration result (device-manager), if provisioning ran. */
@@ -182,15 +215,24 @@ export interface AppHostDeps {
    * device-manager flow, persists the result). Platform-specific (crypto lives
    * in the adapter). Tolerant: failure does not block boot.
    */
-  provisionDevice?: (ctx: { deviceIdentity: DeviceIdentity }) => Promise<DeviceRegistration | void>;
+  provisionDevice?: (ctx: {
+    deviceIdentity: DeviceIdentity;
+    /** IDM host base resolved from environment `hosts` (config), not hardcoded. */
+    idmBase?: string;
+    /** Device-registration endpoint from the device context config (no client-side path building). */
+    provisioningEndpoint?: string;
+  }) => Promise<DeviceRegistration | void>;
   /**
    * Best-effort device-token acquisition against the real bank IDM. Tolerant:
    * if it throws/rejects, boot continues at "device" level (shell endpoints are open).
-   * Receives the selected stage + resolved identity; returns the access token if any.
+   * Receives the selected stage + resolved identity + IDM base; returns the access token if any.
    */
   acquireDeviceToken?: (ctx: {
     stage: EnvironmentStage;
     deviceIdentity?: DeviceIdentity;
+    idmBase?: string;
+    /** Device-token endpoint from the device context config (no client-side path building). */
+    tokenEndpoint?: string;
   }) => Promise<string | void>;
   /** Reads the current token level from wherever tokens live (default: always "device"). */
   resolveTokenLevel?: () => TokenLevel | Promise<TokenLevel>;

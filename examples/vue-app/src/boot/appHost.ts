@@ -20,21 +20,18 @@ import {
   type EnvironmentStage,
   type FetchJson,
   type IdentityStore,
+  type TokenLevel,
 } from '@burgan-tech/app-host';
-import { Boundary, Storage, setContextValue } from '../sdk/context';
+import { Boundary, Storage, getContextValue, setContextValue } from '../sdk/context';
 import { getOrCreateDeviceKeyPair } from './deviceCrypto';
+import { CLIENT_ID, APP_VERSION, SHELL_BASE, CTX } from './constants';
+import { standardHeaders } from './apiHeaders';
 
-/** The single hardcoded value. */
-export const CLIENT_ID = 'IbWeb';
-export const APP_VERSION = '0.1.0';
+export { CLIENT_ID };
 
-/** Same-origin base for shell-domain calls (Vite proxies `/shell` → local orchestrator). */
-const SHELL_BASE = '/shell';
-
-/** Bank IDM base (Vite proxies `/api/v1` → test-vnext-morph-idm). */
-const IDM_BASE = '/api/v1';
-const IDM_DOMAIN = 'morph-idm';
 const DEVICE_REGISTRATION_KEY = 'device.registration';
+/** Ambient values live in context-store (device boundary, session-scoped memory). */
+const AMBIENT = { boundary: Boundary.device, storage: Storage.memory } as const;
 
 /** Boot must never hang on device provisioning / IDM: cap each with a timeout. */
 function withTimeout<T>(p: Promise<T>, ms: number, label: string): Promise<T> {
@@ -58,7 +55,8 @@ const fetchJson: FetchJson = async (path, init) => {
     const res = await fetch(url, {
       method: init?.method ?? 'GET',
       signal: ctrl.signal,
-      ...(init?.body ? { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(init.body) } : {}),
+      headers: { ...standardHeaders(), ...(init?.body ? { 'Content-Type': 'application/json' } : {}) },
+      ...(init?.body ? { body: JSON.stringify(init.body) } : {}),
     });
     if (!res.ok) throw new Error(`[shell] HTTP ${res.status} for ${path}`);
     return res.json();
@@ -138,12 +136,19 @@ function webDeviceInfo(): DeviceInfo {
 }
 
 function resolveIdentity(): DeviceIdentity {
-  return resolveDeviceIdentity({
+  const identity = resolveDeviceIdentity({
     store: identityStore,
     newId: () => crypto.randomUUID(),
     deviceInfo: webDeviceInfo(),
     appVersion: APP_VERSION,
   });
+  // Seed the shared bus: everyone reads ambient values from context-store, so the
+  // SDK writes them here once at init (this is also what `x-context-source` targets).
+  setContextValue(CTX.clientId, CLIENT_ID, AMBIENT);
+  setContextValue(CTX.appVersion, APP_VERSION, AMBIENT);
+  setContextValue(CTX.deviceId, identity.deviceId, AMBIENT);
+  setContextValue(CTX.installationId, identity.installationId, AMBIENT);
+  return identity;
 }
 
 // ── Device registration (real bank IDM device-manager, tolerant) ───────────
@@ -151,20 +156,22 @@ function resolveIdentity(): DeviceIdentity {
 // persistent device keypair, presents its public key as the device certificate,
 // and stores the registration result. The IDM keys the device fact by the cert,
 // so a stable key makes this idempotent.
-async function provisionDevice(ctx: { deviceIdentity: DeviceIdentity }): Promise<DeviceRegistration> {
-  const { deviceId, installationId, deviceInfo, appVersion } = ctx.deviceIdentity;
+async function provisionDevice(ctx: {
+  deviceIdentity: DeviceIdentity;
+  idmBase?: string;
+  provisioningEndpoint?: string;
+}): Promise<DeviceRegistration> {
+  const { deviceInfo, appVersion } = ctx.deviceIdentity;
   const { publicKeyPem } = await getOrCreateDeviceKeyPair();
 
-  const url = new URL(`${IDM_BASE}/${IDM_DOMAIN}/workflows/device-manager/instances/start`, window.location.origin);
+  const idmBase = ctx.idmBase; // from environment `hosts` (config)
+  const endpoint = ctx.provisioningEndpoint; // from device-context config
+  if (!idmBase || !endpoint) throw new Error('[app-host] device provisioning not configured (hosts.idm / device.provisioning)');
+  const url = new URL(idmBase + endpoint, window.location.origin);
   url.searchParams.set('sync', 'true');
   const res = await fetch(url, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'X-Device-Id': deviceId,
-      'X-Installation-Id': installationId,
-      user_reference: 'anonymous',
-    },
+    headers: { 'Content-Type': 'application/json', ...standardHeaders() },
     body: JSON.stringify({ attributes: { deviceInfo, deviceCertificatePublicKey: publicKeyPem, appVersion } }),
   });
   if (!res.ok) throw new Error(`device-manager HTTP ${res.status}`);
@@ -189,29 +196,33 @@ async function provisionDevice(ctx: { deviceIdentity: DeviceIdentity }): Promise
 async function acquireDeviceToken(ctx: {
   stage: EnvironmentStage;
   deviceIdentity?: DeviceIdentity;
+  idmBase?: string;
+  tokenEndpoint?: string;
 }): Promise<string | void> {
   const provider = ctx.stage.authProviders?.find((p) => p.key === 'morph-idm-device');
   const gf = provider?.grantFlow;
   if (!gf) throw new Error('no morph-idm-device grantFlow in environment');
 
-  const idmBase = String(gf['idmBase'] ?? '/api/v1');
-  const domain = String(gf.domain ?? 'morph-idm');
-  const workflow = String(gf.workflow ?? 'token');
-  const url = new URL(`${idmBase}/${domain}/workflows/${workflow}/instances/start`, window.location.origin);
+  const idmBase = ctx.idmBase; // single source: environment `hosts` (config)
+  const endpoint = ctx.tokenEndpoint; // from device-context config
+  if (!idmBase || !endpoint) throw new Error('[app-host] device token not configured (hosts.idm / device.token)');
+  const url = new URL(idmBase + endpoint, window.location.origin);
   url.searchParams.set('sync', 'true');
 
+  // Ambient claims are read from the shared bus (context-store), not passed in.
   const res = await fetch(url, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...standardHeaders() },
     body: JSON.stringify({
       attributes: {
-        clientId: gf['clientId'] ?? CLIENT_ID,
+        clientId: gf['clientId'] ?? getContextValue(CTX.clientId, AMBIENT) ?? CLIENT_ID,
         clientSecret: gf['clientSecret'],
         grantType: gf['grantType'] ?? 'client_credentials',
+        // clientId already encodes the channel (IbWeb); the IDM doesn't read a
+        // separate `channel` claim, so it isn't sent.
         customClaims: {
-          channel: 'web',
-          deviceId: ctx.deviceIdentity?.deviceId ?? '',
-          installationId: ctx.deviceIdentity?.installationId ?? '',
+          deviceId: getContextValue(CTX.deviceId, AMBIENT) ?? '',
+          installationId: getContextValue(CTX.installationId, AMBIENT) ?? '',
         },
       },
     }),
@@ -230,12 +241,26 @@ async function acquireDeviceToken(ctx: {
   return token;
 }
 
+/** Derive the token level from which access token is present in context-store. */
+function resolveTokenLevel(): TokenLevel {
+  const held = (key: string, b: Boundary) =>
+    !!getContextValue(key, { boundary: b, storage: Storage.memory });
+  if (held('auth.token.morph-idm-2fa.access', Boundary.user)) return '2fa';
+  if (held('auth.token.morph-idm-1fa.access', Boundary.user)) return '1fa';
+  return 'device';
+}
+
 export function bootAppHost(): Promise<AppHost> {
+  // Seed the ambient bus BEFORE any request so even the first call (environment)
+  // carries device headers. resolveIdentity is idempotent, so discovery calling
+  // it again is harmless.
+  resolveIdentity();
   return createAppHost(
     { clientId: CLIENT_ID, shellBase: SHELL_BASE },
     {
       fetchJson,
       resolveIdentity,
+      resolveTokenLevel,
       provisionDevice: (ctx) => withTimeout(provisionDevice(ctx), STARTUP_TIMEOUT_MS, 'device registration'),
       acquireDeviceToken: (ctx) => withTimeout(acquireDeviceToken(ctx), STARTUP_TIMEOUT_MS, 'device token'),
       log: (level, message, extra) => {

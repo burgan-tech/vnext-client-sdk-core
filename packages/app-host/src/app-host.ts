@@ -11,7 +11,7 @@
 // discovery chain with the route-registry builder and exposes a token-level
 // switch so the same machine drives all three auth states.
 // ─────────────────────────────────────────────────────────────────────────
-import { discover, loadNavigation } from './discovery.js';
+import { discover, loadNavigation, resolveShellMode } from './discovery.js';
 import { buildRouteRegistry, type BuiltRegistry } from './registry.js';
 import type { AppHostConfig, AppHostDeps, AppHostState, TokenLevel } from './types.js';
 
@@ -38,10 +38,7 @@ export async function createAppHost(config: AppHostConfig, deps: AppHostDeps): P
     },
     async setTokenLevel(level: TokenLevel) {
       if (level === state.tokenLevel) return;
-      const shellMode: 'sdi' | 'mdi' =
-        level === '2fa' && (state.clientConfig.router?.defaultMode ?? 'sdi').toLowerCase() === 'mdi'
-          ? 'mdi'
-          : 'sdi';
+      const shellMode = resolveShellMode(state.clientConfig, level);
       const navigation = await loadNavigation(deps, state.clientConfig, level);
       state = { ...state, navigation, tokenLevel: level, shellMode };
       built = buildRouteRegistry(navigation, shellMode);

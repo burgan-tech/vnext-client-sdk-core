@@ -24,7 +24,7 @@ const props = defineProps<{
   navItems: NavItem[];
   profileItems: NavItem[];
   tokenLevel: TokenLevel;
-  status: { registered: string; device: string; oneFa: string; twoFa: string };
+  status: { registered: string; contexts: Array<{ key: string; ok: boolean }> };
   onToken: (level: TokenLevel) => void;
   onLogout: () => void;
 }>();

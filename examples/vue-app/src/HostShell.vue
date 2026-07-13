@@ -9,11 +9,13 @@
   controls surfaced in the profile menu.
 -->
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 import type { IPageRouter } from 'page-router';
 import { usePageRouter } from 'page-router-vue';
+import type { MorphTokenStatus } from '@morph/core';
 import type { AppHost, NavItem, TokenLevel } from '@burgan-tech/app-host';
-import { Boundary, Storage, getContextValue, setContextValue, contextStore } from './sdk/context';
+import { Boundary, Storage, setContextValue, contextStore } from './sdk/context';
+import { getMorphClient } from './boot/morphClient';
 import MasterLayoutRenderer from './components/MasterLayoutRenderer.vue';
 
 const props = defineProps<{
@@ -34,20 +36,31 @@ const profileItems = computed<NavItem[]>(() =>
 
 const tokenLevel = computed<TokenLevel>(() => props.host.state.tokenLevel);
 
+// Token presence comes from the generic client (getTokenStatus) — no hardcoded
+// provider/level/context-store keys. Refreshed on mount (re-boot re-mounts).
+const tokenStatus = ref<MorphTokenStatus[]>([]);
+onMounted(async () => {
+  tokenStatus.value = (await getMorphClient()?.getTokenStatus()) ?? [];
+});
+
 const status = computed(() => {
   const r = props.host.state.deviceRegistration;
-  const held = (key: string, b: Boundary) =>
-    getContextValue(key, { boundary: b, storage: Storage.memory }) ? '✓' : '·';
   return {
-    device: props.host.state.deviceToken ? '✓' : held('auth.token.morph-idm-device.access', Boundary.device),
-    oneFa: held('auth.token.morph-idm-1fa.access', Boundary.user),
-    twoFa: held('auth.token.morph-idm-2fa.access', Boundary.user),
+    contexts: tokenStatus.value.map((s) => ({ key: s.contextKey, ok: s.hasAccessToken })),
     registered: r?.deviceInstanceId ? `${r.deviceInstanceId.slice(0, 8)}(${r.status})` : 'no',
   };
 });
 
-// Logout: drop the user-boundary tokens + active user, then re-home at device.
-function onLogout(): void {
+// Logout: clear the user (interactive) contexts via the client, drop the active
+// user, re-home at device. (Transitional: also clears the legacy context-store
+// user tokens that resolveTokenLevel still reads — removed with Phase 4b.)
+async function onLogout(): Promise<void> {
+  const morph = getMorphClient();
+  if (morph) {
+    for (const s of await morph.getTokenStatus()) {
+      if (s.grantHint !== 'client_credentials' && s.hasAccessToken) await morph.auth(s.authId).clearTokens();
+    }
+  }
   setContextValue('auth.token.morph-idm-2fa.access', null, { boundary: Boundary.user, storage: Storage.memory });
   setContextValue('auth.token.morph-idm-2fa.refresh', null, { boundary: Boundary.user, storage: Storage.localStorage });
   setContextValue('auth.token.morph-idm-1fa.access', null, { boundary: Boundary.user, storage: Storage.memory });
