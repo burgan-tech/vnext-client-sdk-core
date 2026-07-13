@@ -12,7 +12,15 @@ import type {
  * Plain string (locale'e duyarsız) veya `locale → metin` haritası.
  * SDK locale key formatını yorumlamaz; eşleşme map lookup'ı üzerinden yapılır.
  */
-export type LocalizedString = string | Record<string, string>;
+/**
+ * Localizable text. Accepts a plain string, a `{ <locale>: text }` map, or the
+ * core definition `[{ language, label }]` array form (so backend labels can be
+ * passed through verbatim without a client-side reshape).
+ */
+export type LocalizedString =
+  | string
+  | Record<string, string>
+  | Array<{ language: string; label: string }>;
 
 /** Subscribe-tarzı API'lerin döndürdüğü kanca. */
 export interface Subscription {

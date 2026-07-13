@@ -20,9 +20,28 @@ export interface LocaleContext {
  *
  * Plain string input locale fark etmeksizin aynen döner.
  */
+/** First subtag, lowercased: "en-US" → "en". */
+function baseLocale(locale: string): string {
+  return locale.toLowerCase().split(/[-_]/)[0] ?? locale.toLowerCase();
+}
+
 export function pickLocaleString(value: LocalizedString, ctx: LocaleContext): string {
   if (typeof value === 'string') {
     return value;
+  }
+
+  // Core `[{ language, label }]` array form: match by full locale then by base
+  // language ("en" ↔ "en-US"), then fall back to the first entry.
+  if (Array.isArray(value)) {
+    if (value.length === 0) return '';
+    const want = baseLocale(ctx.locale);
+    const wantFb = ctx.fallbackLocale ? baseLocale(ctx.fallbackLocale) : undefined;
+    const hit =
+      value.find((e) => e.language === ctx.locale) ??
+      value.find((e) => baseLocale(e.language) === want) ??
+      (wantFb ? value.find((e) => baseLocale(e.language) === wantFb) : undefined) ??
+      value[0];
+    return hit?.label ?? '';
   }
 
   const map = value;
