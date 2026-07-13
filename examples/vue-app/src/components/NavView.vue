@@ -79,15 +79,40 @@ function workflowView(n: NavItem): ViewDefinition {
   } as unknown as ViewDefinition;
 }
 
+// A group renders its children as a backend-shaped view: a title/subtitle plus
+// the generic Navigation list (which emits `navigate`). Titles are localized
+// here (the core [{language,label}] form) and passed as instance data, so the
+// view stays free of static content.
+const children = computed<NavItem[]>(() => nav.value?.children ?? []);
+const GROUP_VIEW = {
+  view: {
+    type: 'Column',
+    gap: 'md',
+    children: [
+      { type: 'Text', variant: 'title', content: '$instance.title' },
+      { type: 'Text', variant: 'caption', content: '$instance.subtitle', visible: '$instance.subtitle' },
+      { type: 'Navigation', items: '$instance.items' },
+    ],
+  },
+} as unknown as ViewDefinition;
+
 const viewDef = computed<ViewDefinition | null>(() => {
   const n = nav.value;
   if (!n) return null;
   if (n.type === 'dynamicView') return dynView.value;
   if (n.type === 'workflow') return workflowView(n);
+  if (n.type === 'group') return GROUP_VIEW;
   return null;
 });
 
-const children = computed<NavItem[]>(() => nav.value?.children ?? []);
+// Instance data fed to the rendered view (group needs its localized labels + items).
+const instanceData = computed<Record<string, unknown>>(() => {
+  const n = nav.value;
+  if (n?.type === 'group') {
+    return { title: t(n.title), subtitle: n.subtitle ? t(n.subtitle) : '', items: children.value };
+  }
+  return {};
+});
 
 // ── One delegate for every rendered view ────────────────────────────────────
 const delegate: PseudoViewDelegate = {
@@ -100,7 +125,12 @@ const delegate: PseudoViewDelegate = {
   },
   // The workflow driver (owns the workflow client + interactive-login success).
   driveWorkflow: makeDriveWorkflow({ setTokenLevel: setTokenLevel ?? undefined }),
-  async onAction(action, _data, command) {
+  async onAction(action, data, command) {
+    // Navigation taps (e.g. a group's children) carry the tapped item.
+    if (action === 'navigate') {
+      go((data as { key?: string } | undefined)?.key);
+      return;
+    }
     if (action !== 'submit') return;
     // pseudo-ui button `command` convention: urn:shell:navigate:<type>:<key>
     const m = /^urn:shell:navigate:[^:]+:(.+)$/.exec(command ?? '');
@@ -142,24 +172,16 @@ const delegate: PseudoViewDelegate = {
       />
     </section>
 
-    <!-- group: render children as a card menu -->
-    <section v-else-if="nav.type === 'group'">
-      <h2>{{ t(nav.title) }}</h2>
-      <p v-if="nav.subtitle" class="muted">{{ t(nav.subtitle) }}</p>
-      <div class="cards">
-        <button v-for="c in children" :key="c.key" class="card" @click="go(c.key)">
-          <strong>{{ t(c.title) }}</strong>
-          <span v-if="c.subtitle" class="muted">{{ t(c.subtitle) }}</span>
-          <em class="tag">{{ c.type }}</em>
-        </button>
-      </div>
-    </section>
-
-    <!-- webView -->
-    <section v-else-if="nav.type === 'webView'">
-      <h2>{{ t(nav.title) }}</h2>
-      <a :href="String(nav.config?.url ?? '#')" target="_blank" rel="noopener">{{ nav.config?.url }}</a>
-    </section>
+    <!-- group: children rendered as a pseudo-ui Navigation view -->
+    <PseudoView
+      v-else-if="nav.type === 'group' && viewDef"
+      :schema="{ type: 'object', properties: {} }"
+      :view="viewDef"
+      :form-data="{}"
+      :instance-data="instanceData"
+      :lang="lang"
+      :delegate="delegate"
+    />
 
     <!-- staticView / other: phase-2 placeholder -->
     <section v-else>
@@ -175,12 +197,5 @@ const delegate: PseudoViewDelegate = {
 .navview-loading { display: flex; justify-content: center; padding: 3rem 0; }
 .muted { color: var(--muted, #667); }
 h2 { margin: 0 0 .25rem; }
-.cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 1rem; margin-top: 1rem; }
-.card {
-  display: flex; flex-direction: column; gap: .35rem; text-align: left; cursor: pointer;
-  padding: 1rem; border: 1px solid var(--border, #ddd); border-radius: 12px; background: var(--panel, #fff);
-}
-.card:hover { border-color: var(--accent, #4f46e5); }
-.tag { font-size: .7rem; text-transform: uppercase; letter-spacing: .04em; color: var(--accent, #4f46e5); }
 .cfg { font-size: .75rem; background: var(--hover, #f4f4f8); padding: .75rem; border-radius: 8px; overflow: auto; }
 </style>
