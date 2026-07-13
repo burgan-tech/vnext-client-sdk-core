@@ -1584,7 +1584,7 @@ function menuItems(items: any[]) {
 }
 .d-nav-item {
   text-align: left; background: transparent; border: none; color: inherit; cursor: pointer;
-  padding: .55rem .7rem; border-radius: 8px; font-size: .92rem; width: 100%;
+  padding: .55rem .7rem; border-radius: var(--radius-sm, 8px); font-size: .92rem; width: 100%;
 }
 .d-nav-item:hover { background: var(--color-hover, #f1f2f8); }
 .d-nav-item--child { padding-left: 1.2rem; font-size: .88rem; opacity: .9; }
@@ -1596,7 +1596,7 @@ function menuItems(items: any[]) {
 .d-tab {
   display: flex; align-items: center; gap: .4rem; padding: .4rem .8rem; cursor: pointer; white-space: nowrap;
   font-size: .85rem; border: 1px solid var(--color-border, #e3e6ef); border-bottom: none;
-  border-radius: 8px 8px 0 0; background: var(--color-hover, #f1f2f8);
+  border-radius: var(--radius-sm, 8px) var(--radius-sm, 8px) 0 0; background: var(--color-hover, #f1f2f8);
 }
 .d-tab--active { background: var(--color-surface, #fff); font-weight: 600; }
 .d-tab__close { border: none; background: transparent; cursor: pointer; font-size: 1rem; line-height: 1; color: var(--color-muted, #667); padding: 0 .1rem; }

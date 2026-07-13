@@ -1,9 +1,11 @@
 /*
-  Theme-driven styles. The theme (from the shell `theme` workflow) is applied at
-  boot as --color-* / --radius / --font-family / --sidebar-width CSS variables on
-  :root (see boot/theme.ts). The legacy aliases below map onto those tokens so
-  every component picks up the active theme; the literal values are pre-theme
-  fallbacks only.
+  Chrome styling — DESIGN LIVES IN THE THEME. The shell `theme` workflow supplies
+  every visual decision (colors, radius, shadows, spacing, font, chrome metrics)
+  as --<token> CSS variables on :root at boot (see boot/theme.ts). This file only
+  wires those tokens to the chrome's layout primitives; it holds no design values
+  of its own beyond pre-theme fallbacks used by the boot splash (before the theme
+  loads). Legacy aliases below let pseudo-ui primitives that read --panel/--accent/
+  etc. pick up the same theme tokens.
 */
 :root {
   --bg: var(--color-background, #f6f7fb);
@@ -28,7 +30,7 @@ body {
 h1 { font-size: 1.6rem; margin: 0 0 .5rem; letter-spacing: -.02em; }
 h2 { font-size: 1.2rem; margin: 1.25rem 0 .75rem; }
 .lead { color: var(--muted); margin-top: 0; }
-code { background: var(--hover); padding: .1rem .35rem; border-radius: 4px; font-size: .85em; }
+code { background: var(--hover); padding: .1rem .35rem; border-radius: var(--radius-sm, 6px); font-size: .85em; }
 
 /* ── Master layout chrome — fixed-height shell (sidebar fixed + independently
      scrolling content). The master View is pseudo-ui; these style its
@@ -44,23 +46,50 @@ code { background: var(--hover); padding: .1rem .35rem; border-radius: 4px; font
   overflow-y: auto;
   background: var(--color-surface, #fff);
   border-right: 1px solid var(--color-border, #e3e6ef);
-  padding: 1rem;
-  gap: 1rem;
+  padding: 1.25rem 1rem;
+  gap: 1.25rem;
 }
 /* Content side fills the rest, as a fixed-height flex column */
 .app-shell .d-expanded { height: 100vh; min-width: 0; display: flex; flex-direction: column; overflow: hidden; }
 .app-shell .d-expanded > .d-column { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; gap: 0; }
 .app-shell .d-appbar {
   flex: 0 0 auto;
+  display: flex;
+  align-items: center;
   border-bottom: 1px solid var(--color-border, #e3e6ef);
-  padding: 0 1.25rem;
+  padding: 0 1.5rem;
   min-height: var(--appbar-height, 56px);
   background: var(--color-surface, #fff);
 }
-.app-shell .d-appbar__title { font-weight: 800; letter-spacing: -.01em; }
+.app-shell .d-appbar__title { font-weight: 800; letter-spacing: -.01em; font-size: 1.15rem; }
 .app-shell .router-outlet { flex: 1 1 auto; min-height: 0; }
 
-/* Boot splash / error — shown before the app mounts (slow real-IDM discovery). */
+/* Router active-view scroll region (host layout plumbing for the backend chrome). */
+.router-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: 1.5rem 2rem; }
+
+/* ── Profile menu (backend shell-profile view) — corner dropdown overlay ─────── */
+.shell-profile { position: relative; }
+.shell-profile__panel {
+  position: absolute; right: 0; top: calc(100% + .5rem); z-index: 50; min-width: 260px;
+  background: var(--color-surface, #fff);
+  border: 1px solid var(--color-border, #e3e6ef);
+  border-radius: var(--radius, 12px);
+  box-shadow: var(--shadow-lg, 0 12px 32px rgba(0, 0, 0, .16));
+  padding: 1rem;
+}
+/* Section headers (SESSION / Language / Screen Mode / Token) — quiet, uppercase. */
+.shell-profile__panel .d-text--caption {
+  font-size: .68rem; font-weight: 700; letter-spacing: .07em; text-transform: uppercase;
+  color: var(--color-muted, #6b7280);
+}
+/* Switch rows (locale / mode / token) — equal-width pill buttons. */
+.shell-profile__panel .d-row { gap: .4rem; }
+.shell-profile__panel .d-row .p-button {
+  flex: 1 1 0; justify-content: center;
+  border-radius: var(--radius-sm, 8px) !important;
+}
+
+/* ── Boot splash / error — shown before the app mounts (slow real-IDM discovery) ── */
 .boot-splash, .boot-error {
   position: fixed; inset: 0; display: flex; flex-direction: column;
   align-items: center; justify-content: center; gap: 1rem;
@@ -78,17 +107,6 @@ code { background: var(--hover); padding: .1rem .35rem; border-radius: 4px; font
 .boot-error h2 { margin: 0; font-size: 1.1rem; }
 .boot-error p { color: var(--color-danger, #c0392b); max-width: 30rem; text-align: center; }
 .boot-error button {
-  padding: .5rem 1rem; border-radius: 8px; cursor: pointer; border: none;
+  padding: .5rem 1rem; border-radius: var(--radius-sm, 8px); cursor: pointer; border: none;
   background: var(--color-primary, #4f46e5); color: #fff; font-size: .9rem;
 }
-
-/* Profile menu (backend shell-profile view) — corner dropdown overlay. */
-.shell-profile { position: relative; }
-.shell-profile__panel {
-  position: absolute; right: 0; top: calc(100% + .4rem); z-index: 50; min-width: 240px;
-  background: var(--color-surface, #fff); border: 1px solid var(--color-border, #e3e6ef);
-  border-radius: 12px; box-shadow: 0 8px 28px rgba(0, 0, 0, .16); padding: .85rem;
-}
-
-/* Router active-view scroll region (host layout plumbing for the backend chrome). */
-.router-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: 1.5rem 2rem; }
