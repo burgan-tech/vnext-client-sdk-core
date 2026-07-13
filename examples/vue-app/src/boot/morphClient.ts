@@ -73,6 +73,27 @@ export function getMorphClient(): MorphClient | null {
   return client;
 }
 
+/**
+ * The interactive login workflow ref (`{ domain, workflow }`) declared in
+ * morphConfig — the context whose `delegateMetadata.interaction` is "interactive"
+ * (e.g. "morph-idm/user-login"). Lets the login flow locate/redeem tokens without
+ * hardcoding the solution domain/workflow names.
+ */
+export function getInteractiveLoginWorkflow(): { domain: string; workflow: string } | null {
+  type Ctx = { delegateMetadata?: { workflow?: string; interaction?: string } };
+  const providers = (lastEnv?.morphConfig?.providers ?? []) as Array<{ contexts?: Ctx[] }>;
+  for (const p of providers) {
+    for (const c of p.contexts ?? []) {
+      const dm = c.delegateMetadata;
+      if (dm?.interaction === 'interactive' && dm.workflow) {
+        const [domain, workflow] = dm.workflow.split('/');
+        if (domain && workflow) return { domain, workflow };
+      }
+    }
+  }
+  return null;
+}
+
 /** The primary interactive login auth id (config `rootCallbackAuthId`, e.g.
  * "morph-idm/2fa") — where a completed login flow's tokens are handed off. */
 export function getLoginAuthId(): string | null {

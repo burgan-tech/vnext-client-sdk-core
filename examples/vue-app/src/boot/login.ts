@@ -8,7 +8,7 @@
 // ─────────────────────────────────────────────────────────────────────────
 import { contextStore } from '../sdk/context';
 import { idmFetch } from './idmWorkflow';
-import { reinitMorphClient, getLoginAuthId, setMorphTokens } from './morphClient';
+import { reinitMorphClient, getLoginAuthId, setMorphTokens, getInteractiveLoginWorkflow } from './morphClient';
 
 /** Decode a JWT payload's subject (sub, or act_sub for delegated tokens). */
 function jwtSubject(token: string): string | null {
@@ -63,14 +63,20 @@ export async function completeLogin(
   loginInstanceId: string,
   codeVerifier: string,
 ): Promise<UserTokens | null> {
+  // The login workflow (domain + name) is config-driven (morphConfig interactive
+  // context), not hardcoded. The token subflow name comes from the correlation.
+  const lw = getInteractiveLoginWorkflow() ?? { domain: 'morph-idm', workflow: 'user-login' };
+  const wfPath = (workflow: string) => `/${lw.domain}/workflows/${workflow}/instances`;
+
   // 1. Find the token subflow instance from the login instance state.
   const state = await idmFetch<{ activeCorrelations?: Correlation[] }>(
-    `/morph-idm/workflows/user-login/instances/${loginInstanceId}/functions/state`,
+    `${wfPath(lw.workflow)}/${loginInstanceId}/functions/state`,
     { query: { sync: 'true' } },
   );
   const corrs = state.data?.activeCorrelations ?? [];
   const tokenCorr = corrs.find((c) => c.subFlowName === 'token') ?? corrs[0];
   const tokenInstanceId = tokenCorr?.subFlowInstanceId;
+  const tokenWf = tokenCorr?.subFlowName ?? 'token';
   if (!tokenInstanceId) {
     console.warn('[login] no token subflow found on login instance', loginInstanceId);
     return null;
@@ -79,14 +85,14 @@ export async function completeLogin(
   // 2. Redeem the token subflow with the PKCE codeVerifier (lenient: some flows
   //    auto-issue without a redeem, so we still read data even if this fails).
   const redeem = await idmFetch(
-    `/morph-idm/workflows/token/instances/${tokenInstanceId}/transitions/redeem`,
+    `${wfPath(tokenWf)}/${tokenInstanceId}/transitions/redeem`,
     { method: 'PATCH', query: { sync: 'true' }, body: { attributes: { codeVerifier } } },
   );
   if (!redeem.ok) console.warn('[login] token redeem non-ok', redeem.status, JSON.stringify(redeem.data).slice(0, 160));
 
   // 3. Read the issued tokens.
   const data = await idmFetch(
-    `/morph-idm/workflows/token/instances/${tokenInstanceId}/functions/data`,
+    `${wfPath(tokenWf)}/${tokenInstanceId}/functions/data`,
     { query: { sync: 'true' } },
   );
   const tokens = findTokens(redeem.data) ?? findTokens(data.data);
