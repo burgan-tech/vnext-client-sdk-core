@@ -52,6 +52,21 @@ const tabs = computed(() =>
   }),
 );
 
+// Switch groups (locale / shell-mode / token) as option arrays with the active
+// flag — so the profile view renders them uniformly (ForEach) and shows which is
+// selected. Options are data (like nav items); the backend view holds no buttons.
+const localeOptions = computed(() => [
+  { label: 'TR', command: 'urn:shell:locale:tr', active: lang.value.split('-')[0] === 'tr' },
+  { label: 'EN', command: 'urn:shell:locale:en', active: lang.value.split('-')[0] === 'en' },
+]);
+const modeOptions = computed(() => [
+  { label: 'SDI', command: 'urn:shell:mode:sdi', active: !isMdi.value },
+  { label: 'MDI', command: 'urn:shell:mode:mdi', active: isMdi.value },
+]);
+const tokenOptions = computed(() =>
+  props.status.contexts.map((c) => ({ label: c.key, command: c.command, active: c.key === props.tokenLevel })),
+);
+
 // Data fed to the backend chrome view (Navigation lists, tab strip, profile
 // sub-view) via bound instance data. No UI here — just values the views bind to.
 const instanceData = computed(() => ({
@@ -62,6 +77,9 @@ const instanceData = computed(() => ({
   isLoggedIn: props.status.isLoggedIn,
   tabs: tabs.value,
   isMdi: isMdi.value,
+  localeOptions: localeOptions.value,
+  modeOptions: modeOptions.value,
+  tokenOptions: tokenOptions.value,
 }));
 
 // The master is a ref { key, ... }; fetch its View content by key.

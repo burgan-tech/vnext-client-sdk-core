@@ -145,6 +145,8 @@ export interface ButtonNode extends ComponentNode {
   icon?: string
   action: ButtonAction | ActionDescriptor
   command?: string
+  /** Truthy expression (e.g. "$item.active") → renders the selected/active state. */
+  active?: string
 }
 
 export interface CardNode extends ComponentNode {

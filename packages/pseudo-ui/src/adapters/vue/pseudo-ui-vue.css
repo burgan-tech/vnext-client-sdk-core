@@ -465,3 +465,12 @@
 }
 .d-workflow-error { background: #fdecea; color: var(--color-danger, #b3261e); padding: 0.6rem 0.9rem; border-radius: var(--radius-sm, 6px); margin-bottom: 1rem; }
 .d-workflow-loading { display: flex; justify-content: center; padding: 2rem 0; color: var(--color-primary, #4f46e5); }
+
+/* Selected/active state for toggle-group Buttons (locale / shell-mode / token). */
+.p-button.d-button--active,
+.p-button.d-button--active:hover {
+  background: var(--color-primary, #4f46e5) !important;
+  border-color: var(--color-primary, #4f46e5) !important;
+  color: var(--color-on-primary, #fff) !important;
+}
+.p-button.d-button--active .p-button-label { color: var(--color-on-primary, #fff) !important; }

@@ -1056,6 +1056,7 @@ function menuItems(items: any[]) {
     :severity="(node.variant === 'filled' || !node.variant) ? undefined : 'secondary'"
     :outlined="node.variant === 'outlined'"
     :text="node.variant === 'text'"
+    :class="{ 'd-button--active': (node as any).active !== undefined && resolveVisibility((node as any).active) }"
     @click="handleAction((node as ButtonNode).action, (node as ButtonNode).command)"
   >
     <template v-if="(node as ButtonNode).icon" #icon>
