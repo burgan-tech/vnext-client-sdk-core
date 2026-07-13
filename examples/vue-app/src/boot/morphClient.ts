@@ -79,15 +79,15 @@ export function getMorphClient(): MorphClient | null {
  * (e.g. "morph-idm/user-login"). Lets the login flow locate/redeem tokens without
  * hardcoding the solution domain/workflow names.
  */
-export function getInteractiveLoginWorkflow(): { domain: string; workflow: string } | null {
-  type Ctx = { delegateMetadata?: { workflow?: string; interaction?: string } };
+export function getInteractiveLoginWorkflow(): { domain: string; workflow: string; contextKey: string } | null {
+  type Ctx = { key?: string; delegateMetadata?: { workflow?: string; interaction?: string } };
   const providers = (lastEnv?.morphConfig?.providers ?? []) as Array<{ contexts?: Ctx[] }>;
   for (const p of providers) {
     for (const c of p.contexts ?? []) {
       const dm = c.delegateMetadata;
       if (dm?.interaction === 'interactive' && dm.workflow) {
         const [domain, workflow] = dm.workflow.split('/');
-        if (domain && workflow) return { domain, workflow };
+        if (domain && workflow) return { domain, workflow, contextKey: c.key ?? '' };
       }
     }
   }

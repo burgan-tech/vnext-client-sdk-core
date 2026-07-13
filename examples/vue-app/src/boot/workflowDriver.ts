@@ -15,6 +15,7 @@ import type { TokenLevel } from '@burgan-tech/app-host';
 import { idmWorkflowManager } from './idmWorkflow';
 import { createPkce, type Pkce } from './pkce';
 import { completeLogin } from './login';
+import { getInteractiveLoginWorkflow } from './morphClient';
 import { contextStore } from '../sdk/context';
 
 export interface WorkflowDriverOptions {
@@ -64,7 +65,10 @@ export function makeDriveWorkflow(opts: WorkflowDriverOptions = {}) {
         if (!((terminal || String(state ?? '').includes('success')) && instanceId.value)) return;
         if (pkceEnabled && pkce) {
           const tokens = await completeLogin(instanceId.value, pkce.codeVerifier);
-          if (tokens) opts.setTokenLevel?.('2fa');
+          // The level a completed interactive login grants = the interactive
+          // context's key from config (e.g. "2fa"), not a hardcoded literal.
+          const level = getInteractiveLoginWorkflow()?.contextKey;
+          if (tokens && level) opts.setTokenLevel?.(level as TokenLevel);
         }
       },
     );
