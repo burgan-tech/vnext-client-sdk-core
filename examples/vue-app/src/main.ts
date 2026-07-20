@@ -16,7 +16,7 @@ import './styles.css';
 
 import { createPageRouter } from 'page-router';
 import { createVueSurfaceFactory, bindBrowserHistory } from 'page-router-vue';
-import type { TokenLevel } from '@burgan-tech/app-host';
+import type { AppHost, TokenLevel } from '@burgan-tech/app-host';
 
 import HostShell from './HostShell.vue';
 import NavView from './components/NavView.vue';
@@ -31,15 +31,23 @@ import { ITEMS_BY_KEY, APP_ROUTER, APP_SET_TOKEN_LEVEL } from './boot/keys';
 
 let app: App | null = null;
 let disposeHistory: (() => void) | null = null;
+// The app-host is booted ONCE (discovery + device provisioning + token). A
+// token-level switch (login/logout) reuses it via `setTokenLevel` — which re-pulls
+// only navigation — instead of re-running the whole 30s–2min discovery chain.
+let appHost: AppHost | null = null;
 
-/** Boot (or re-boot for a token-level switch) the whole app from app-host. */
+/** Render the app for the current (or switched) token level. First call boots the
+ * host; a token-level switch reuses it and re-pulls only the level's navigation. */
 async function start(overrideLevel?: TokenLevel): Promise<void> {
-  const host = await bootAppHost();
-  if (overrideLevel) await host.setTokenLevel(overrideLevel);
+  const host = appHost ?? (appHost = await bootAppHost());
+  if (overrideLevel && overrideLevel !== host.state.tokenLevel) await host.setTokenLevel(overrideLevel);
 
-  // Apply the default theme (loaded from the shell `theme` workflow) before mount.
-  const themeCfg = host.state.clientConfig.theme as { default?: string } | undefined;
-  await loadAndApplyTheme(themeCfg?.default ?? 'default');
+  // Theme (a slow shell read) is global to the client and applied to the document
+  // root, so apply it once on first boot — not on every token-level switch.
+  if (!overrideLevel) {
+    const themeCfg = host.state.clientConfig.theme as { default?: string } | undefined;
+    await loadAndApplyTheme(themeCfg?.default ?? 'default');
+  }
 
   const router = await createPageRouter({
     routeRegistry: host.built.registry,
