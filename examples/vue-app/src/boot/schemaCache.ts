@@ -5,26 +5,27 @@
 // bindings) and the workflow driver (to feed each view its transition schema so
 // pseudo-ui renders x-labels + validation). One fetch, one cache.
 // ─────────────────────────────────────────────────────────────────────────
+import type { SourceSchema } from '@burgan-tech/app-host';
 import { idmFetch } from './idmWorkflow';
 
 /** Pull `attributes` from an instance response (tolerates the wrapped shape). */
-function attrsOf(data: unknown): Record<string, unknown> {
+export function attrsOf(data: unknown): Record<string, unknown> {
   const o = data as { attributes?: Record<string, unknown>; data?: { attributes?: Record<string, unknown> } } | null;
   return o?.attributes ?? o?.data?.attributes ?? {};
 }
 
-const schemaCache = new Map<string, Promise<Record<string, unknown> | null>>();
+const schemaCache = new Map<string, Promise<SourceSchema | null>>();
 
 /**
  * Fetch a published schema's JSON-schema body (`attributes.schema`) by key from
  * the domain's sys-schemas flow. Cached; null on failure (never throws).
  */
-export function loadSchemaByKey(domain: string, key: string): Promise<Record<string, unknown> | null> {
+export function loadSchemaByKey(domain: string, key: string): Promise<SourceSchema | null> {
   const cacheKey = `${domain}:${key}`;
   let p = schemaCache.get(cacheKey);
   if (!p) {
     p = idmFetch(`/${domain}/workflows/sys-schemas/instances/${key}`, { query: { sync: 'true' } })
-      .then((r) => (r.ok ? ((attrsOf(r.data).schema as Record<string, unknown>) ?? null) : null))
+      .then((r) => (r.ok ? ((attrsOf(r.data).schema as SourceSchema) ?? null) : null))
       .catch(() => null);
     schemaCache.set(cacheKey, p);
   }

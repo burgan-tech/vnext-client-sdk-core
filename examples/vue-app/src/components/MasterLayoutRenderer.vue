@@ -75,7 +75,7 @@ const modeOptions = computed(() => [
 // Localized token-level name (from config), falling back to the raw key.
 function tokenLabel(key: string): string {
   const def = getTokenLevels().find((t) => t.key === key);
-  return (def?.label ? localize(def.label as LocalizedText, lang.value) : '') || key;
+  return (def?.label ? localize(def.label, lang.value) : '') || key;
 }
 const tokenOptions = computed(() =>
   props.status.contexts.map((c) => ({ label: tokenLabel(c.key), command: c.command, active: c.key === props.tokenLevel })),

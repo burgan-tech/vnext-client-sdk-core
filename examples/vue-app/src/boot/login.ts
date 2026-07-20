@@ -71,7 +71,8 @@ export async function completeLogin(
 ): Promise<UserTokens | null> {
   // The login workflow (domain + name) is config-driven (morphConfig interactive
   // context), not hardcoded. The token subflow name comes from the correlation.
-  const lw = getInteractiveLoginWorkflow() ?? { domain: 'morph-idm', workflow: 'user-login' };
+  const lw = getInteractiveLoginWorkflow();
+  if (!lw) throw new Error('[login] no interactive login context in morphConfig (delegateMetadata.interaction)');
   const wfPath = (workflow: string) => `/${lw.domain}/workflows/${workflow}/instances`;
 
   // 1. Find the token subflow instance from the login instance state.

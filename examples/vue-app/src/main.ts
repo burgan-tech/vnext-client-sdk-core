@@ -82,12 +82,12 @@ async function start(overrideLevel?: TokenLevel): Promise<void> {
   disposeHistory = bindBrowserHistory(router);
 
   if (app) app.unmount();
-  app = createApp(HostShell, { router, host, onSwitch: (lvl: TokenLevel) => void start(lvl) });
+  app = createApp(HostShell, { router, host, onSwitch: reboot });
   app.use(PrimeVue, { theme: { preset: Aura, options: { darkModeSelector: '.dark-mode' } } });
   app.use(ToastService);
   app.provide(ITEMS_BY_KEY, host.built.itemsByKey);
   app.provide(APP_ROUTER, router);
-  app.provide(APP_SET_TOKEN_LEVEL, (lvl: TokenLevel) => void start(lvl));
+  app.provide(APP_SET_TOKEN_LEVEL, reboot);
   app.mount('#app');
 
   // eslint-disable-next-line no-console
@@ -103,6 +103,12 @@ async function start(overrideLevel?: TokenLevel): Promise<void> {
     const init = (host.state.clientConfig.initialization ?? []) as InitEntry[];
     if (init.length) void runInitialization(idmWorkflowManager, init, { tokenLevel: host.state.tokenLevel });
   }
+}
+
+/** Re-boot for a token-level switch / post-login flip. Surfaces failures like the
+ * initial boot instead of leaving a stale/half-torn-down UI on a silent rejection. */
+function reboot(level: TokenLevel): void {
+  void start(level).catch(showBootError);
 }
 
 /** Minimal boot splash so the (slow, real-IDM) discovery never shows a blank page. */

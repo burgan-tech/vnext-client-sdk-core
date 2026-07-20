@@ -13,7 +13,7 @@ import { MorphClient, type MorphConfig, type TokenSet } from '@morph/core';
 import { oauth2Plugin } from '@morph/oauth2';
 import { browserStoragePlugin } from '@morph/browser-storage';
 import { loggerPlugin } from '@morph/logger';
-import type { EnvironmentResponse } from '@burgan-tech/app-host';
+import type { EnvironmentResponse, LocalizedText } from '@burgan-tech/app-host';
 import { Boundary, Storage, contextStore, getContextValue } from '../sdk/context';
 import { CTX } from './constants';
 
@@ -77,7 +77,7 @@ export function getMorphClient(): MorphClient | null {
  * each with a localizable label. Backing data for the token switch + status. */
 export interface TokenLevelDef {
   key: string;
-  label?: unknown;
+  label?: LocalizedText;
 }
 export function getTokenLevels(): TokenLevelDef[] {
   const raw = (lastEnv?.morphConfig?.tokenLevels ?? []) as Array<string | TokenLevelDef>;

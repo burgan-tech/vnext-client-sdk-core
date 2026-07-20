@@ -13,22 +13,18 @@
 // Definitions + schemas are immutable per key → cached per session.
 // ─────────────────────────────────────────────────────────────────────────
 import type { TransitionBodyFilter } from 'amorphie-workflow-manager';
-import { resolveContextSource, type ContextSourceReaders, type SourceSchema } from '@burgan-tech/app-host';
+import { resolveContextSource, type ContextSourceReaders } from '@burgan-tech/app-host';
 import { Boundary, Storage, contextStore, getContextValue } from '../sdk/context';
 import { idmFetch } from './idmWorkflow';
+import { attrsOf, loadSchemaByKey } from './schemaCache';
 
-// ── Uniform schema resolution (works for start + transitions, no instance) ──
+// ── Workflow-definition resolution (find a transition's schema ref, no instance) ──
 type SchemaRef = { key?: string; domain?: string };
 type Transition = { key?: string; schema?: SchemaRef | null };
 type WorkflowDef = {
   startTransition?: Transition;
   states?: Array<{ transitions?: Transition[] }>;
   sharedTransitions?: Transition[];
-};
-
-const attrsOf = (data: unknown): Record<string, unknown> => {
-  const o = data as { attributes?: Record<string, unknown>; data?: { attributes?: Record<string, unknown> } } | null;
-  return o?.attributes ?? o?.data?.attributes ?? {};
 };
 
 const defCache = new Map<string, Promise<WorkflowDef | null>>();
@@ -40,19 +36,6 @@ function loadDef(domain: string, workflow: string): Promise<WorkflowDef | null> 
       .then((r) => (r.ok ? (attrsOf(r.data) as WorkflowDef) : null))
       .catch(() => null);
     defCache.set(k, p);
-  }
-  return p;
-}
-
-const schemaCache = new Map<string, Promise<SourceSchema | null>>();
-function loadSchema(domain: string, key: string): Promise<SourceSchema | null> {
-  const k = `${domain}:${key}`;
-  let p = schemaCache.get(k);
-  if (!p) {
-    p = idmFetch(`/${domain}/workflows/sys-schemas/instances/${key}`, { query: { sync: 'true' } })
-      .then((r) => (r.ok ? ((attrsOf(r.data).schema as SourceSchema) ?? null) : null))
-      .catch(() => null);
-    schemaCache.set(k, p);
   }
   return p;
 }
@@ -78,7 +61,7 @@ export const contextSourceBodyFilter: TransitionBodyFilter = {
       const def = await loadDef(workflowDomain, workflowName);
       const ref = def && findTransition(def, transitionKey)?.schema;
       if (!ref?.key) return body;
-      const schema = await loadSchema(ref.domain ?? workflowDomain, ref.key);
+      const schema = await loadSchemaByKey(ref.domain ?? workflowDomain, ref.key);
       if (!schema) return body;
       const resolved = resolveContextSource(schema, readers);
       // Resolved x-context-source values fill fields the caller doesn't supply;
