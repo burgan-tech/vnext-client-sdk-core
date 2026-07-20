@@ -88,9 +88,10 @@ const schema = computed<DataSchema>(() => session?.schema?.value ?? EMPTY_SCHEMA
 // Remount the nested view per workflow state so each state gets a fresh form
 // context (advancing state = new view, cleared inputs).
 const stateKey = ref(0)
-// Remount on view change AND when the async-resolved schema arrives, so the nested
-// form context is (re)built with the real transition schema (x-labels + validation).
-watch([view, schema], () => { stateKey.value += 1 })
+// Remount only on VIEW change (new state = fresh form). The async-resolved schema
+// must NOT remount — that would tear down the live form (and its submit bridge)
+// mid-interaction; NestedComponentWrapper adopts a late schema in place instead.
+watch(view, () => { stateKey.value += 1 })
 
 async function begin(): Promise<void> {
   started.value = true

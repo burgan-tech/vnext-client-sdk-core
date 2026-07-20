@@ -436,6 +436,13 @@ export interface FormContext {
   lang: string
   errors: Record<string, string>
   /**
+   * Top-level field names the current view actually binds/renders. When set,
+   * submit-time validation is restricted to these — a schema `required` field the
+   * view doesn't render (e.g. supplied via x-context-source / start attributes)
+   * must not block submit. Empty/unset = validate all schema properties.
+   */
+  boundFields?: Set<string>
+  /**
    * Designer/preview mode flag. When true, adapters render structural
    * placeholders that the live runtime would otherwise skip:
    *   - `ForEach` with an empty `source` renders its template once with an

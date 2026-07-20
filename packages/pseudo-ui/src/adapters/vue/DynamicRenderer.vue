@@ -419,6 +419,9 @@ function handleAction(action: string | ActionDescriptor | ActionDescriptor[], co
 function validateAllFields() {
   if (!ctx.schema.properties) return
   for (const [key, prop] of Object.entries(ctx.schema.properties)) {
+    // Only validate fields the view actually binds; a required field it doesn't
+    // render (supplied via x-context-source / start attributes) must not block submit.
+    if (ctx.boundFields && ctx.boundFields.size > 0 && !ctx.boundFields.has(key)) continue
     // Validation always uses the original visibility rules, even in designer
     // mode — a submit shouldn't surface errors for fields the original rules
     // hide. So no forceVisible here.

@@ -49,7 +49,8 @@ test('2FA login → 2fa token + navigation flip', async ({ page }) => {
 });
 
 async function handleSecondFactor(page: Page): Promise<void> {
-  const verify = page.getByRole('button', { name: 'Verify', exact: true });
+  // OTP-submit button label varies by backend view (Verify / Continue / TR variants).
+  const verify = page.getByRole('button', { name: /^(Verify|Continue|Doğrula|Devam)$/ });
   const approve = page.getByRole('button', { name: /^(Approve|Onayla)$/ });
 
   // Wait for the 2nd-factor view (OTP or push), then act ONCE — re-clicking would

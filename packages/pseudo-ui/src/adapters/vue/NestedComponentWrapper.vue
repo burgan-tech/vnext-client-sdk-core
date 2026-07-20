@@ -27,6 +27,28 @@ log('debug', 'NestedComponent initializing', undefined, { source: 'NestedCompone
 const ctx = createFormContext(props.schema, props.lang)
 provideFormContext(ctx)
 
+// Adopt a late-resolved schema in place (host may resolve the transition schema
+// async, after mount) so x-labels + validation appear WITHOUT remounting the form
+// — remounting would wipe user input and tear down the submit bridge.
+watch(() => props.schema, (s) => { ctx.schema = s })
+
+// Restrict submit-time validation to the fields this view actually binds, so a
+// schema `required` field the view doesn't render (e.g. resolved via
+// x-context-source / start attributes) can't block submit.
+function collectBinds(node: unknown, out: Set<string>): void {
+  if (!node || typeof node !== 'object') return
+  const n = node as { bind?: unknown; children?: unknown[]; template?: unknown }
+  if (typeof n.bind === 'string') {
+    const top = n.bind.replace(/^\$(form|instance)\./, '').split('.')[0]
+    if (top) out.add(top)
+  }
+  if (Array.isArray(n.children)) for (const c of n.children) collectBinds(c, out)
+  if (n.template) collectBinds(n.template, out)
+}
+const bound = new Set<string>()
+collectBinds(props.view.view, bound)
+ctx.boundFields = bound
+
 if (props.view.uiState) {
   Object.assign(ctx.uiState, props.view.uiState)
   log('info', 'Nested component UI state initialized', undefined, { keys: Object.keys(props.view.uiState) })
