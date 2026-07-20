@@ -21,6 +21,8 @@ import type { TokenLevel } from '@burgan-tech/app-host';
 import HostShell from './HostShell.vue';
 import NavView from './components/NavView.vue';
 import { bootAppHost } from './boot/appHost';
+import { idmWorkflowManager } from './boot/idmWorkflow';
+import { runInitialization, type InitEntry } from './boot/initialization';
 import { getMorphClient } from './boot/morphClient';
 import { loadAndApplyTheme } from './boot/theme';
 import { CTX } from './boot/constants';
@@ -93,6 +95,14 @@ async function start(overrideLevel?: TokenLevel): Promise<void> {
     `%c[vue-app] ✅ booted from clientId=${host.state.clientId} → homepage=${host.built.homepageKey} (tokenLevel=${host.state.tokenLevel}, ${host.state.shellMode})`,
     'color:#4f46e5;font-weight:bold',
   );
+
+  // Run the config-driven initialization workflows ONCE (first boot, not on a
+  // token-level re-boot), after mount so the UI is up. Headless + tolerant; the
+  // x-context-source filter fills each payload from context-store.
+  if (!overrideLevel) {
+    const init = (host.state.clientConfig.initialization ?? []) as InitEntry[];
+    if (init.length) void runInitialization(idmWorkflowManager, init, { tokenLevel: host.state.tokenLevel });
+  }
 }
 
 /** Minimal boot splash so the (slow, real-IDM) discovery never shows a blank page. */

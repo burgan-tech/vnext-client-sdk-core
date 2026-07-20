@@ -96,10 +96,28 @@ export class WorkflowManager {
     if (displayLoading) this.emitLoading(true);
 
     try {
-      const response = await this.deps.api.startInstance(input, {
-        sync: input.sync ?? this.deps.options.syncStart,
-        defaultExtensions: this.deps.options.extensions,
-      });
+      // Body filter also runs on start (transitionKey "start", no instance yet):
+      // the schema-driven resolver injects x-context-source attributes so a start
+      // needs no per-flow wiring, exactly like a transition.
+      let attributes = input.attributes ?? {};
+      const filter = this.deps.options.transitionBodyFilter;
+      if (filter) {
+        attributes = await filter.filterTransitionBody({
+          workflowDomain: input.domain,
+          workflowName: input.name,
+          instanceId: '',
+          transitionKey: 'start',
+          body: attributes,
+        });
+      }
+
+      const response = await this.deps.api.startInstance(
+        { ...input, attributes },
+        {
+          sync: input.sync ?? this.deps.options.syncStart,
+          defaultExtensions: this.deps.options.extensions,
+        },
+      );
 
       const result = parseStartInstanceOutput(response);
       if (result.ok && result.instanceId) {

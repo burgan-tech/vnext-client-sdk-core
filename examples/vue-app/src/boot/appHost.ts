@@ -13,9 +13,9 @@
 import {
   createAppHost,
   resolveDeviceIdentity,
+  runContextProviders,
   type AppHost,
   type DeviceIdentity,
-  type DeviceInfo,
   type DeviceRegistration,
   type EnvironmentResponse,
   type FetchJson,
@@ -27,7 +27,8 @@ import { getOrCreateDeviceKeyPair } from './deviceCrypto';
 import { CLIENT_ID, APP_VERSION, SHELL_BASE, CTX } from './constants';
 import { standardHeaders } from './apiHeaders';
 import { initMorphClient, setMorphTokens, getMorphClient, getTokenLevelOrder } from './morphClient';
-import { detectOs } from './platform';
+import { webDeviceInfo } from './platform';
+import { webContextProviders } from './contextProviders';
 
 export { CLIENT_ID };
 
@@ -120,33 +121,16 @@ const identityStore: IdentityStore = {
   setSession: (k, v) => window.sessionStorage.setItem(k, v),
 };
 
-function webDeviceInfo(): DeviceInfo {
-  return {
-    osName: detectOs(navigator.userAgent),
-    osVersion: (navigator as { appVersion?: string }).appVersion ?? 'unknown',
-    deviceModel: 'browser',
-    manufacturer: navigator.vendor || 'unknown',
-    screenResolution: `${window.screen.width}x${window.screen.height}`,
-    language: navigator.language,
-    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-    userAgent: navigator.userAgent,
-  };
-}
-
+// Compute the device identity (pure): deviceId/installationId + web device info.
+// Seeding these into the context-store is NOT done here — a context provider owns
+// that (boot/contextProviders.ts), run eagerly before the first request.
 function resolveIdentity(): DeviceIdentity {
-  const identity = resolveDeviceIdentity({
+  return resolveDeviceIdentity({
     store: identityStore,
     newId: () => crypto.randomUUID(),
     deviceInfo: webDeviceInfo(),
     appVersion: APP_VERSION,
   });
-  // Seed the shared bus: everyone reads ambient values from context-store, so the
-  // SDK writes them here once at init (this is also what `x-context-source` targets).
-  setContextValue(CTX.clientId, CLIENT_ID, AMBIENT);
-  setContextValue(CTX.appVersion, APP_VERSION, AMBIENT);
-  setContextValue(CTX.deviceId, identity.deviceId, AMBIENT);
-  setContextValue(CTX.installationId, identity.installationId, AMBIENT);
-  return identity;
 }
 
 // ── Device registration (real bank IDM device-manager, tolerant) ───────────
@@ -260,11 +244,25 @@ async function resolveTokenLevel(): Promise<TokenLevel> {
   return order[order.length - 1] ?? 'device';
 }
 
-export function bootAppHost(): Promise<AppHost> {
+export async function bootAppHost(): Promise<AppHost> {
   // Seed the ambient bus BEFORE any request so even the first call (environment)
-  // carries device headers. resolveIdentity is idempotent, so discovery calling
-  // it again is harmless.
-  resolveIdentity();
+  // carries device headers, and so the `initialization` sequence can read these
+  // values via `x-context-source`. Context providers are the writers; they run
+  // eagerly here. resolveIdentity is a pure compute (idempotent), so discovery
+  // calling it again is harmless.
+  const deviceIdentity = resolveIdentity();
+  await runContextProviders(
+    webContextProviders,
+    {
+      clientId: CLIENT_ID,
+      appVersion: APP_VERSION,
+      deviceIdentity,
+      log: (level, message, extra) => console[level === 'error' ? 'error' : level === 'warn' ? 'warn' : 'info'](`[app-host] ${message}`, extra ?? ''),
+    },
+    // Provider slots use portable string boundary/storage; map to the store enums
+    // (string-enum values equal the strings, so index by key).
+    (w) => setContextValue(w.key, w.value, { boundary: Boundary[w.boundary], storage: Storage[w.storage ?? 'memory'] }),
+  );
   return createAppHost(
     { clientId: CLIENT_ID, shellBase: SHELL_BASE },
     {

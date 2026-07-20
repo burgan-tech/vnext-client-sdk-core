@@ -10,16 +10,22 @@ import { contextStore } from '../sdk/context';
 import { idmFetch } from './idmWorkflow';
 import { reinitMorphClient, getLoginAuthId, setMorphTokens, getInteractiveLoginWorkflow } from './morphClient';
 
-/** Decode a JWT payload's subject (sub, or act_sub for delegated tokens). */
-function jwtSubject(token: string): string | null {
+/**
+ * Decode a JWT into the two identities the IDM always carries after login:
+ *   • subject = the customer (müşteri) the operation is performed for = "scope"  → `sub`
+ *   • actor   = the user acting on the customer's behalf                          → `act_sub`
+ * For an individual (bireysel) customer the token has no `act_sub` and the two
+ * coincide, so actor falls back to `sub`.
+ */
+function jwtIdentities(token: string): { subject: string | null; actor: string | null } {
   try {
     const part = token.split('.')[1];
-    if (!part) return null;
+    if (!part) return { subject: null, actor: null };
     const json = atob(part.replace(/-/g, '+').replace(/_/g, '/'));
     const claims = JSON.parse(json) as { sub?: string; act_sub?: string };
-    return claims.sub || claims.act_sub || null;
+    return { subject: claims.sub ?? null, actor: claims.act_sub ?? claims.sub ?? null };
   } catch {
-    return null;
+    return { subject: null, actor: null };
   }
 }
 
@@ -101,11 +107,14 @@ export async function completeLogin(
     return null;
   }
 
-  // 4. Establish the subject, then hand the tokens to the generic auth client.
-  //    Re-init first so the subject-scoped storage keys ("…$subject") resolve, then
+  // 4. Establish BOTH identities (subject=customer, actor=user) in context, then
+  //    hand the tokens to the generic auth client. Re-init first so the actor-scoped
+  //    storage keys (morph `$subject` var, fed from activeUser) resolve, then
   //    setTokens under the config's login auth id (rootCallbackAuthId). The re-boot
   //    that follows re-reads these persisted tokens → tokenLevel = 2fa.
-  contextStore.activeUser = jwtSubject(tokens.accessToken) ?? 'user';
+  const { subject, actor } = jwtIdentities(tokens.accessToken);
+  contextStore.activeSubject = subject; // müşteri / scope
+  contextStore.activeUser = actor ?? 'user'; // acting user (individual: same as subject)
   reinitMorphClient();
   const authId = getLoginAuthId();
   if (authId) {

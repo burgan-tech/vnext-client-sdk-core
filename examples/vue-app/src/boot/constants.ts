@@ -18,7 +18,12 @@ export const APP_VERSION = '0.1.0';
 // config). The one base URL that stays a client constant (dev: Vite proxy prefix).
 export const SHELL_BASE = '/shell';
 
-/** Canonical context-store keys for ambient values (device boundary). */
+// Canonical context-store keys for ambient values (device boundary). This is the
+// shared vocabulary a backend schema's `x-context-source` references to read a
+// value the client already holds — so the client wires nothing per-flow. Anything
+// code-embedded and reusable is seeded here at boot by a context provider (see
+// boot/contextProviders.ts); resolved-later facts (locale, idmBase) are written
+// by their own boot steps.
 export const CTX = {
   clientId: 'app.clientId',
   appVersion: 'app.version',
@@ -27,4 +32,14 @@ export const CTX = {
   idmBase: 'app.idmBase',
   deviceId: 'device.id',
   installationId: 'device.installation.id',
+  // Device environment facts (platform-supplied) — seeded by a context provider,
+  // the source values a schema-driven device-register flow reads via x-context-source.
+  osName: 'device.osName',
+  osVersion: 'device.osVersion',
+  deviceModel: 'device.model',
+  manufacturer: 'device.manufacturer',
+  screenResolution: 'device.screenResolution',
+  language: 'device.language',
+  timezone: 'device.timezone',
+  userAgent: 'device.userAgent',
 } as const;

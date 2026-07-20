@@ -11,6 +11,7 @@ import type { HttpDelegate, HttpRequest, HttpResponse } from 'amorphie-workflow-
 import { Boundary, Storage, getContextValue } from '../sdk/context';
 import { CTX } from './constants';
 import { standardHeaders, workflowHeader } from './apiHeaders';
+import { contextSourceBodyFilter } from './contextSourceFilter';
 
 /** IDM host base from the shared bus (seeded from environment `hosts` at boot). */
 function idmBase(): string {
@@ -94,6 +95,9 @@ export async function idmFetch<T = unknown>(
 
 export const idmWorkflowManager = WorkflowManager.create({
   http: idmHttpDelegate,
+  // Schema-driven payload wiring: on every start/transition, inject the values the
+  // client already holds (x-context-source) resolved from the transition schema.
+  transitionBodyFilter: contextSourceBodyFilter,
   // Managed-workflow list is not enforced by the SDK; the actual domain/name for
   // each operation come per-call from the backend nav config (no client hardcode).
   workflows: [],

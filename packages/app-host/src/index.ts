@@ -10,6 +10,22 @@ export {
   type IdentityStore,
   type ResolveIdentityOptions,
 } from './identity.js';
+export {
+  runContextProviders,
+  type ContextProvider,
+  type ContextWrite,
+  type ContextWriteSink,
+  type ContextSlot,
+  type ContextBoundary,
+  type ContextStorage,
+  type ProviderContext,
+} from './context-providers.js';
+export {
+  resolveContextSource,
+  type ContextSourceBinding,
+  type ContextSourceReaders,
+  type SourceSchema,
+} from './context-source.js';
 export type {
   AppHostConfig,
   AppHostDeps,
