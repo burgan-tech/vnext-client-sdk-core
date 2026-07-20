@@ -76,7 +76,7 @@ function workflowView(n: NavItem): ViewDefinition {
         { type: 'Text', variant: 'caption', content: '$instance.subtitle', visible: '$instance.subtitle' },
         {
           type: 'WorkflowView',
-          domain: String(c['domain'] ?? 'morph-idm'),
+          domain: String(c['domain'] ?? ''),
           name: String(c['key'] ?? n.key ?? ''),
           ...(c['version'] ? { version: String(c['version']) } : {}),
           ...(c['keyFrom'] ? { keyFrom: String(c['keyFrom']) } : {}),

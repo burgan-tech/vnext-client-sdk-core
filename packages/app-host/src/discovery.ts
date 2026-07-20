@@ -97,10 +97,15 @@ export async function discover(config: AppHostConfig, deps: AppHostDeps): Promis
 
   // IDM host base — single source of truth is the environment `hosts` config.
   const idmBase = resolveHostBase(environment, 'idm');
-  // Device-context endpoints from the morph-api config (no client-side path building).
+  // Machine-context endpoints from the morph-api config. Identify the non-interactive
+  // context by its grant (client_credentials) — NOT a hardcoded `key` literal — so the
+  // SDK stays provider-agnostic (mirrors the adapter's device-token detection).
   const deviceCtx = (environment.morphConfig?.providers ?? [])
     .flatMap((p) => p.contexts ?? [])
-    .find((c) => c.key === 'device');
+    .find((c) => {
+      const grantHint = (c.delegateMetadata as { grantHint?: string } | undefined)?.grantHint;
+      return grantHint === 'client_credentials' || c.token?.grantType === 'client_credentials';
+    });
   const provisioningEndpoint = deviceCtx?.provisioning?.endpoint;
   const tokenEndpoint = deviceCtx?.token?.endpoint;
 

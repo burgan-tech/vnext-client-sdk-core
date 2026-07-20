@@ -38,50 +38,24 @@ function buildUrl(path: string, query?: HttpRequest['query']): string {
   return url.toString();
 }
 
-/** Minimal fetch HttpDelegate — the SDK passes host-relative `/{domain}/...` paths. */
-export const idmHttpDelegate: HttpDelegate = {
-  async request<T = unknown>(req: HttpRequest): Promise<HttpResponse<T>> {
-    const res = await fetch(buildUrl(req.path, req.query), {
-      method: req.method,
-      headers: {
-        ...standardHeaders(),
-        ...workflowHeaderFor(req.path),
-        ...(req.body !== undefined ? { 'Content-Type': 'application/json' } : {}),
-        ...(req.headers ?? {}),
-      },
-      ...(req.body !== undefined ? { body: JSON.stringify(req.body) } : {}),
-    });
-    const text = await res.text();
-    let data: unknown = null;
-    try {
-      data = text ? JSON.parse(text) : null;
-    } catch {
-      data = text;
-    }
-    const headers: Record<string, string> = {};
-    res.headers.forEach((value, key) => (headers[key] = value));
-    return {
-      ok: (res.status >= 200 && res.status < 300) || res.status === 304,
-      status: res.status,
-      headers,
-      data: data as T | null,
-    };
-  },
-};
-
-/** Direct IDM call (device headers + /api/v1 proxy) for flows outside workflow-manager (e.g. token redeem). */
-export async function idmFetch<T = unknown>(
-  path: string,
-  opts: { method?: string; body?: unknown; query?: Record<string, string> } = {},
-): Promise<{ ok: boolean; status: number; data: T | null }> {
-  const res = await fetch(buildUrl(path, opts.query), {
-    method: opts.method ?? 'GET',
+/** The one IDM request path: URL + standard/workflow headers + fetch + tolerant
+ * JSON decode. Both the workflow-manager delegate and the direct `idmFetch` wrap it. */
+async function idmRequest<T = unknown>(input: {
+  path: string;
+  method?: string;
+  body?: unknown;
+  query?: HttpRequest['query'];
+  headers?: Record<string, string>;
+}): Promise<{ ok: boolean; status: number; headers: Record<string, string>; data: T | null }> {
+  const res = await fetch(buildUrl(input.path, input.query), {
+    method: input.method ?? 'GET',
     headers: {
       ...standardHeaders(),
-      ...workflowHeaderFor(path),
-      ...(opts.body !== undefined ? { 'Content-Type': 'application/json' } : {}),
+      ...workflowHeaderFor(input.path),
+      ...(input.body !== undefined ? { 'Content-Type': 'application/json' } : {}),
+      ...(input.headers ?? {}),
     },
-    ...(opts.body !== undefined ? { body: JSON.stringify(opts.body) } : {}),
+    ...(input.body !== undefined ? { body: JSON.stringify(input.body) } : {}),
   });
   const text = await res.text();
   let data: unknown = null;
@@ -90,7 +64,30 @@ export async function idmFetch<T = unknown>(
   } catch {
     data = text;
   }
-  return { ok: res.ok, status: res.status, data: data as T | null };
+  const headers: Record<string, string> = {};
+  res.headers.forEach((value, key) => (headers[key] = value));
+  return {
+    ok: (res.status >= 200 && res.status < 300) || res.status === 304,
+    status: res.status,
+    headers,
+    data: data as T | null,
+  };
+}
+
+/** Minimal fetch HttpDelegate — the SDK passes host-relative `/{domain}/...` paths. */
+export const idmHttpDelegate: HttpDelegate = {
+  request<T = unknown>(req: HttpRequest): Promise<HttpResponse<T>> {
+    return idmRequest<T>(req);
+  },
+};
+
+/** Direct IDM call (device headers + /api/v1 proxy) for flows outside workflow-manager (e.g. token redeem). */
+export async function idmFetch<T = unknown>(
+  path: string,
+  opts: { method?: string; body?: unknown; query?: Record<string, string> } = {},
+): Promise<{ ok: boolean; status: number; data: T | null }> {
+  const { ok, status, data } = await idmRequest<T>({ path, ...opts });
+  return { ok, status, data };
 }
 
 export const idmWorkflowManager = WorkflowManager.create({
