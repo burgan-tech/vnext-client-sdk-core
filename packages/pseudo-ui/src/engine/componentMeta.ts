@@ -180,6 +180,7 @@ export const componentMeta: Record<string, ComponentMeta> = {
   Avatar: { type: 'Avatar', category: 'display', acceptsChildren: false, defaultProps: { shape: 'circle' }, description: 'Profile or entity avatar.' },
   ProgressIndicator: { type: 'ProgressIndicator', category: 'display', acceptsChildren: false, defaultProps: { variant: 'linear' }, description: 'Linear or circular progress bar.' },
   LoadingIndicator: { type: 'LoadingIndicator', category: 'display', acceptsChildren: false, description: 'Indeterminate loading spinner.' },
+  Timer: { type: 'Timer', category: 'display', acceptsChildren: false, defaultProps: { duration: 60, format: 'mm:ss', variant: 'chip' }, description: 'Countdown timer; emits timer:expire on reaching zero.' },
   ListTile: {
     type: 'ListTile', category: 'display', acceptsChildren: false, defaultProps: { title: 'Item' },
     description: 'Single-row list item with leading/trailing slots.',

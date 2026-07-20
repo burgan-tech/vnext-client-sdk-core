@@ -122,6 +122,11 @@ export interface ReadableRef<T> {
 export interface WorkflowSession {
   /** Current state's view (null until started / when a state has no view). */
   view: ReadableRef<ViewDefinition | null>
+  /**
+   * Current view's transition schema (resolved from the view's `dataSchema` by the
+   * host), so the renderer can apply x-labels + validation. Null when unresolved.
+   */
+  schema?: ReadableRef<DataSchema | null>
   /** Current instance attributes, exposed to the view via `$instance.*`. */
   data: ReadableRef<Record<string, unknown>>
   /** True once an instance is started and its view is available. */

@@ -10,7 +10,8 @@
 // ─────────────────────────────────────────────────────────────────────────
 import { computed, ref, watch } from 'vue';
 import { useWorkflow } from 'amorphie-workflow-manager-vue';
-import type { ViewDefinition, WorkflowSession, WorkflowViewConfig } from '@burgan-tech/pseudo-ui';
+import type { DataSchema, ViewDefinition, WorkflowSession, WorkflowViewConfig } from '@burgan-tech/pseudo-ui';
+import { loadSchemaByKey, schemaKeyFromDataSchema } from './schemaCache';
 import type { TokenLevel } from '@burgan-tech/app-host';
 import { idmWorkflowManager } from './idmWorkflow';
 import { createPkce, type Pkce } from './pkce';
@@ -49,6 +50,18 @@ export function makeDriveWorkflow(opts: WorkflowDriverOptions = {}) {
 
     const view = computed<ViewDefinition | null>(() => (wf.view.value?.content ?? null) as ViewDefinition | null);
     const data = computed<Record<string, unknown>>(() => (wf.data.value ?? {}) as Record<string, unknown>);
+
+    // Resolve each view's transition schema (from its `dataSchema` ref) so the
+    // renderer gets x-labels + validation. Re-resolves whenever the view changes.
+    const schema = ref<DataSchema | null>(null);
+    watch(
+      view,
+      async (v) => {
+        const key = schemaKeyFromDataSchema((v as { dataSchema?: unknown } | null)?.dataSchema);
+        schema.value = key ? ((await loadSchemaByKey(config.domain, key)) as DataSchema | null) : null;
+      },
+      { immediate: true },
+    );
     const ready = computed<boolean>(() => wf.ready.value);
     const error = computed<string>(() => {
       const e = wf.error.value as unknown;
@@ -75,6 +88,7 @@ export function makeDriveWorkflow(opts: WorkflowDriverOptions = {}) {
 
     return {
       view,
+      schema,
       data,
       ready,
       error,

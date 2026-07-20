@@ -145,6 +145,29 @@
 .d-image {
   border-radius: 0.5rem;
 }
+/* Timer (countdown) node */
+.d-timer {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  color: var(--color-on-surface, #1f2430);
+}
+.d-timer-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.3rem 0.7rem;
+  border-radius: 999px;
+  background: var(--color-surface-variant, #eef0f6);
+  font-size: 0.9rem;
+}
+.d-timer-icon {
+  font-size: 0.85rem;
+  opacity: 0.7;
+}
+.d-timer-expired {
+  background: var(--color-error-container, #fdecea);
+  color: var(--color-error, #b3261e);
+}
 .d-badge-value {
   position: absolute;
   top: -6px;

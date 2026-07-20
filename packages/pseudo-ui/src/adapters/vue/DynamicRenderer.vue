@@ -12,6 +12,7 @@ import { useDelegate, useOverlayTarget } from './injection'
 import { useToast } from 'primevue/usetoast'
 import NestedComponentWrapper from './NestedComponentWrapper.vue'
 import WorkflowViewWrapper from './WorkflowViewWrapper.vue'
+import TimerNode from './TimerNode.vue'
 import ErrorBoundary from './ErrorBoundary.vue'
 import DesignerNode from './DesignerNode.vue'
 
@@ -1558,6 +1559,9 @@ function menuItems(items: any[]) {
       </template>
     </PrimeCarousel>
   </template>
+
+  <!-- === DISPLAY: Timer (countdown) === -->
+  <TimerNode v-else-if="node.type === 'Timer'" :node="(node as any)" />
 
   <!-- === FALLBACK === -->
   <Message v-else severity="warn" :closable="false">

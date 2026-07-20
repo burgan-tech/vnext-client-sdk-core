@@ -81,11 +81,16 @@ provideDelegate(bridged)
 const view = computed(() => session?.view.value ?? null)
 const ready = computed(() => session?.ready.value ?? false)
 const errorText = computed(() => session?.error.value ?? '')
+// The host resolves each view's transition schema (from its dataSchema) so the
+// renderer gets x-labels + validation; fall back to an empty schema until then.
+const schema = computed<DataSchema>(() => session?.schema?.value ?? EMPTY_SCHEMA)
 
 // Remount the nested view per workflow state so each state gets a fresh form
 // context (advancing state = new view, cleared inputs).
 const stateKey = ref(0)
-watch(view, () => { stateKey.value += 1 })
+// Remount on view change AND when the async-resolved schema arrives, so the nested
+// form context is (re)built with the real transition schema (x-labels + validation).
+watch([view, schema], () => { stateKey.value += 1 })
 
 async function begin(): Promise<void> {
   started.value = true
@@ -114,7 +119,7 @@ onUnmounted(() => session?.dispose?.())
       <NestedComponentWrapper
         v-if="ready && view"
         :key="stateKey"
-        :schema="EMPTY_SCHEMA"
+        :schema="schema"
         :view="view"
         :lang="ctx.lang"
       />
