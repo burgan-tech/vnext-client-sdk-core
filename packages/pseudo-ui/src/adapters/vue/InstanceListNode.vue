@@ -225,6 +225,22 @@ function colLabel(c: InstanceColumn): string {
 function runAction(c: InstanceColumn, row: Record<string, unknown>): void {
   const a = c.action
   if (!a || !delegate.onAction) return
+  // Detail mode: open a single related record's detail (e.g. login → its user).
+  if (a.detail) {
+    const instanceId = getPath(row, a.detail.instanceIdFrom)
+    if (instanceId == null || instanceId === '') return
+    delegate.onAction('navigate', {
+      key: a.navigate,
+      payload: {
+        domain: a.detail.domain,
+        workflow: a.detail.workflow,
+        instanceId,
+        title: localizeLabel(c.label, ctx.lang) || a.detail.workflow,
+        subtitle: a.subtitle ? fillTemplate(a.subtitle, row) : String(instanceId),
+      },
+    })
+    return
+  }
   const filter = (a.filter ?? [])
     .map((f) => ({
       field: f.field,

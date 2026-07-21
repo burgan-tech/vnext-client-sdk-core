@@ -143,6 +143,12 @@ export interface InstanceRowAction {
    */
   filter?: InstanceRowActionFilter[]
   /**
+   * Open a single related record's DETAIL instead of a filtered list (e.g. a
+   * login → its user). The target instance is {domain, workflow, id-from-row}.
+   * When set, {@link filter} is ignored.
+   */
+  detail?: { domain: string; workflow: string; instanceIdFrom: string }
+  /**
    * Template for the opened tab's second line ("{{dot.path}}" from the clicked
    * row) — e.g. the parent record's name, so a person's Users tab reads as
    * "Users · Ada Lovelace".
