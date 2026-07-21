@@ -86,9 +86,13 @@ export function loadShellView(key: string): Promise<Record<string, unknown> | nu
   if (!p) {
     p = (async () => {
       const raw = (await fetchJson(`/workflows/sys-views/instances/${key}`, { query: { sync: 'true' } })) as {
-        attributes?: { content?: unknown };
+        attributes?: { content?: unknown; display?: unknown };
       };
-      return (raw?.attributes?.content ?? null) as Record<string, unknown> | null;
+      const content = raw?.attributes?.content as Record<string, unknown> | null | undefined;
+      if (!content) return null;
+      // Surface the view-level `display` hint (e.g. "full-page") alongside the
+      // content so the host surface can size itself (list pages go full-width).
+      return { ...content, display: raw?.attributes?.display };
     })().catch((e) => {
       console.warn(`[shell] loadShellView(${key}) failed`, e);
       shellViewCache.delete(key); // allow a retry on next call

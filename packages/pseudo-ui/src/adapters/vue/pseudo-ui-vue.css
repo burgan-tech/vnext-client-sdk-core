@@ -201,6 +201,19 @@
   font-size: 0.8rem;
   font-weight: 500;
 }
+/* Semantic status tones (generic vNext instance-status enum). */
+.d-instancelist-chip--success {
+  background: var(--color-success-container, #dff3e4);
+  color: var(--color-success, #1b7a35);
+}
+.d-instancelist-chip--danger {
+  background: var(--color-danger-container, #fbe1e1);
+  color: var(--color-danger, #b42318);
+}
+.d-instancelist-chip--muted {
+  background: var(--color-surface-variant, #eef0f6);
+  color: var(--color-muted, #667);
+}
 .d-instancelist-table th {
   font-weight: 600;
   color: var(--color-muted, #667);

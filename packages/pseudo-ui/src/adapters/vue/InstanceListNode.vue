@@ -52,6 +52,24 @@ function cell(row: Record<string, unknown>, c: InstanceColumn): string {
   return typeof v === 'object' ? JSON.stringify(v) : String(v)
 }
 
+/** True for any column rendered as a pill (neutral "chip" or colored "status"). */
+function isChip(c: InstanceColumn): boolean {
+  return c.format === 'chip' || c.format === 'status'
+}
+
+/**
+ * Semantic colour for the generic vNext instance-status enum, applied only to
+ * "status"-format columns. Neutral for everything else (arbitrary business
+ * states use "chip", which stays grey).
+ */
+function chipClass(row: Record<string, unknown>, c: InstanceColumn): string {
+  if (c.format !== 'status') return 'd-instancelist-chip'
+  const s = String(getPath(row, c.bind) ?? '').toLowerCase()
+  const tone =
+    s === 'active' ? 'success' : s === 'busy' || s === 'faulted' ? 'danger' : 'muted'
+  return `d-instancelist-chip d-instancelist-chip--${tone}`
+}
+
 async function load(): Promise<void> {
   if (!delegate.queryInstances) {
     log('error', 'InstanceList needs delegate.queryInstances, but none was provided', undefined, {
@@ -112,7 +130,7 @@ onMounted(() => void load())
         </tr>
         <tr v-else v-for="(row, ri) in items" :key="(row.id as string) ?? ri">
           <td v-for="(c, ci) in columns" :key="ci" :title="cell(row, c)">
-            <span v-if="c.format === 'chip'" class="d-instancelist-chip">{{ cell(row, c) }}</span>
+            <span v-if="isChip(c)" :class="chipClass(row, c)">{{ cell(row, c) }}</span>
             <template v-else>{{ cell(row, c) }}</template>
           </td>
         </tr>

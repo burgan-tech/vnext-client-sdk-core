@@ -115,6 +115,12 @@ const viewDef = computed<ViewDefinition | null>(() => {
   return null;
 });
 
+// Full-page views (backend `display: "full-page"`, e.g. list tables) drop the
+// reading-width cap and use the full content area; forms/nav stay narrow.
+const isFullPage = computed(
+  () => (viewDef.value as { display?: unknown } | null)?.display === 'full-page',
+);
+
 // Instance data fed to the rendered view: localized title/subtitle (workflow +
 // group headers) and the child items (group). Empty for dynamicView.
 const instanceData = computed<Record<string, unknown>>(() => {
@@ -158,7 +164,7 @@ const delegate: PseudoViewDelegate = {
 </script>
 
 <template>
-  <div class="navview">
+  <div class="navview" :class="{ 'navview--full': isFullPage }">
     <!-- Every routable nav type (dynamicView / workflow / group) normalizes to a
          single ViewDefinition rendered through one PseudoView + delegate. -->
     <p v-if="!nav" class="muted">Unknown route: {{ props.item.key }}</p>
@@ -188,6 +194,7 @@ const delegate: PseudoViewDelegate = {
 
 <style scoped>
 .navview { max-width: 720px; }
+.navview--full { max-width: none; }
 .navview-loading { display: flex; justify-content: center; padding: 3rem 0; }
 .muted { color: var(--muted, #667); }
 h2 { margin: 0 0 .25rem; }

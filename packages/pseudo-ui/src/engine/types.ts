@@ -113,7 +113,13 @@ export interface InstanceColumn {
    * "createdAt", "attributes.deviceId", "attributes.deviceInfo.deviceModel". */
   bind: string
   label?: MultiLangText | string | Array<{ language: string; label: string }>
-  /** Render hint: "datetime" | "date" | "text" (default text). */
+  /**
+   * Render hint (default: plain text):
+   * - "datetime" | "date" — locale-format an ISO timestamp
+   * - "chip" — neutral rounded pill (arbitrary strings, e.g. a business state)
+   * - "status" — semantic-colored pill for the generic vNext instance-status
+   *   enum (active → green, completed/passive → grey, busy/faulted → red)
+   */
   format?: string
 }
 
