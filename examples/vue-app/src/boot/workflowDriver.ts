@@ -119,9 +119,13 @@ export function makeDriveWorkflow(opts: WorkflowDriverOptions = {}) {
       },
       async start(values) {
         if (pkceEnabled) pkce = await createPkce();
-        // Some flows (e.g. user-change-password) resolve the subject from the
-        // instance key, so start keyed by the logged-in userId.
-        const key = config.keyFrom === 'activeUser' ? (contextStore.activeUser ?? undefined) : undefined;
+        // Some flows resolve the subject from the instance key. keyFrom is
+        // either the "activeUser" token (→ logged-in userId) or an already
+        // resolved key value (e.g. a detail/start action passing a row's key).
+        const key =
+          config.keyFrom === 'activeUser'
+            ? (contextStore.activeUser ?? undefined)
+            : config.keyFrom || undefined;
         const res = await wf.start({
           attributes: { ...(config.start ?? {}), ...(values ?? {}) },
           ...(key ? { key } : {}),

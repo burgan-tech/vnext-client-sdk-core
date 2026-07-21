@@ -149,6 +149,12 @@ export interface InstanceRowAction {
    */
   detail?: { domain: string; workflow: string; instanceIdFrom: string }
   /**
+   * START a workflow for the row (e.g. change-password on a user), keyed by the
+   * row value at `keyFrom`. Opens the started instance's first-state form. When
+   * set, {@link filter}/{@link detail} are ignored.
+   */
+  start?: { domain: string; workflow: string; keyFrom: string }
+  /**
    * Template for the opened tab's second line ("{{dot.path}}" from the clicked
    * row) — e.g. the parent record's name, so a person's Users tab reads as
    * "Users · Ada Lovelace".
@@ -158,6 +164,12 @@ export interface InstanceRowAction {
 export interface InstanceRowActionFilter extends InstanceFieldFilter {
   /** Dot-path into the row snapshot supplying this filter's value. */
   valueFrom: string
+}
+
+/** One entry in a `kind: "menu"` column's dropdown. */
+export interface InstanceMenuItem {
+  label?: MultiLangText | string | Array<{ language: string; label: string }>
+  action: InstanceRowAction
 }
 
 /** A column in an {@link InstanceListNode}: which snapshot field to show + its label. */
@@ -186,10 +198,16 @@ export interface InstanceColumn {
    * input that filters the list server-side by {@link InstanceFieldFilter.field}.
    */
   filter?: InstanceFieldFilter
-  /** "action" renders a button (using {@link action}) instead of a data cell. */
-  kind?: 'action'
+  /**
+   * - "action" renders a single button (using {@link action}).
+   * - "menu" renders a dropdown button (label + {@link items}) grouping several
+   *   actions — e.g. a "Links" or "Actions" combo per row.
+   */
+  kind?: 'action' | 'menu'
   /** The row action for `kind: "action"` columns. */
   action?: InstanceRowAction
+  /** The dropdown entries for `kind: "menu"` columns. */
+  items?: InstanceMenuItem[]
 }
 
 /**

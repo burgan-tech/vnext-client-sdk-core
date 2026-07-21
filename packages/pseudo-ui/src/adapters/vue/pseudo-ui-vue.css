@@ -352,6 +352,36 @@
   background: var(--color-primary, #2563eb);
   color: #fff;
 }
+/* Combo (dropdown) action column */
+.d-instancelist-actioncell { overflow: visible; position: relative; }
+.d-instancelist-menu { position: relative; display: inline-block; }
+.d-instancelist-menupop {
+  position: absolute;
+  top: calc(100% + 0.25rem);
+  right: 0;
+  z-index: 20;
+  min-width: 10rem;
+  display: flex;
+  flex-direction: column;
+  padding: 0.25rem;
+  background: var(--color-surface, #fff);
+  border: 1px solid var(--color-border, #e3e6ef);
+  border-radius: 8px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.12);
+}
+.d-instancelist-menuitem {
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+  padding: 0.4rem 0.6rem;
+  border-radius: 6px;
+  font: inherit;
+  font-size: 0.85rem;
+  color: var(--color-on-surface, #1f2430);
+  white-space: nowrap;
+}
+.d-instancelist-menuitem:hover { background: var(--color-hover, #f1f2f8); }
 .d-instancelist-table tbody tr:hover {
   background: var(--color-surface-variant, #f6f7fb);
 }

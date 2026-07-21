@@ -7,7 +7,7 @@
 -->
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
-import type { InstanceColumn, InstanceListNode } from '../../engine/types'
+import type { InstanceColumn, InstanceListNode, InstanceRowAction } from '../../engine/types'
 import { localizeLabel } from '../../engine/expressionResolver'
 import { useFormContext } from './useFormContext'
 import { useDelegate } from './injection'
@@ -221,26 +221,32 @@ function colLabel(c: InstanceColumn): string {
   return localizeLabel(c.label, ctx.lang) || c.bind || ''
 }
 
-/** Build the row-action navigation payload from the clicked row. */
-function runAction(c: InstanceColumn, row: Record<string, unknown>): void {
-  const a = c.action
+/** Run a row action (from an action column or a menu item) against a row. */
+function runAction(a: InstanceRowAction | undefined, row: Record<string, unknown>, label?: unknown): void {
   if (!a || !delegate.onAction) return
+  const title = localizeLabel(label as never, ctx.lang) || a.navigate
+  const sub = a.subtitle ? fillTemplate(a.subtitle, row) : undefined
   // Detail mode: open a single related record's detail (e.g. login → its user).
   if (a.detail) {
     const instanceId = getPath(row, a.detail.instanceIdFrom)
     if (instanceId == null || instanceId === '') return
     delegate.onAction('navigate', {
       key: a.navigate,
-      payload: {
-        domain: a.detail.domain,
-        workflow: a.detail.workflow,
-        instanceId,
-        title: localizeLabel(c.label, ctx.lang) || a.detail.workflow,
-        subtitle: a.subtitle ? fillTemplate(a.subtitle, row) : String(instanceId),
-      },
+      payload: { domain: a.detail.domain, workflow: a.detail.workflow, instanceId, title, subtitle: sub ?? String(instanceId) },
     })
     return
   }
+  // Start mode: start a workflow for the row (e.g. change-password on a user).
+  if (a.start) {
+    const startKey = getPath(row, a.start.keyFrom)
+    if (startKey == null || startKey === '') return
+    delegate.onAction('navigate', {
+      key: a.navigate,
+      payload: { domain: a.start.domain, workflow: a.start.workflow, startKey, title, subtitle: sub ?? String(startKey) },
+    })
+    return
+  }
+  // Filter mode: open a target list filtered from the row.
   const filter = (a.filter ?? [])
     .map((f) => ({
       field: f.field,
@@ -249,11 +255,23 @@ function runAction(c: InstanceColumn, row: Record<string, unknown>): void {
       isAttribute: !!f.isAttribute,
     }))
     .filter((f) => f.value != null && f.value !== '')
-  // Scalar copies (keyed by field) let the host use them for tab identity.
   const payload: Record<string, unknown> = { filter }
   for (const f of filter) payload[f.field] = f.value
-  if (a.subtitle) payload.subtitle = fillTemplate(a.subtitle, row)
+  if (sub) payload.subtitle = sub
   delegate.onAction('navigate', { key: a.navigate, payload })
+}
+
+// Menu (combo) columns: which row+column's dropdown is open.
+const openRowMenu = ref<string | null>(null)
+function menuId(ri: number, ci: number): string {
+  return `${ri}:${ci}`
+}
+function toggleRowMenu(id: string): void {
+  openRowMenu.value = openRowMenu.value === id ? null : id
+}
+function pickMenu(item: { label?: unknown; action: InstanceRowAction }, row: Record<string, unknown>): void {
+  openRowMenu.value = null
+  runAction(item.action, row, item.label)
 }
 
 /** Fill a "{{dot.path}}" template from the row (for the detail tab subtitle). */
@@ -540,15 +558,36 @@ onMounted(async () => {
           :class="{ 'd-instancelist-row--clickable': !!props.node.rowDetail }"
           @click="onRowClick(row)"
         >
-          <td v-for="(c, ci) in columns" :key="ci" :title="c.kind === 'action' ? '' : cell(row, c)">
+          <td
+            v-for="(c, ci) in columns"
+            :key="ci"
+            :class="{ 'd-instancelist-actioncell': !!c.kind }"
+            :title="c.kind ? '' : cell(row, c)"
+          >
             <button
               v-if="c.kind === 'action'"
               type="button"
               class="d-instancelist-action"
-              @click.stop="runAction(c, row)"
+              @click.stop="runAction(c.action, row, c.label)"
             >
               {{ colLabel(c) }}
             </button>
+            <span v-else-if="c.kind === 'menu'" class="d-instancelist-menu">
+              <button type="button" class="d-instancelist-action" @click.stop="toggleRowMenu(menuId(ri, ci))">
+                {{ colLabel(c) }} ▾
+              </button>
+              <div v-if="openRowMenu === menuId(ri, ci)" class="d-instancelist-menupop" @click.stop>
+                <button
+                  v-for="(it, ii) in c.items ?? []"
+                  :key="ii"
+                  type="button"
+                  class="d-instancelist-menuitem"
+                  @click="pickMenu(it, row)"
+                >
+                  {{ localizeLabel(it.label, ctx.lang) || it.action.navigate }}
+                </button>
+              </div>
+            </span>
             <span v-else-if="isChip(c)" :class="chipClass(row, c)">{{ cell(row, c) }}</span>
             <template v-else>{{ cell(row, c) }}</template>
           </td>
