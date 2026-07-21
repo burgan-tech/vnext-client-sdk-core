@@ -226,12 +226,16 @@ function runAction(c: InstanceColumn, row: Record<string, unknown>): void {
   const a = c.action
   if (!a || !delegate.onAction) return
   const filter = (a.filter ?? [])
-    .map((f) => ({
-      field: f.field,
-      operator: f.op ?? 'eq',
-      value: getPath(row, f.valueFrom),
-      isAttribute: !!f.isAttribute,
-    }))
+    .map((f) => {
+      let value = getPath(row, f.valueFrom)
+      // Optional: take the part after the first delimiter (e.g. scope from a
+      // composite "{tckn}-{scope}" key). No delimiter → '' → entry dropped below.
+      if (f.valueAfter != null && typeof value === 'string') {
+        const i = value.indexOf(f.valueAfter)
+        value = i >= 0 ? value.slice(i + f.valueAfter.length) : ''
+      }
+      return { field: f.field, operator: f.op ?? 'eq', value, isAttribute: !!f.isAttribute }
+    })
     .filter((f) => f.value != null && f.value !== '')
   // Scalar copies (keyed by field) let the host use them for tab identity.
   const payload: Record<string, unknown> = { filter }

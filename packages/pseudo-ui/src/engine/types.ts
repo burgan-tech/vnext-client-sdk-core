@@ -152,6 +152,12 @@ export interface InstanceRowAction {
 export interface InstanceRowActionFilter extends InstanceFieldFilter {
   /** Dot-path into the row snapshot supplying this filter's value. */
   valueFrom: string
+  /**
+   * Optional transform: take the substring AFTER the first occurrence of this
+   * delimiter in the resolved value. Yields '' (→ filter skipped) if absent —
+   * e.g. extract the scope from a composite key "{tckn}-{scope}" with "-".
+   */
+  valueAfter?: string
 }
 
 /** A column in an {@link InstanceListNode}: which snapshot field to show + its label. */
