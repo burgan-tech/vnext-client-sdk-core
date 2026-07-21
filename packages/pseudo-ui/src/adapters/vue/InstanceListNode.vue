@@ -111,7 +111,10 @@ onMounted(() => void load())
           <td :colspan="columns.length || 1">{{ ctx.lang.startsWith('tr') ? 'Kayıt yok' : 'No records' }}</td>
         </tr>
         <tr v-else v-for="(row, ri) in items" :key="(row.id as string) ?? ri">
-          <td v-for="(c, ci) in columns" :key="ci">{{ cell(row, c) }}</td>
+          <td v-for="(c, ci) in columns" :key="ci" :title="cell(row, c)">
+            <span v-if="c.format === 'chip'" class="d-instancelist-chip">{{ cell(row, c) }}</span>
+            <template v-else>{{ cell(row, c) }}</template>
+          </td>
         </tr>
       </tbody>
     </table>
