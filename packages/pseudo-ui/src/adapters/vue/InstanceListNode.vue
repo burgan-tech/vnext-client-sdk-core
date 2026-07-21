@@ -47,6 +47,41 @@ const loading = ref(false)
 const errorText = ref('')
 
 type FieldFilter = { field: string; operator: string; value: unknown; isAttribute: boolean }
+type DateRange = { from?: string; to?: string }
+type FilterValue = string | string[] | DateRange
+type FilterOption = { value: string; label?: unknown }
+
+// Generic vNext instance-status enum — the built-in options for a "status" filter.
+const STATUS_OPTIONS: FilterOption[] = [
+  { value: 'active', label: { en: 'Active', tr: 'Aktif' } },
+  { value: 'busy', label: { en: 'Busy', tr: 'Meşgul' } },
+  { value: 'passive', label: { en: 'Passive', tr: 'Pasif' } },
+  { value: 'completed', label: { en: 'Completed', tr: 'Tamamlandı' } },
+  { value: 'faulted', label: { en: 'Faulted', tr: 'Hatalı' } },
+]
+// A "state" filter's options are the workflow's own states, fetched at mount.
+const workflowStates = ref<FilterOption[]>([])
+
+function filterType(c: InstanceColumn): string {
+  return c.filter?.type ?? 'text'
+}
+function optionsFor(c: InstanceColumn): FilterOption[] {
+  const t = filterType(c)
+  if (t === 'status') return STATUS_OPTIONS
+  if (t === 'state') return workflowStates.value
+  return []
+}
+function optLabel(o: FilterOption): string {
+  return localizeLabel(o.label as never, ctx.lang) || o.value
+}
+function defaultOp(type: string): string {
+  // status/state are multi-select → `in`; text → `like`; dates → `between`.
+  return type === 'daterange' ? 'between' : type === 'status' || type === 'state' ? 'in' : 'like'
+}
+function isEnum(c: InstanceColumn): boolean {
+  const t = filterType(c)
+  return t === 'status' || t === 'state'
+}
 
 // An incoming filter seeded by the host (e.g. a drill-down passes it via the
 // surface's instanceData). Entries whose field matches a filterable column are
@@ -57,8 +92,8 @@ const seedFilter = computed<FieldFilter[]>(() =>
 function columnFor(field: string): InstanceColumn | undefined {
   return columns.value.find((c) => c.filter?.field === field)
 }
-function seededColumnValues(): Record<string, string> {
-  const out: Record<string, string> = {}
+function seededColumnValues(): Record<string, FilterValue> {
+  const out: Record<string, FilterValue> = {}
   for (const e of seedFilter.value) {
     if (columnFor(e.field)) out[e.field] = String(e.value)
   }
@@ -66,12 +101,11 @@ function seededColumnValues(): Record<string, string> {
 }
 
 // Column filters are view-driven: a column with a `filter` config gets a funnel
-// icon opening a search input. `draft` holds live keystrokes; `applied` is the
-// committed set that actually drives the query (debounced), so we re-query once
-// the user pauses rather than on every keystroke. Both start from any seeded
-// filter so a drill-down opens with the funnel already filled + its value shown.
-const draftFilters = ref<Record<string, string>>(seededColumnValues())
-const appliedFilters = ref<Record<string, string>>(seededColumnValues())
+// icon opening a type-specific control (text search / enum select / date range).
+// `draft` holds live edits; `applied` is the committed set that drives the query.
+// Both start from any seeded filter so a drill-down opens with the funnel filled.
+const draftFilters = ref<Record<string, FilterValue>>(seededColumnValues())
+const appliedFilters = ref<Record<string, FilterValue>>(seededColumnValues())
 const openFilter = ref<string | null>(null)
 let filterTimer: ReturnType<typeof setTimeout> | undefined
 
@@ -79,14 +113,50 @@ function toggleFilter(c: InstanceColumn): void {
   if (!c.filter) return
   openFilter.value = openFilter.value === c.filter.field ? null : c.filter.field
 }
-function onFilterInput(c: InstanceColumn, value: string): void {
+function setDraft(field: string, value: FilterValue): void {
+  draftFilters.value = { ...draftFilters.value, [field]: value }
+}
+function commit(): void {
+  page.value = 1
+  appliedFilters.value = { ...draftFilters.value }
+}
+/** Free-text: debounce so we re-query once typing pauses. */
+function onTextInput(c: InstanceColumn, value: string): void {
   if (!c.filter) return
-  draftFilters.value = { ...draftFilters.value, [c.filter.field]: value }
+  setDraft(c.filter.field, value)
   if (filterTimer) clearTimeout(filterTimer)
-  filterTimer = setTimeout(() => {
-    page.value = 1
-    appliedFilters.value = { ...draftFilters.value }
-  }, 350)
+  filterTimer = setTimeout(commit, 350)
+}
+/** Enum multi-select (status / state): toggle a value, commit immediately. */
+function arrVal(c: InstanceColumn): string[] {
+  const v = c.filter ? draftFilters.value[c.filter.field] : undefined
+  return Array.isArray(v) ? v : []
+}
+function isChecked(c: InstanceColumn, value: string): boolean {
+  return arrVal(c).includes(value)
+}
+function onToggle(c: InstanceColumn, value: string): void {
+  if (!c.filter) return
+  const cur = arrVal(c)
+  setDraft(c.filter.field, cur.includes(value) ? cur.filter((x) => x !== value) : [...cur, value])
+  commit()
+}
+/** Date range endpoint change: commit immediately. */
+function onDate(c: InstanceColumn, which: 'from' | 'to', value: string): void {
+  if (!c.filter) return
+  const cur = draftFilters.value[c.filter.field]
+  const range: DateRange = cur && typeof cur === 'object' && !Array.isArray(cur) ? { ...cur } : {}
+  range[which] = value
+  setDraft(c.filter.field, range)
+  commit()
+}
+function dateVal(c: InstanceColumn, which: 'from' | 'to'): string {
+  const v = c.filter ? draftFilters.value[c.filter.field] : undefined
+  return v && typeof v === 'object' && !Array.isArray(v) ? (v[which] ?? '') : ''
+}
+function textVal(c: InstanceColumn): string {
+  const v = c.filter ? draftFilters.value[c.filter.field] : undefined
+  return typeof v === 'string' ? v : ''
 }
 function clearFilter(c: InstanceColumn): void {
   if (!c.filter) return
@@ -101,7 +171,12 @@ function clearFilter(c: InstanceColumn): void {
   openFilter.value = null
 }
 function isFiltered(c: InstanceColumn): boolean {
-  return !!(c.filter && appliedFilters.value[c.filter.field])
+  if (!c.filter) return false
+  const v = appliedFilters.value[c.filter.field]
+  if (v == null) return false
+  if (typeof v === 'string') return v !== ''
+  if (Array.isArray(v)) return v.length > 0
+  return !!(v.from || v.to)
 }
 
 /** Column filters (server-side) built from the committed `appliedFilters` set. */
@@ -110,13 +185,22 @@ function columnFilters(): FieldFilter[] {
   for (const c of columns.value) {
     if (!c.filter) continue
     const v = appliedFilters.value[c.filter.field]
-    if (v == null || v === '') continue
-    out.push({
-      field: c.filter.field,
-      operator: c.filter.op ?? 'like',
-      value: v,
-      isAttribute: !!c.filter.isAttribute,
-    })
+    if (v == null) continue
+    const operator = c.filter.op ?? defaultOp(filterType(c))
+    const base = { field: c.filter.field, operator, isAttribute: !!c.filter.isAttribute }
+    if (Array.isArray(v)) {
+      // Multi-select enum → `in [values]`.
+      if (v.length) out.push({ ...base, value: v })
+    } else if (typeof v === 'object') {
+      // Date range → `between [start, end]`; a missing bound gets a wide default
+      // (the backend ignores gte/lte, so a two-sided range is the only option).
+      if (!v.from && !v.to) continue
+      const from = v.from ? `${v.from}T00:00:00Z` : '1970-01-01T00:00:00Z'
+      const to = v.to ? `${v.to}T23:59:59Z` : '2999-12-31T23:59:59Z'
+      out.push({ ...base, value: [from, to] })
+    } else if (v !== '') {
+      out.push({ ...base, value: v })
+    }
   }
   return out
 }
@@ -256,7 +340,26 @@ function last(): void {
 }
 
 watch([page, activeSort, appliedFilters], () => void load())
-onMounted(() => void load())
+
+onMounted(async () => {
+  // A "state" filter offers the workflow's own states — fetch them once.
+  if (columns.value.some((c) => filterType(c) === 'state') && delegate.getWorkflowStates) {
+    try {
+      workflowStates.value = await delegate.getWorkflowStates({
+        domain: props.node.domain,
+        workflow: props.node.workflow,
+        ...(props.node.version ? { version: props.node.version } : {}),
+      })
+    } catch (e) {
+      log('error', 'InstanceList could not load workflow states for the state filter', undefined, {
+        source: 'InstanceList',
+        workflow: `${props.node.domain}/${props.node.workflow}`,
+        error: e instanceof Error ? e.message : String(e),
+      })
+    }
+  }
+  void load()
+})
 </script>
 
 <template>
@@ -294,12 +397,40 @@ onMounted(() => void load())
               </button>
             </span>
             <div v-if="c.filter && openFilter === c.filter.field" class="d-instancelist-filterpop" @click.stop>
+              <!-- Enum multi-select: status (built-in) or state (workflow's states) -->
+              <div v-if="isEnum(c)" class="d-instancelist-filterchecks">
+                <span v-if="!optionsFor(c).length" class="d-instancelist-filterempty">…</span>
+                <label v-for="o in optionsFor(c)" :key="o.value" class="d-instancelist-check">
+                  <input type="checkbox" :checked="isChecked(c, o.value)" @change="onToggle(c, o.value)" />
+                  <span>{{ optLabel(o) }}</span>
+                </label>
+              </div>
+              <!-- Date range: start + end (backend `between`) -->
+              <template v-else-if="filterType(c) === 'daterange'">
+                <input
+                  type="date"
+                  class="d-instancelist-filterdate"
+                  :value="dateVal(c, 'from')"
+                  :aria-label="ctx.lang.startsWith('tr') ? 'Başlangıç' : 'From'"
+                  @change="onDate(c, 'from', ($event.target as HTMLInputElement).value)"
+                />
+                <span class="d-instancelist-filterdash">–</span>
+                <input
+                  type="date"
+                  class="d-instancelist-filterdate"
+                  :value="dateVal(c, 'to')"
+                  :aria-label="ctx.lang.startsWith('tr') ? 'Bitiş' : 'To'"
+                  @change="onDate(c, 'to', ($event.target as HTMLInputElement).value)"
+                />
+              </template>
+              <!-- Free-text search (default) -->
               <input
+                v-else
                 type="text"
                 class="d-instancelist-filterinput"
-                :value="draftFilters[c.filter.field] ?? ''"
+                :value="textVal(c)"
                 :placeholder="ctx.lang.startsWith('tr') ? 'Ara…' : 'Search…'"
-                @input="onFilterInput(c, ($event.target as HTMLInputElement).value)"
+                @input="onTextInput(c, ($event.target as HTMLInputElement).value)"
               />
               <button
                 v-if="isFiltered(c)"

@@ -17,6 +17,7 @@ import { PseudoView } from '@burgan-tech/pseudo-ui/vue';
 import { loadShellView } from '../boot/appHost';
 import { makeDriveWorkflow } from '../boot/workflowDriver';
 import { queryInstances } from '../boot/instanceQuery';
+import { getWorkflowStates } from '../boot/workflowStates';
 import { localize } from '../sdk/i18n';
 import { ITEMS_BY_KEY, APP_ROUTER, APP_SET_TOKEN_LEVEL } from '../boot/keys';
 
@@ -162,6 +163,8 @@ const delegate: PseudoViewDelegate = {
   // filter travels via this surface's instanceData (see below) and is seeded as
   // a visible column filter by the list itself.
   queryInstances,
+  // Selectable states for a `state`-type column filter (read off the workflow def).
+  getWorkflowStates,
   async onAction(action, data, command) {
     // Navigation taps (e.g. a group's children, or a row-action drill-down that
     // carries a filter payload).

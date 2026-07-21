@@ -276,7 +276,7 @@
   z-index: 20;
   margin-top: 0.25rem;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 0.25rem;
   padding: 0.35rem;
   background: var(--color-surface, #fff);
@@ -284,6 +284,38 @@
   border-radius: 8px;
   box-shadow: 0 6px 18px rgba(0, 0, 0, 0.12);
 }
+/* Enum multi-select (status / state) — vertical checkbox list */
+.d-instancelist-filterchecks {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  max-height: 14rem;
+  overflow-y: auto;
+  min-width: 9rem;
+}
+.d-instancelist-check {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.85rem;
+  font-weight: 400;
+  color: var(--color-on-surface, #1f2430);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.d-instancelist-check input { cursor: pointer; }
+.d-instancelist-filterempty { font-size: 0.85rem; color: var(--color-muted, #889); padding: 0.2rem; }
+/* Date range endpoints */
+.d-instancelist-filterdate {
+  border: 1px solid var(--color-border, #d6dae6);
+  border-radius: 6px;
+  padding: 0.25rem 0.4rem;
+  font: inherit;
+  font-size: 0.8rem;
+  color: var(--color-on-surface, #1f2430);
+  background: var(--color-surface, #fff);
+}
+.d-instancelist-filterdash { align-self: center; color: var(--color-muted, #889); }
 .d-instancelist-filterinput {
   border: 1px solid var(--color-border, #d6dae6);
   border-radius: 6px;

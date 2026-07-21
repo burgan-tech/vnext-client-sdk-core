@@ -111,7 +111,15 @@ export interface WorkflowViewConfig {
 export interface InstanceFieldFilter {
   /** Backend field name to filter on (e.g. "deviceId", "status"). */
   field: string
-  /** Comparison operator (default "like" for column search, "eq" for actions). */
+  /**
+   * Filter control type (column filters only; default "text"):
+   * - "text" — substring search (`like`)
+   * - "status" — multi-select of the generic vNext instance-status enum (`in`)
+   * - "state" — multi-select of the workflow's own states, fetched at runtime (`in`)
+   * - "daterange" — start/end date pickers (`between`)
+   */
+  type?: string
+  /** Comparison operator override (default derives from {@link type}). */
   op?: string
   /** Wrap under `attributes.<field>` (for instance-data fields). */
   isAttribute?: boolean
@@ -586,6 +594,16 @@ export interface PseudoViewDelegate {
    * only if views use `InstanceList` nodes.
    */
   queryInstances?(input: InstanceQuery): Promise<InstanceQueryResult>
+  /**
+   * Return a workflow's selectable states for a `state`-type column filter
+   * (typically read off the workflow definition). Required only if a view uses
+   * an InstanceList column with `filter.type: "state"`.
+   */
+  getWorkflowStates?(input: {
+    domain: string
+    workflow: string
+    version?: string
+  }): Promise<Array<{ value: string; label?: MultiLangText | string | Array<{ language: string; label: string }> }>>
   /**
    * Called when a user-triggered action reaches the host. For a plain
    * action, the SDK invokes this with three arguments (the 4th
