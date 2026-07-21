@@ -1217,7 +1217,10 @@ function menuItems(items: any[]) {
       :class="{ 'd-tab--active': tab.active }"
       @click="onTabActivate(tab.tabKey)"
     >
-      <span>{{ tab.label ?? tab.tabKey }}</span>
+      <span class="d-tab__labels">
+        <span class="d-tab__label">{{ tab.label ?? tab.tabKey }}</span>
+        <span v-if="tab.subtitle" class="d-tab__subtitle">{{ tab.subtitle }}</span>
+      </span>
       <button
         v-if="tab.closable"
         class="d-tab__close"

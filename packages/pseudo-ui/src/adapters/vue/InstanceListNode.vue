@@ -46,16 +46,34 @@ const lastPage = ref<number | undefined>(undefined)
 const loading = ref(false)
 const errorText = ref('')
 
+type FieldFilter = { field: string; operator: string; value: unknown; isAttribute: boolean }
+
+// An incoming filter seeded by the host (e.g. a drill-down passes it via the
+// surface's instanceData). Entries whose field matches a filterable column are
+// shown as an active column filter; the rest apply as a hidden base (below).
+const seedFilter = computed<FieldFilter[]>(() =>
+  Array.isArray(ctx.instanceData?.filter) ? (ctx.instanceData.filter as FieldFilter[]) : [],
+)
+function columnFor(field: string): InstanceColumn | undefined {
+  return columns.value.find((c) => c.filter?.field === field)
+}
+function seededColumnValues(): Record<string, string> {
+  const out: Record<string, string> = {}
+  for (const e of seedFilter.value) {
+    if (columnFor(e.field)) out[e.field] = String(e.value)
+  }
+  return out
+}
+
 // Column filters are view-driven: a column with a `filter` config gets a funnel
 // icon opening a search input. `draft` holds live keystrokes; `applied` is the
 // committed set that actually drives the query (debounced), so we re-query once
-// the user pauses rather than on every keystroke.
-const draftFilters = ref<Record<string, string>>({})
-const appliedFilters = ref<Record<string, string>>({})
+// the user pauses rather than on every keystroke. Both start from any seeded
+// filter so a drill-down opens with the funnel already filled + its value shown.
+const draftFilters = ref<Record<string, string>>(seededColumnValues())
+const appliedFilters = ref<Record<string, string>>(seededColumnValues())
 const openFilter = ref<string | null>(null)
 let filterTimer: ReturnType<typeof setTimeout> | undefined
-
-type FieldFilter = { field: string; operator: string; value: unknown; isAttribute: boolean }
 
 function toggleFilter(c: InstanceColumn): void {
   if (!c.filter) return
@@ -103,11 +121,14 @@ function columnFilters(): FieldFilter[] {
   return out
 }
 
-/** Config base filter (if a plain array) AND the active column filters. */
+/** Config base filter + seeded filters without a visible column + column filters. */
 function effectiveFilter(): unknown {
   const cols = columnFilters()
-  const base = Array.isArray(props.node.filter) ? (props.node.filter as FieldFilter[]) : []
-  const all = [...base, ...cols]
+  const configBase = Array.isArray(props.node.filter) ? (props.node.filter as FieldFilter[]) : []
+  // Seeded entries that map to a column are already covered by `cols`; the rest
+  // apply invisibly (no matching filterable column to show them in).
+  const seedBase = seedFilter.value.filter((e) => !columnFor(e.field))
+  const all = [...configBase, ...seedBase, ...cols]
   if (all.length) return all
   return props.node.filter ?? undefined
 }

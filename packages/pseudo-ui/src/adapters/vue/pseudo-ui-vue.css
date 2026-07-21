@@ -668,6 +668,9 @@
   border-radius: var(--radius-sm, 8px) var(--radius-sm, 8px) 0 0; background: var(--color-hover, #f1f2f8);
 }
 .d-tab--active { background: var(--color-surface, #fff); font-weight: 600; }
+.d-tab__labels { display: inline-flex; flex-direction: column; line-height: 1.15; }
+.d-tab__label { font-size: 0.85rem; }
+.d-tab__subtitle { font-size: 0.7rem; font-weight: 400; color: var(--color-muted, #889); }
 .d-tab__close { border: none; background: transparent; cursor: pointer; font-size: 1rem; line-height: 1; color: var(--color-muted, #667); padding: 0 0.1rem; }
 
 .d-workflow-startform { display: flex; flex-direction: column; gap: 0.9rem; max-width: 360px; }

@@ -46,12 +46,20 @@ const lang = computed(() => routerState.locale.value);
 
 // Live MDI state → the backend TabStrip component (open tabs + shell mode).
 const isMdi = computed(() => routerState.shellMode.value === ShellMode.mdi);
+// Drop an unresolved "{{key}}" template (tab whose payload lacks that key).
+function subtitleOf(s: string | undefined): string {
+  return s && !s.includes('{{') ? s : '';
+}
 const tabs = computed(() =>
   routerState.openTabs.value.map((t: OpenTab) => {
-    const item = t.item as { title?: LocalizedText; key?: string } | undefined;
+    const item = t.item as { title?: LocalizedText; subtitle?: LocalizedText; key?: string } | undefined;
     return {
       tabKey: t.tabKey,
       label: localize(item?.title, lang.value) || item?.key || t.tabKey,
+      // Second line disambiguates same-titled tabs (e.g. per-device drill-downs).
+      // The router interpolates the route's subtitle template from the payload;
+      // an unresolved placeholder (no such payload key on this tab) shows nothing.
+      subtitle: subtitleOf(localize(item?.subtitle, lang.value)),
       active: t.tabKey === routerState.activeTab.value?.tabKey,
       closable: t.isClosable,
     };

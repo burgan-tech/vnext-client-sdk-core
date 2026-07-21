@@ -56,6 +56,9 @@ export function buildRouteRegistry(
       lifetime: (typeof cfg.lifetime === 'string' ? cfg.lifetime : 'singleton') as string,
       ...(singletonKey ? { singletonKey } : {}),
       defaultTitle: item.title ?? item.key!,
+      // `tabSubtitle` is a template (e.g. "{{deviceId}}") the router interpolates
+      // from the tab payload — a second line that tells same-titled tabs apart.
+      ...(cfg.tabSubtitle !== undefined ? { defaultSubtitle: cfg.tabSubtitle } : {}),
       config: { navItem: item },
     };
   });

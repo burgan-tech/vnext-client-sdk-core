@@ -12,12 +12,7 @@ import { computed, inject, ref, watch } from 'vue';
 import type { IPageRouter } from 'page-router';
 import { usePageRouter } from 'page-router-vue';
 import type { NavItem, TokenLevel } from '@burgan-tech/app-host';
-import type {
-  ViewDefinition,
-  PseudoViewDelegate,
-  InstanceQuery,
-  InstanceQueryResult,
-} from '@burgan-tech/pseudo-ui';
+import type { ViewDefinition, PseudoViewDelegate } from '@burgan-tech/pseudo-ui';
 import { PseudoView } from '@burgan-tech/pseudo-ui/vue';
 import { loadShellView } from '../boot/appHost';
 import { makeDriveWorkflow } from '../boot/workflowDriver';
@@ -49,16 +44,6 @@ function go(key?: string, navPayload?: Record<string, unknown>) {
   // page-router carries navigation params as `extraData` (undeclared keys pass
   // through to the tab payload); it has no `payload` field on the request.
   if (key && router) void router.navigate({ routeKey: key, ...(navPayload ? { extraData: navPayload } : {}) });
-}
-
-// Instance queries for this surface: prepend the tab's payload filter (from a
-// drill-down) as an AND base, so the opened list is scoped without the view
-// config needing to know about the runtime filter.
-function queryInstancesForSurface(input: InstanceQuery): Promise<InstanceQueryResult> {
-  const base = Array.isArray(payload.value.filter) ? (payload.value.filter as unknown[]) : [];
-  if (base.length === 0) return queryInstances(input);
-  const own = Array.isArray(input.filter) ? input.filter : input.filter != null ? [input.filter] : [];
-  return queryInstances({ ...input, filter: [...base, ...own] });
 }
 
 // ── The view rendered for this item, as a pseudo-ui ViewDefinition ──────────
@@ -146,7 +131,9 @@ const isFullPage = computed(
 );
 
 // Instance data fed to the rendered view: localized title/subtitle (workflow +
-// group headers) and the child items (group). Empty for dynamicView.
+// group headers) and the child items (group). For a dynamicView it carries the
+// tab payload — a drill-down's `filter` reaches the InstanceList this way and is
+// shown as a seeded, visible column filter.
 const instanceData = computed<Record<string, unknown>>(() => {
   const n = nav.value;
   if (!n) return {};
@@ -156,6 +143,7 @@ const instanceData = computed<Record<string, unknown>>(() => {
   if (n.type === 'workflow') {
     return { title: t(n.title) || n.key, subtitle: n.subtitle ? t(n.subtitle) : '' };
   }
+  if (n.type === 'dynamicView') return { ...payload.value };
   return {};
 });
 
@@ -170,9 +158,10 @@ const delegate: PseudoViewDelegate = {
   },
   // The workflow driver (owns the workflow client + interactive-login success).
   driveWorkflow: makeDriveWorkflow({ setTokenLevel: setTokenLevel ?? undefined }),
-  // Paged instance listing for InstanceList nodes (read-only). Scoped to this
-  // surface so a drill-down's payload filter is applied automatically.
-  queryInstances: queryInstancesForSurface,
+  // Paged instance listing for InstanceList nodes (read-only). A drill-down's
+  // filter travels via this surface's instanceData (see below) and is seeded as
+  // a visible column filter by the list itself.
+  queryInstances,
   async onAction(action, data, command) {
     // Navigation taps (e.g. a group's children, or a row-action drill-down that
     // carries a filter payload).
