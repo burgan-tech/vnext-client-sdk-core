@@ -358,6 +358,24 @@
 .d-instancelist-row--clickable {
   cursor: pointer;
 }
+/* Per-row technical-metadata affordance (narrow trailing column) */
+.d-instancelist-th--meta,
+.d-instancelist-metacell {
+  width: 2.5rem;
+  text-align: center;
+  overflow: visible;
+}
+.d-instancelist-info {
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  color: var(--color-muted, #889);
+  font-size: 0.95rem;
+  line-height: 1;
+  padding: 0.15rem;
+}
+.d-instancelist-info:hover { color: var(--color-primary, #2563eb); }
+.d-raw-dialog--sm { width: min(460px, 100%); }
 .d-instancelist-status td {
   text-align: center;
   color: var(--color-muted, #889);

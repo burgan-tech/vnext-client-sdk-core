@@ -285,6 +285,40 @@ function onRowClick(row: Record<string, unknown>): void {
   })
 }
 
+// Per-row technical metadata (id/key/flow/…) — shown in a popup so it stays out
+// of the business-facing columns. `metaRow` holds the row whose popup is open.
+const metaRow = ref<Record<string, unknown> | null>(null)
+const META_FIELDS: Array<{ k: string; label: { en: string; tr: string }; date?: boolean }> = [
+  { k: 'id', label: { en: 'ID', tr: 'ID' } },
+  { k: 'key', label: { en: 'Key', tr: 'Anahtar' } },
+  { k: 'name', label: { en: 'Flow', tr: 'Akış' } },
+  { k: 'flow', label: { en: 'Flow', tr: 'Akış' } },
+  { k: 'flowVersion', label: { en: 'Version', tr: 'Sürüm' } },
+  { k: 'domain', label: { en: 'Domain', tr: 'Alan' } },
+  { k: 'createdAt', label: { en: 'Created', tr: 'Oluşturma' }, date: true },
+  { k: 'modifiedAt', label: { en: 'Modified', tr: 'Değişiklik' }, date: true },
+]
+function metaItems(): Array<{ label: string; value: string }> {
+  const r = metaRow.value
+  if (!r) return []
+  const out: Array<{ label: string; value: string }> = []
+  const seen = new Set<string>()
+  for (const f of META_FIELDS) {
+    const v = r[f.k]
+    if (v == null || v === '') continue
+    const label = localizeLabel(f.label as never, ctx.lang)
+    if (seen.has(label)) continue // 'name'/'flow' collapse to one "Flow" row
+    seen.add(label)
+    let value = String(v)
+    if (f.date) {
+      const d = new Date(String(v))
+      if (!Number.isNaN(d.getTime())) value = d.toLocaleString(ctx.lang)
+    }
+    out.push({ label, value })
+  }
+  return out
+}
+
 /** The active sort direction on this column, or null if it isn't the sorted one. */
 function sortState(c: InstanceColumn): 'asc' | 'desc' | null {
   const a = activeSort.value
@@ -489,14 +523,15 @@ onMounted(async () => {
               </button>
             </div>
           </th>
+          <th class="d-instancelist-th d-instancelist-th--meta" aria-hidden="true"></th>
         </tr>
       </thead>
       <tbody>
         <tr v-if="loading" class="d-instancelist-status">
-          <td :colspan="columns.length || 1"><i class="pi pi-spinner pi-spin"></i></td>
+          <td :colspan="columns.length + 1"><i class="pi pi-spinner pi-spin"></i></td>
         </tr>
         <tr v-else-if="!items.length" class="d-instancelist-status">
-          <td :colspan="columns.length || 1">{{ ctx.lang.startsWith('tr') ? 'Kayıt yok' : 'No records' }}</td>
+          <td :colspan="columns.length + 1">{{ ctx.lang.startsWith('tr') ? 'Kayıt yok' : 'No records' }}</td>
         </tr>
         <tr
           v-else
@@ -517,6 +552,17 @@ onMounted(async () => {
             <span v-else-if="isChip(c)" :class="chipClass(row, c)">{{ cell(row, c) }}</span>
             <template v-else>{{ cell(row, c) }}</template>
           </td>
+          <td class="d-instancelist-metacell">
+            <button
+              type="button"
+              class="d-instancelist-info"
+              :title="ctx.lang.startsWith('tr') ? 'Teknik bilgi' : 'Technical info'"
+              aria-label="Metadata"
+              @click.stop="metaRow = row"
+            >
+              <i class="pi pi-info-circle"></i>
+            </button>
+          </td>
         </tr>
       </tbody>
     </table>
@@ -534,6 +580,24 @@ onMounted(async () => {
       >
         »
       </button>
+    </div>
+
+    <!-- Per-row technical metadata popup (id / key / flow / dates). -->
+    <div v-if="metaRow" class="d-raw-modal" @click.self="metaRow = null">
+      <div class="d-raw-dialog d-raw-dialog--sm" role="dialog" aria-modal="true">
+        <header class="d-raw-head">
+          <span>{{ ctx.lang.startsWith('tr') ? 'Teknik Bilgi' : 'Metadata' }}</span>
+          <button type="button" class="d-raw-close" aria-label="Close" @click="metaRow = null">×</button>
+        </header>
+        <div class="d-hist">
+          <dl class="d-detail">
+            <template v-for="m in metaItems()" :key="m.label">
+              <dt class="d-detail__key">{{ m.label }}</dt>
+              <dd class="d-detail__val">{{ m.value }}</dd>
+            </template>
+          </dl>
+        </div>
+      </div>
     </div>
   </div>
 </template>
