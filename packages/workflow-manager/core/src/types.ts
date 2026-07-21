@@ -466,6 +466,29 @@ export interface GetInstanceResult {
   error?: WorkflowErrorPayload;
 }
 
+export interface GetWorkflowStatesInput {
+  domain: string;
+  /** Workflow name whose definition (and thus states) to read. */
+  workflow: string;
+  version?: string;
+}
+
+/** One state from a workflow definition. */
+export interface WorkflowStateInfo {
+  key: string;
+  /** Localized labels from the definition, if present. */
+  labels?: Array<{ language: string; label: string }>;
+  /** State-type discriminator (1=initial, 2=intermediate, 3=final, …). */
+  type?: number;
+}
+
+export interface GetWorkflowStatesResult {
+  ok: boolean;
+  states: WorkflowStateInfo[];
+  statusCode?: number;
+  error?: WorkflowErrorPayload;
+}
+
 export interface VNextFilter {
   field: string;
   operator: FilterOperator;

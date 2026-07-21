@@ -6,10 +6,10 @@
 // ─────────────────────────────────────────────────────────────────────────
 import type { InstanceQuery, InstanceQueryResult } from '@burgan-tech/pseudo-ui';
 import type { QueryInstancesInput } from 'amorphie-workflow-manager';
-import { idmWorkflowManager } from './idmWorkflow';
+import { workflowManager } from './workflowClient';
 
 export async function queryInstances(input: InstanceQuery): Promise<InstanceQueryResult> {
-  const res = await idmWorkflowManager.queryInstances({
+  const res = await workflowManager.queryInstances({
     domain: input.domain,
     name: input.workflow,
     ...(input.version ? { version: input.version } : {}),

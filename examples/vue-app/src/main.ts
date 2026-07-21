@@ -21,7 +21,7 @@ import type { AppHost, TokenLevel } from '@burgan-tech/app-host';
 import HostShell from './HostShell.vue';
 import NavView from './components/NavView.vue';
 import { bootAppHost } from './boot/appHost';
-import { idmWorkflowManager } from './boot/idmWorkflow';
+import { workflowManager } from './boot/workflowClient';
 import { runInitialization, type InitEntry } from './boot/initialization';
 import { getMorphClient } from './boot/morphClient';
 import { loadAndApplyTheme } from './boot/theme';
@@ -109,7 +109,7 @@ async function start(overrideLevel?: TokenLevel): Promise<void> {
   // x-context-source filter fills each payload from context-store.
   if (!overrideLevel) {
     const init = (host.state.clientConfig.initialization ?? []) as InitEntry[];
-    if (init.length) void runInitialization(idmWorkflowManager, init, { tokenLevel: host.state.tokenLevel });
+    if (init.length) void runInitialization(workflowManager, init, { tokenLevel: host.state.tokenLevel });
   }
 }
 

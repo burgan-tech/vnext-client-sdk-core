@@ -13,7 +13,7 @@ import { useWorkflow } from 'amorphie-workflow-manager-vue';
 import type { DataSchema, ViewDefinition, WorkflowSession, WorkflowViewConfig } from '@burgan-tech/pseudo-ui';
 import { loadSchemaByKey, schemaKeyFromDataSchema } from './schemaCache';
 import type { TokenLevel } from '@burgan-tech/app-host';
-import { idmWorkflowManager } from './idmWorkflow';
+import { workflowManager } from './workflowClient';
 import { createPkce, type Pkce } from './pkce';
 import { completeLogin } from './login';
 import { getInteractiveLoginWorkflow } from './morphClient';
@@ -37,7 +37,7 @@ function transitionKeyFrom(command: string): string {
 export function makeDriveWorkflow(opts: WorkflowDriverOptions = {}) {
   return (config: WorkflowViewConfig): WorkflowSession => {
     const wf = useWorkflow({
-      manager: idmWorkflowManager,
+      manager: workflowManager,
       domain: config.domain,
       name: config.name,
       ...(config.version ? { version: config.version } : {}),

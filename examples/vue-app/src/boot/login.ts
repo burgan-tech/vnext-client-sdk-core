@@ -7,7 +7,7 @@
 // context-store under the user boundary.
 // ─────────────────────────────────────────────────────────────────────────
 import { contextStore } from '../sdk/context';
-import { idmFetch } from './idmWorkflow';
+import { apiFetch } from './workflowClient';
 import { reinitMorphClient, getLoginAuthId, setMorphTokens, getInteractiveLoginWorkflow } from './morphClient';
 
 /**
@@ -76,7 +76,7 @@ export async function completeLogin(
   const wfPath = (workflow: string) => `/${lw.domain}/workflows/${workflow}/instances`;
 
   // 1. Find the token subflow instance from the login instance state.
-  const state = await idmFetch<{ activeCorrelations?: Correlation[] }>(
+  const state = await apiFetch<{ activeCorrelations?: Correlation[] }>(
     `${wfPath(lw.workflow)}/${loginInstanceId}/functions/state`,
     { query: { sync: 'true' } },
   );
@@ -91,14 +91,14 @@ export async function completeLogin(
 
   // 2. Redeem the token subflow with the PKCE codeVerifier (lenient: some flows
   //    auto-issue without a redeem, so we still read data even if this fails).
-  const redeem = await idmFetch(
+  const redeem = await apiFetch(
     `${wfPath(tokenWf)}/${tokenInstanceId}/transitions/redeem`,
     { method: 'PATCH', query: { sync: 'true' }, body: { attributes: { codeVerifier } } },
   );
   if (!redeem.ok) console.warn('[login] token redeem non-ok', redeem.status, JSON.stringify(redeem.data).slice(0, 160));
 
   // 3. Read the issued tokens.
-  const data = await idmFetch(
+  const data = await apiFetch(
     `${wfPath(tokenWf)}/${tokenInstanceId}/functions/data`,
     { query: { sync: 'true' } },
   );

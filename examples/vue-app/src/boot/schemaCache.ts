@@ -6,7 +6,7 @@
 // pseudo-ui renders x-labels + validation). One fetch, one cache.
 // ─────────────────────────────────────────────────────────────────────────
 import type { SourceSchema } from '@burgan-tech/app-host';
-import { idmFetch } from './idmWorkflow';
+import { apiFetch } from './workflowClient';
 
 /** Pull `attributes` from an instance response (tolerates the wrapped shape). */
 export function attrsOf(data: unknown): Record<string, unknown> {
@@ -24,7 +24,7 @@ export function loadSchemaByKey(domain: string, key: string): Promise<SourceSche
   const cacheKey = `${domain}:${key}`;
   let p = schemaCache.get(cacheKey);
   if (!p) {
-    p = idmFetch(`/${domain}/workflows/sys-schemas/instances/${key}`, { query: { sync: 'true' } })
+    p = apiFetch(`/${domain}/workflows/sys-schemas/instances/${key}`, { query: { sync: 'true' } })
       .then((r) => (r.ok ? ((attrsOf(r.data).schema as SourceSchema) ?? null) : null))
       .catch(() => null);
     schemaCache.set(cacheKey, p);

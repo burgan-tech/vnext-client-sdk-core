@@ -118,6 +118,9 @@ export type {
   // ---- one-shot envelope read
   GetInstanceInput,
   GetInstanceResult,
+  GetWorkflowStatesInput,
+  GetWorkflowStatesResult,
+  WorkflowStateInfo,
 
   // ---- query / filter
   QueryInstancesInput,

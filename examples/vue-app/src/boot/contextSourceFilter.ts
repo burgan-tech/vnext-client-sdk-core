@@ -15,7 +15,7 @@
 import type { TransitionBodyFilter } from 'amorphie-workflow-manager';
 import { resolveContextSource, type ContextSourceReaders } from '@burgan-tech/app-host';
 import { Boundary, Storage, contextStore, getContextValue } from '../sdk/context';
-import { idmFetch } from './idmWorkflow';
+import { apiFetch } from './workflowClient';
 import { attrsOf, loadSchemaByKey } from './schemaCache';
 
 // ── Workflow-definition resolution (find a transition's schema ref, no instance) ──
@@ -32,7 +32,7 @@ function loadDef(domain: string, workflow: string): Promise<WorkflowDef | null> 
   const k = `${domain}:${workflow}`;
   let p = defCache.get(k);
   if (!p) {
-    p = idmFetch(`/${domain}/workflows/sys-flows/instances/${workflow}`, { query: { sync: 'true' } })
+    p = apiFetch(`/${domain}/workflows/sys-flows/instances/${workflow}`, { query: { sync: 'true' } })
       .then((r) => (r.ok ? (attrsOf(r.data) as WorkflowDef) : null))
       .catch(() => null);
     defCache.set(k, p);

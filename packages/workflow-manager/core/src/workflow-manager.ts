@@ -27,6 +27,9 @@ import type {
   FunctionCallResult,
   GetInstanceInput,
   GetInstanceResult,
+  GetWorkflowStatesInput,
+  GetWorkflowStatesResult,
+  WorkflowStateInfo,
   GetTransitionHistoryInput,
   GetTransitionHistoryResult,
   HttpResponse,
@@ -391,6 +394,45 @@ export class WorkflowManager {
       instance: parseGetInstanceResponse(response),
       statusCode: response.status,
     };
+  }
+
+  /**
+   * Read a workflow's selectable states from its definition. In vNext a workflow
+   * definition is itself a `sys-flows` instance keyed by the workflow name, so we
+   * fetch that instance and surface its `states`. Domain-agnostic — pass any
+   * domain whose workflow you want.
+   */
+  async getWorkflowStates(input: GetWorkflowStatesInput): Promise<GetWorkflowStatesResult> {
+    if (this._isDisposed) return { ok: false, states: [], error: { code: 'disposed' } };
+    const res = await this.getInstance({
+      domain: input.domain,
+      name: 'sys-flows',
+      instanceId: input.workflow,
+      ...(input.version !== undefined ? { version: input.version } : {}),
+    });
+    if (!res.ok || !res.instance) {
+      return {
+        ok: res.ok,
+        states: [],
+        ...(res.statusCode !== undefined ? { statusCode: res.statusCode } : {}),
+        ...(res.error !== undefined ? { error: res.error } : {}),
+      };
+    }
+    const attrs = (res.instance.attributes ?? {}) as { states?: unknown };
+    const raw = Array.isArray(attrs.states) ? attrs.states : [];
+    const states: WorkflowStateInfo[] = [];
+    for (const s of raw) {
+      if (!s || typeof s !== 'object') continue;
+      const o = s as Record<string, unknown>;
+      if (typeof o.key !== 'string' || o.key === '') continue;
+      const type = typeof o.stateType === 'number' ? o.stateType : typeof o.type === 'number' ? o.type : undefined;
+      states.push({
+        key: o.key,
+        ...(Array.isArray(o.labels) ? { labels: o.labels as Array<{ language: string; label: string }> } : {}),
+        ...(type !== undefined ? { type } : {}),
+      });
+    }
+    return { ok: true, states, ...(res.statusCode !== undefined ? { statusCode: res.statusCode } : {}) };
   }
 
   async callDomainFunction(input: DomainFunctionInput): Promise<FunctionCallResult> {
