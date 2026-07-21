@@ -116,6 +116,39 @@ function highlightJson(value: unknown): string {
 }
 const rawJson = computed(() => highlightJson(instanceValues.value))
 
+// Detail toolbar: current state, available transitions (dropdown → drive it),
+// and transition history (button → modal). All optional on the session.
+const stateLabel = computed(() => session?.state?.value ?? '')
+const transitionOptions = computed(() => session?.transitions?.value ?? [])
+const showHistory = ref(false)
+const loadingHistory = ref(false)
+const historyItems = ref<
+  Array<{ transitionKey: string; fromState: string; toState: string; at?: string; triggerType?: string }>
+>([])
+async function onPickTransition(e: Event): Promise<void> {
+  const el = e.target as HTMLSelectElement
+  const key = el.value
+  el.value = ''
+  if (key && session) await session.submit(key, {})
+}
+async function openHistory(): Promise<void> {
+  if (!session?.history) return
+  showHistory.value = true
+  loadingHistory.value = true
+  try {
+    historyItems.value = await session.history()
+  } catch {
+    historyItems.value = []
+  } finally {
+    loadingHistory.value = false
+  }
+}
+function fmtAt(at?: string): string {
+  if (!at) return ''
+  const d = new Date(at)
+  return Number.isNaN(d.getTime()) ? at : d.toLocaleString(ctx.lang)
+}
+
 const detailRows = computed<Array<{ key: string; value: string }>>(() => {
   const d = instanceValues.value
   return Object.entries(d)
@@ -150,17 +183,42 @@ onUnmounted(() => session?.dispose?.())
 
 <template>
   <div class="d-workflow" :class="{ 'd-workflow--detail': detailMode }">
-    <!-- Detail pages: a floating `{ }` button opens the raw instance JSON. -->
-    <button
-      v-if="detailMode && ready"
-      type="button"
-      class="d-raw-btn"
-      :title="ctx.lang.startsWith('tr') ? 'Ham veri (JSON)' : 'Raw data (JSON)'"
-      aria-label="Raw data"
-      @click="showRaw = true"
-    >
-      {&nbsp;}
-    </button>
+    <!-- Detail pages: state + available transitions + history + raw JSON. -->
+    <div v-if="detailMode && ready" class="d-detail-toolbar">
+      <span v-if="stateLabel" class="d-detail-state">
+        <span class="d-detail-state__label">{{ ctx.lang.startsWith('tr') ? 'Durum' : 'State' }}</span>
+        <span class="d-instancelist-chip d-instancelist-chip--success">{{ stateLabel }}</span>
+      </span>
+      <span class="d-detail-toolbar__spacer"></span>
+      <select
+        v-if="transitionOptions.length"
+        class="d-detail-transition"
+        :aria-label="ctx.lang.startsWith('tr') ? 'Geçişler' : 'Transitions'"
+        @change="onPickTransition"
+      >
+        <option value="">
+          {{ ctx.lang.startsWith('tr') ? 'Geçiş…' : 'Transition…' }}
+        </option>
+        <option v-for="t in transitionOptions" :key="t.key" :value="t.key">{{ t.key }}</option>
+      </select>
+      <button
+        v-if="session && session.history"
+        type="button"
+        class="d-detail-histbtn"
+        @click="openHistory"
+      >
+        {{ ctx.lang.startsWith('tr') ? 'Geçmiş' : 'History' }}
+      </button>
+      <button
+        type="button"
+        class="d-raw-btn"
+        :title="ctx.lang.startsWith('tr') ? 'Ham veri (JSON)' : 'Raw data (JSON)'"
+        aria-label="Raw data"
+        @click="showRaw = true"
+      >
+        {&nbsp;}
+      </button>
+    </div>
 
     <!-- Start form: collect the start payload before creating the instance. -->
     <form v-if="needsForm && !started" class="d-workflow-startform" @submit.prevent="begin">
@@ -195,6 +253,29 @@ onUnmounted(() => session?.dispose?.())
         <i class="pi pi-spinner pi-spin"></i>
       </div>
     </template>
+
+    <!-- Transition history modal. -->
+    <div v-if="showHistory" class="d-raw-modal" @click.self="showHistory = false">
+      <div class="d-raw-dialog" role="dialog" aria-modal="true">
+        <header class="d-raw-head">
+          <span>{{ ctx.lang.startsWith('tr') ? 'Geçiş Geçmişi' : 'Transition History' }}</span>
+          <button type="button" class="d-raw-close" aria-label="Close" @click="showHistory = false">×</button>
+        </header>
+        <div class="d-hist">
+          <div v-if="loadingHistory" class="d-hist__empty"><i class="pi pi-spinner pi-spin"></i></div>
+          <p v-else-if="!historyItems.length" class="d-hist__empty">
+            {{ ctx.lang.startsWith('tr') ? 'Kayıt yok' : 'No history' }}
+          </p>
+          <ol v-else class="d-hist__list">
+            <li v-for="(h, i) in historyItems" :key="i" class="d-hist__item">
+              <span class="d-hist__states">{{ h.fromState }} → {{ h.toState }}</span>
+              <span class="d-hist__key">{{ h.transitionKey }}</span>
+              <span class="d-hist__meta">{{ fmtAt(h.at) }}{{ h.triggerType ? ' · ' + h.triggerType : '' }}</span>
+            </li>
+          </ol>
+        </div>
+      </div>
+    </div>
 
     <!-- Raw instance-data modal (scrollable, JSON syntax-highlighted). -->
     <div v-if="showRaw" class="d-raw-modal" @click.self="showRaw = false">

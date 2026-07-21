@@ -275,6 +275,12 @@ export interface WorkflowSession {
   ready: ReadableRef<boolean>
   /** Human-readable error text; empty string when there is none. */
   error: ReadableRef<string>
+  /** Current state key (detail pages show it). Optional. */
+  state?: ReadableRef<string | null>
+  /** Available transitions from the current state (detail pages list them). Optional. */
+  transitions?: ReadableRef<TransitionOption[]>
+  /** Fetch the instance's transition history (detail pages show it). Optional. */
+  history?(): Promise<TransitionHistoryItem[]>
   /** Start the instance, merging any collected start-form values. */
   start(values?: Record<string, unknown>): Promise<void>
   /**
@@ -287,6 +293,24 @@ export interface WorkflowSession {
   submit(command: string, data: Record<string, unknown>): Promise<void>
   /** Release the underlying workflow subscription (called on unmount). */
   dispose?(): void
+}
+
+/** An available transition offered on a detail page (dropdown option). */
+export interface TransitionOption {
+  key: string
+  /** True if the transition defines its own input schema (needs a form). */
+  hasSchema?: boolean
+}
+
+/** One transition the instance has already gone through (history entry). */
+export interface TransitionHistoryItem {
+  transitionKey: string
+  fromState: string
+  toState: string
+  /** ISO timestamp (started/created). */
+  at?: string
+  /** "manual" | "automatic". */
+  triggerType?: string
 }
 
 export type ButtonAction = 'submit' | 'cancel' | 'back'

@@ -50,6 +50,11 @@ export function makeDriveWorkflow(opts: WorkflowDriverOptions = {}) {
 
     const view = computed<ViewDefinition | null>(() => (wf.view.value?.content ?? null) as ViewDefinition | null);
     const data = computed<Record<string, unknown>>(() => (wf.data.value ?? {}) as Record<string, unknown>);
+    // Detail-page extras: current state + available transitions (from the SDK).
+    const state = computed<string | null>(() => (wf.currentState.value as string | undefined) ?? null);
+    const transitions = computed(() =>
+      (wf.transitions.value ?? []).map((t) => ({ key: t.key, hasSchema: !!t.schema?.hasSchema })),
+    );
 
     // Resolve each view's transition schema (from its `dataSchema` ref) so the
     // renderer gets x-labels + validation. Re-resolves whenever the view changes.
@@ -92,6 +97,23 @@ export function makeDriveWorkflow(opts: WorkflowDriverOptions = {}) {
       data,
       ready,
       error,
+      state,
+      transitions,
+      async history() {
+        if (!instanceId.value) return [];
+        const res = await workflowManager.getTransitionHistory({
+          domain: config.domain,
+          name: config.name,
+          instanceId: instanceId.value,
+        });
+        return (res.transitions ?? []).map((e) => ({
+          transitionKey: e.transitionKey,
+          fromState: e.fromState,
+          toState: e.toState,
+          at: e.startedAt ?? e.createdAt,
+          triggerType: e.triggerType,
+        }));
+      },
       async start(values) {
         if (pkceEnabled) pkce = await createPkce();
         // Some flows (e.g. user-change-password) resolve the subject from the
