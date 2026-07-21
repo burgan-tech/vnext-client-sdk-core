@@ -121,6 +121,12 @@ export interface InstanceColumn {
    *   enum (active → green, completed/passive → grey, busy/faulted → red)
    */
   format?: string
+  /**
+   * Backend field name this column sorts by (e.g. "createdAt"). Presence makes
+   * the column header interactively sortable (click to toggle asc/desc). Omit
+   * for columns the backend can't sort. May differ from {@link bind}.
+   */
+  sortField?: string
 }
 
 /**

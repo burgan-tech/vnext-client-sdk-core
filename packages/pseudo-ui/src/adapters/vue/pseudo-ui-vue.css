@@ -219,6 +219,26 @@
   color: var(--color-muted, #667);
   border-bottom: 2px solid var(--color-border, #e3e6ef);
 }
+.d-instancelist-th--sortable {
+  cursor: pointer;
+  user-select: none;
+}
+.d-instancelist-th--sortable:hover {
+  color: var(--color-on-surface, #1f2430);
+}
+.d-instancelist-th-inner {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+.d-instancelist-sort {
+  font-size: 0.7rem;
+  opacity: 0.3;
+}
+.d-instancelist-sort.is-active {
+  opacity: 1;
+  color: var(--color-primary, #2563eb);
+}
 .d-instancelist-table tbody tr:hover {
   background: var(--color-surface-variant, #f6f7fb);
 }

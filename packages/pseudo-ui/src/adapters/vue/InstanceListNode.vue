@@ -19,11 +19,21 @@ const log = delegate.onLog ?? (() => {})
 
 const columns = computed<InstanceColumn[]>(() => props.node.columns ?? [])
 
-// Sensible generic default: newest instances first. `createdAt` is a universal
-// vNext snapshot field, so this is safe for any workflow; a view can override it
-// with its own `sort` (e.g. by a business field, ascending).
-const DEFAULT_SORT = { field: 'createdAt', direction: 'desc' }
-const sort = computed<unknown>(() => props.node.sort ?? DEFAULT_SORT)
+// Sort is view-driven: the default comes from the node's `sort` config; the user
+// then re-sorts interactively by clicking a column whose config marks it sortable
+// (`sortField`). No sort field is hard-coded here.
+type SortSpec = { field: string; direction: 'asc' | 'desc' }
+function normalizeSort(s: unknown): SortSpec | undefined {
+  if (s && typeof s === 'object') {
+    const o = s as Record<string, unknown>
+    if (typeof o.field === 'string' && (o.direction === 'asc' || o.direction === 'desc')) {
+      return { field: o.field, direction: o.direction }
+    }
+  }
+  return undefined
+}
+const activeSort = ref<SortSpec | undefined>(normalizeSort(props.node.sort))
+
 const pageSize = computed(() =>
   typeof props.node.pageSize === 'number' && props.node.pageSize > 0 ? props.node.pageSize : 20,
 )
@@ -37,6 +47,23 @@ const errorText = ref('')
 
 function colLabel(c: InstanceColumn): string {
   return localizeLabel(c.label, ctx.lang) || c.bind
+}
+
+/** The active sort direction on this column, or null if it isn't the sorted one. */
+function sortState(c: InstanceColumn): 'asc' | 'desc' | null {
+  const a = activeSort.value
+  return c.sortField && a && a.field === c.sortField ? a.direction : null
+}
+
+/** Click a sortable header: toggle its direction, or start it descending. */
+function toggleSort(c: InstanceColumn): void {
+  if (!c.sortField || loading.value) return
+  const cur = activeSort.value
+  activeSort.value =
+    cur && cur.field === c.sortField
+      ? { field: c.sortField, direction: cur.direction === 'asc' ? 'desc' : 'asc' }
+      : { field: c.sortField, direction: 'desc' }
+  page.value = 1
 }
 
 /** Read a dot-path off the instance snapshot (e.g. "attributes.deviceId"). */
@@ -94,7 +121,7 @@ async function load(): Promise<void> {
       page: page.value,
       pageSize: pageSize.value,
       ...(props.node.filter !== undefined ? { filter: props.node.filter } : {}),
-      sort: sort.value,
+      ...(activeSort.value ? { sort: activeSort.value } : {}),
     })
     items.value = res.items ?? []
     hasNext.value = !!res.hasNext
@@ -114,7 +141,7 @@ function prev(): void {
   if (hasPrev.value && page.value > 1 && !loading.value) page.value -= 1
 }
 
-watch(page, () => void load())
+watch([page, activeSort], () => void load())
 onMounted(() => void load())
 </script>
 
@@ -124,7 +151,23 @@ onMounted(() => void load())
     <table class="d-instancelist-table">
       <thead>
         <tr>
-          <th v-for="(c, i) in columns" :key="i">{{ colLabel(c) }}</th>
+          <th
+            v-for="(c, i) in columns"
+            :key="i"
+            :class="{ 'd-instancelist-th--sortable': !!c.sortField }"
+            :aria-sort="sortState(c) === 'asc' ? 'ascending' : sortState(c) === 'desc' ? 'descending' : undefined"
+            @click="toggleSort(c)"
+          >
+            <span class="d-instancelist-th-inner">
+              {{ colLabel(c) }}
+              <span
+                v-if="c.sortField"
+                class="d-instancelist-sort"
+                :class="{ 'is-active': !!sortState(c) }"
+                >{{ sortState(c) === 'asc' ? '▲' : sortState(c) === 'desc' ? '▼' : '⇅' }}</span
+              >
+            </span>
+          </th>
         </tr>
       </thead>
       <tbody>
