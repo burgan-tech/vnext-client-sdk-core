@@ -107,6 +107,50 @@ export interface WorkflowViewConfig {
   startFields?: WorkflowStartField[]
 }
 
+/** A column in an {@link InstanceListNode}: which snapshot field to show + its label. */
+export interface InstanceColumn {
+  /** Dot-path into the instance snapshot, e.g. "key", "status", "currentState",
+   * "createdAt", "attributes.deviceId", "attributes.deviceInfo.deviceModel". */
+  bind: string
+  label?: MultiLangText | string | Array<{ language: string; label: string }>
+  /** Render hint: "datetime" | "date" | "text" (default text). */
+  format?: string
+}
+
+/**
+ * Lists a workflow's instances (paged, read-only). The workflow + columns come
+ * from the backend view config, so ONE generic node serves any list — a full
+ * table or a slim summary — just by configuring different columns.
+ */
+export interface InstanceListNode extends ComponentNode {
+  type: 'InstanceList'
+  domain: string
+  workflow: string
+  version?: string
+  pageSize?: number
+  filter?: unknown
+  sort?: unknown
+  columns: InstanceColumn[]
+}
+
+/** A single page query the host runs for an {@link InstanceListNode}. */
+export interface InstanceQuery {
+  domain: string
+  workflow: string
+  version?: string
+  page: number
+  pageSize: number
+  filter?: unknown
+  sort?: unknown
+}
+
+/** One page of instance snapshots; `hasNext`/`hasPrev` drive the pager. */
+export interface InstanceQueryResult {
+  items: Record<string, unknown>[]
+  hasNext: boolean
+  hasPrev: boolean
+}
+
 /**
  * A minimal readable reactive cell. Structurally satisfied by a Vue `Ref<T>`,
  * so the host can return Vue refs without pseudo-ui depending on Vue here.
@@ -483,6 +527,12 @@ export interface PseudoViewDelegate {
    * `WorkflowView` nodes.
    */
   driveWorkflow?(config: WorkflowViewConfig): WorkflowSession
+  /**
+   * Query a workflow's instances for an `InstanceList` node (one page, read-only).
+   * The host owns the transport; pseudo-ui renders the table + pager. Required
+   * only if views use `InstanceList` nodes.
+   */
+  queryInstances?(input: InstanceQuery): Promise<InstanceQueryResult>
   /**
    * Called when a user-triggered action reaches the host. For a plain
    * action, the SDK invokes this with three arguments (the 4th

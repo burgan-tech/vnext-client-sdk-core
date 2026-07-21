@@ -181,6 +181,7 @@ export const componentMeta: Record<string, ComponentMeta> = {
   ProgressIndicator: { type: 'ProgressIndicator', category: 'display', acceptsChildren: false, defaultProps: { variant: 'linear' }, description: 'Linear or circular progress bar.' },
   LoadingIndicator: { type: 'LoadingIndicator', category: 'display', acceptsChildren: false, description: 'Indeterminate loading spinner.' },
   Timer: { type: 'Timer', category: 'display', acceptsChildren: false, defaultProps: { duration: 60, format: 'mm:ss', variant: 'chip' }, description: 'Countdown timer; emits timer:expire on reaching zero.' },
+  InstanceList: { type: 'InstanceList', category: 'display', acceptsChildren: false, defaultProps: { domain: '', workflow: '', columns: [], pageSize: 20 }, description: "Paged, read-only table of a workflow's instances; columns bind to snapshot fields." },
   ListTile: {
     type: 'ListTile', category: 'display', acceptsChildren: false, defaultProps: { title: 'Item' },
     description: 'Single-row list item with leading/trailing slots.',

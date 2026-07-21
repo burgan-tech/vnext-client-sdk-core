@@ -13,6 +13,8 @@ import { useToast } from 'primevue/usetoast'
 import NestedComponentWrapper from './NestedComponentWrapper.vue'
 import WorkflowViewWrapper from './WorkflowViewWrapper.vue'
 import TimerNode from './TimerNode.vue'
+import InstanceListNode from './InstanceListNode.vue'
+import NavigationTree from './NavigationTree.vue'
 import ErrorBoundary from './ErrorBoundary.vue'
 import DesignerNode from './DesignerNode.vue'
 
@@ -1199,23 +1201,7 @@ function menuItems(items: any[]) {
 
   <!-- === CONTROL: Navigation (Amorphie nav list, emits navigate intent) === -->
   <nav v-else-if="node.type === 'Navigation'" class="d-navigation">
-    <template v-for="(navIt, i) in navigationItems" :key="(navIt.key as string) ?? i">
-      <div v-if="navIt.type === 'group'" class="d-nav-group">
-        <div class="d-nav-group__title">{{ navLabel(navIt.title) }}</div>
-        <button
-          v-for="child in ((navIt.children as Record<string, unknown>[]) ?? [])"
-          :key="child.key as string"
-          class="d-nav-item d-nav-item--child"
-          @click="onNavItem(child)"
-        >{{ navLabel(child.title) || child.key }}</button>
-      </div>
-      <hr v-else-if="navIt.type === 'divider'" class="d-nav-divider" />
-      <button
-        v-else-if="navIt.key"
-        class="d-nav-item"
-        @click="onNavItem(navIt)"
-      >{{ navLabel(navIt.title) || navIt.key }}</button>
-    </template>
+    <NavigationTree :items="navigationItems" :depth="0" />
   </nav>
 
   <!-- === CONTROL: TabStrip (MDI open-tabs, emits tab:activate/tab:close) === -->
@@ -1565,6 +1551,9 @@ function menuItems(items: any[]) {
 
   <!-- === DISPLAY: Timer (countdown) === -->
   <TimerNode v-else-if="node.type === 'Timer'" :node="(node as any)" />
+
+  <!-- === DATA: InstanceList (paged read-only instance table) === -->
+  <InstanceListNode v-else-if="node.type === 'InstanceList'" :node="(node as any)" />
 
   <!-- === FALLBACK === -->
   <Message v-else severity="warn" :closable="false">

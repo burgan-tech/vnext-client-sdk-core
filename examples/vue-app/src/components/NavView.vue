@@ -16,6 +16,7 @@ import type { ViewDefinition, PseudoViewDelegate } from '@burgan-tech/pseudo-ui'
 import { PseudoView } from '@burgan-tech/pseudo-ui/vue';
 import { loadShellView } from '../boot/appHost';
 import { makeDriveWorkflow } from '../boot/workflowDriver';
+import { queryInstances } from '../boot/instanceQuery';
 import { localize } from '../sdk/i18n';
 import { ITEMS_BY_KEY, APP_ROUTER, APP_SET_TOKEN_LEVEL } from '../boot/keys';
 
@@ -139,6 +140,8 @@ const delegate: PseudoViewDelegate = {
   },
   // The workflow driver (owns the workflow client + interactive-login success).
   driveWorkflow: makeDriveWorkflow({ setTokenLevel: setTokenLevel ?? undefined }),
+  // Paged instance listing for InstanceList nodes (read-only).
+  queryInstances,
   async onAction(action, data, command) {
     // Navigation taps (e.g. a group's children) carry the tapped item.
     if (action === 'navigate') {
