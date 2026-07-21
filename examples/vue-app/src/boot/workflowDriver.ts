@@ -55,6 +55,8 @@ export function makeDriveWorkflow(opts: WorkflowDriverOptions = {}) {
     const transitions = computed(() =>
       (wf.transitions.value ?? []).map((t) => ({ key: t.key, hasSchema: !!t.schema?.hasSchema })),
     );
+    // Full instance envelope (metadata + attributes) for the raw-data viewer.
+    const snapshot = ref<Record<string, unknown> | null>(null);
 
     // Resolve each view's transition schema (from its `dataSchema` ref) so the
     // renderer gets x-labels + validation. Re-resolves whenever the view changes.
@@ -99,6 +101,7 @@ export function makeDriveWorkflow(opts: WorkflowDriverOptions = {}) {
       error,
       state,
       transitions,
+      snapshot,
       async history() {
         if (!instanceId.value) return [];
         const res = await workflowManager.getTransitionHistory({
@@ -130,6 +133,18 @@ export function makeDriveWorkflow(opts: WorkflowDriverOptions = {}) {
         // Detail/read: load an existing instance and render its current-state view.
         instanceId.value = id;
         await wf.continueWith({ instanceId: id });
+        // Also pull the full instance envelope (metadata + attributes) for the
+        // raw-data viewer — continueWith only surfaces the state's attributes.
+        try {
+          const gi = await workflowManager.getInstance({
+            domain: config.domain,
+            name: config.name,
+            instanceId: id,
+          });
+          snapshot.value = (gi.instance as unknown as Record<string, unknown>) ?? null;
+        } catch {
+          snapshot.value = null;
+        }
       },
       async submit(command, body) {
         const key = transitionKeyFrom(command);

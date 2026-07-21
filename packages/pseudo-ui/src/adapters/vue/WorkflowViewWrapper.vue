@@ -114,7 +114,12 @@ function highlightJson(value: unknown): string {
     },
   )
 }
-const rawJson = computed(() => highlightJson(instanceValues.value))
+// Raw viewer shows the FULL instance (metadata + attributes) when the host
+// provides it; falls back to just the attributes otherwise.
+const rawData = computed<Record<string, unknown>>(
+  () => (session?.snapshot?.value ?? instanceValues.value) as Record<string, unknown>,
+)
+const rawJson = computed(() => highlightJson(rawData.value))
 
 // Detail toolbar: current state, available transitions (dropdown → drive it),
 // and transition history (button → modal). All optional on the session.

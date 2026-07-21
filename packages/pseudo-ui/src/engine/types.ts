@@ -277,6 +277,11 @@ export interface WorkflowSession {
   error: ReadableRef<string>
   /** Current state key (detail pages show it). Optional. */
   state?: ReadableRef<string | null>
+  /**
+   * Full instance envelope (metadata + attributes + …) for the raw-data viewer.
+   * Optional; falls back to {@link data} (attributes only) when absent.
+   */
+  snapshot?: ReadableRef<Record<string, unknown> | null>
   /** Available transitions from the current state (detail pages list them). Optional. */
   transitions?: ReadableRef<TransitionOption[]>
   /** Fetch the instance's transition history (detail pages show it). Optional. */
