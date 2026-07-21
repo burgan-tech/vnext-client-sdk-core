@@ -95,6 +95,27 @@ const detailMode = computed(() => !!config.value.instanceId)
 const instanceValues = computed<Record<string, unknown>>(
   () => (session?.data.value ?? {}) as Record<string, unknown>,
 )
+// Raw instance-data viewer (detail pages): a `{ }` button opens a modal with the
+// full instance data as pretty, syntax-highlighted JSON (scrollable).
+const showRaw = ref(false)
+function escapeHtml(s: string): string {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+}
+function highlightJson(value: unknown): string {
+  const json = escapeHtml(JSON.stringify(value, null, 2) ?? 'null')
+  return json.replace(
+    /("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false)\b|\bnull\b|-?\d+(\.\d*)?([eE][+-]?\d+)?)/g,
+    (m) => {
+      let cls = 'd-json-num'
+      if (/^"/.test(m)) cls = /:$/.test(m) ? 'd-json-key' : 'd-json-str'
+      else if (/true|false/.test(m)) cls = 'd-json-bool'
+      else if (/null/.test(m)) cls = 'd-json-null'
+      return `<span class="${cls}">${m}</span>`
+    },
+  )
+}
+const rawJson = computed(() => highlightJson(instanceValues.value))
+
 const detailRows = computed<Array<{ key: string; value: string }>>(() => {
   const d = instanceValues.value
   return Object.entries(d)
@@ -128,7 +149,19 @@ onUnmounted(() => session?.dispose?.())
 </script>
 
 <template>
-  <div class="d-workflow">
+  <div class="d-workflow" :class="{ 'd-workflow--detail': detailMode }">
+    <!-- Detail pages: a floating `{ }` button opens the raw instance JSON. -->
+    <button
+      v-if="detailMode && ready"
+      type="button"
+      class="d-raw-btn"
+      :title="ctx.lang.startsWith('tr') ? 'Ham veri (JSON)' : 'Raw data (JSON)'"
+      aria-label="Raw data"
+      @click="showRaw = true"
+    >
+      {&nbsp;}
+    </button>
+
     <!-- Start form: collect the start payload before creating the instance. -->
     <form v-if="needsForm && !started" class="d-workflow-startform" @submit.prevent="begin">
       <label v-for="f in startFields" :key="f.name" class="d-workflow-field">
@@ -162,6 +195,17 @@ onUnmounted(() => session?.dispose?.())
         <i class="pi pi-spinner pi-spin"></i>
       </div>
     </template>
+
+    <!-- Raw instance-data modal (scrollable, JSON syntax-highlighted). -->
+    <div v-if="showRaw" class="d-raw-modal" @click.self="showRaw = false">
+      <div class="d-raw-dialog" role="dialog" aria-modal="true">
+        <header class="d-raw-head">
+          <span>{ } {{ ctx.lang.startsWith('tr') ? 'Ham Veri' : 'Raw Data' }}</span>
+          <button type="button" class="d-raw-close" aria-label="Close" @click="showRaw = false">×</button>
+        </header>
+        <pre class="d-raw-json"><code v-html="rawJson"></code></pre>
+      </div>
+    </div>
   </div>
 </template>
 
