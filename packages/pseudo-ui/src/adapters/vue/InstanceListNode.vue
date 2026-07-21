@@ -18,6 +18,12 @@ const delegate = useDelegate()
 const log = delegate.onLog ?? (() => {})
 
 const columns = computed<InstanceColumn[]>(() => props.node.columns ?? [])
+
+// Sensible generic default: newest instances first. `createdAt` is a universal
+// vNext snapshot field, so this is safe for any workflow; a view can override it
+// with its own `sort` (e.g. by a business field, ascending).
+const DEFAULT_SORT = { field: 'createdAt', direction: 'desc' }
+const sort = computed<unknown>(() => props.node.sort ?? DEFAULT_SORT)
 const pageSize = computed(() =>
   typeof props.node.pageSize === 'number' && props.node.pageSize > 0 ? props.node.pageSize : 20,
 )
@@ -88,7 +94,7 @@ async function load(): Promise<void> {
       page: page.value,
       pageSize: pageSize.value,
       ...(props.node.filter !== undefined ? { filter: props.node.filter } : {}),
-      ...(props.node.sort !== undefined ? { sort: props.node.sort } : {}),
+      sort: sort.value,
     })
     items.value = res.items ?? []
     hasNext.value = !!res.hasNext
