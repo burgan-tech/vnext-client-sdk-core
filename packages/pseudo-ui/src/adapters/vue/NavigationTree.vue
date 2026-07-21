@@ -18,9 +18,15 @@ const depth = props.depth ?? 0
 
 const expanded = reactive<Record<string, boolean>>({})
 
+// `hidden` items are routable (navigation targets, e.g. a per-record detail) but
+// not shown in the sidebar.
+const shown = (list: Record<string, unknown>[]): Record<string, unknown>[] =>
+  list.filter((it) => it.hidden !== true)
+const visibleItems = (): Record<string, unknown>[] => shown(props.items)
+
 const isGroup = (it: Record<string, unknown>): boolean => it.type === 'group'
 const childrenOf = (it: Record<string, unknown>): Record<string, unknown>[] =>
-  (it.children as Record<string, unknown>[]) ?? []
+  shown((it.children as Record<string, unknown>[]) ?? [])
 const label = (it: Record<string, unknown>): string => localizeLabel(it.title, ctx.lang) || String(it.key ?? '')
 const keyOf = (it: Record<string, unknown>): string => String(it.key ?? '')
 
@@ -41,7 +47,7 @@ function navigate(it: Record<string, unknown>): void {
 
 <template>
   <div class="d-navtree">
-    <template v-for="(it, i) in items" :key="keyOf(it) || i">
+    <template v-for="(it, i) in visibleItems()" :key="keyOf(it) || i">
       <hr v-if="it.type === 'divider'" class="d-nav-divider" />
       <template v-else-if="isGroup(it)">
         <button

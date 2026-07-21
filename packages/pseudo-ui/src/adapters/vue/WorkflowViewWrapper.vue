@@ -42,6 +42,7 @@ const config = computed<WorkflowViewConfig>(() => ({
   name: String(val(props.node.name) ?? ''),
   ...(props.node.version ? { version: String(val(props.node.version)) } : {}),
   ...(props.node.keyFrom ? { keyFrom: String(val(props.node.keyFrom)) } : {}),
+  ...(props.node.instanceId ? { instanceId: String(val(props.node.instanceId) ?? '') } : {}),
   ...(props.node.start ? { start: props.node.start } : {}),
   ...(props.node.startFields ? { startFields: props.node.startFields } : {}),
 }))
@@ -85,6 +86,17 @@ const errorText = computed(() => session?.error.value ?? '')
 // renderer gets x-labels + validation; fall back to an empty schema until then.
 const schema = computed<DataSchema>(() => session?.schema?.value ?? EMPTY_SCHEMA)
 
+// Detail mode (opening an existing instance): when the current state defines no
+// UI view, fall back to a read-only dump of the instance data so the detail is
+// still useful. (A state that DOES define a view renders it as usual.)
+const detailMode = computed(() => !!config.value.instanceId)
+const detailRows = computed<Array<{ key: string; value: string }>>(() => {
+  const d = (session?.data.value ?? {}) as Record<string, unknown>
+  return Object.entries(d)
+    .filter(([, v]) => v !== null && v !== undefined && v !== '')
+    .map(([key, v]) => ({ key, value: typeof v === 'object' ? JSON.stringify(v, null, 2) : String(v) }))
+})
+
 // Remount the nested view per workflow state so each state gets a fresh form
 // context (advancing state = new view, cleared inputs).
 const stateKey = ref(0)
@@ -95,6 +107,12 @@ watch(view, () => { stateKey.value += 1 })
 
 async function begin(): Promise<void> {
   started.value = true
+  // Detail mode: open an existing instance (current-state view) instead of starting.
+  const iid = config.value.instanceId
+  if (iid && session?.open) {
+    await session.open(iid)
+    return
+  }
   await session?.start(needsForm.value ? { ...formModel.value } : undefined)
 }
 
@@ -124,6 +142,16 @@ onUnmounted(() => session?.dispose?.())
         :view="view"
         :lang="ctx.lang"
       />
+      <!-- No state view (e.g. a terminal state): show the instance data read-only. -->
+      <dl v-else-if="ready && detailMode" class="d-detail">
+        <template v-for="row in detailRows" :key="row.key">
+          <dt class="d-detail__key">{{ row.key }}</dt>
+          <dd class="d-detail__val">{{ row.value }}</dd>
+        </template>
+        <p v-if="!detailRows.length" class="d-detail__empty">
+          {{ ctx.lang.startsWith('tr') ? 'Veri yok' : 'No data' }}
+        </p>
+      </dl>
       <div v-else-if="!errorText" class="d-workflow-loading">
         <i class="pi pi-spinner pi-spin"></i>
       </div>

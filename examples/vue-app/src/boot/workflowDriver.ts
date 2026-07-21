@@ -104,6 +104,11 @@ export function makeDriveWorkflow(opts: WorkflowDriverOptions = {}) {
         });
         if (res.ok && res.instanceId) instanceId.value = res.instanceId;
       },
+      async open(id) {
+        // Detail/read: load an existing instance and render its current-state view.
+        instanceId.value = id;
+        await wf.continueWith({ instanceId: id });
+      },
       async submit(command, body) {
         const key = transitionKeyFrom(command);
         // PKCE: attach the codeChallenge on the `login` transition.

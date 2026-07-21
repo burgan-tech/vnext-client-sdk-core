@@ -83,6 +83,12 @@ export interface WorkflowViewNode extends ComponentNode {
   version?: string
   /** Where the instance key comes from (e.g. "activeUser"); host-interpreted. */
   keyFrom?: string
+  /**
+   * Open an EXISTING instance (by id/business key) and render its current-state
+   * view, instead of starting a new one. May be a literal or a `$instance.*`
+   * expression (e.g. a detail view fed the id via the tab payload).
+   */
+  instanceId?: string
   /** Static start-payload merged into the instance on start. */
   start?: Record<string, unknown>
   /** Fields collected in a start form before the instance is created. */
@@ -103,6 +109,8 @@ export interface WorkflowViewConfig {
   name: string
   version?: string
   keyFrom?: string
+  /** When set, the host opens this existing instance (current-state view) rather than starting one. */
+  instanceId?: string
   start?: Record<string, unknown>
   startFields?: WorkflowStartField[]
 }
@@ -186,6 +194,17 @@ export interface InstanceListNode extends ComponentNode {
   filter?: unknown
   sort?: unknown
   columns: InstanceColumn[]
+  /**
+   * Makes rows clickable → navigate to `rowDetail.navigate`, carrying the row's
+   * instance identity ({domain, workflow, instanceId, key} + `title`) as the tab
+   * payload (a detail surface renders that instance's current-state view). Omit
+   * for a non-interactive list. `title` is the singular entity label the detail
+   * tab shows (e.g. "Device") instead of a generic "Record Detail".
+   */
+  rowDetail?: {
+    navigate: string
+    title?: MultiLangText | string | Array<{ language: string; label: string }>
+  }
 }
 
 /** A single page query the host runs for an {@link InstanceListNode}. */
@@ -240,6 +259,12 @@ export interface WorkflowSession {
   error: ReadableRef<string>
   /** Start the instance, merging any collected start-form values. */
   start(values?: Record<string, unknown>): Promise<void>
+  /**
+   * Open an existing instance (by id/business key) and render its current-state
+   * view — the read/detail counterpart of {@link start}. Optional; the host
+   * implements it only when views open existing instances (e.g. a detail page).
+   */
+  open?(instanceId: string): Promise<void>
   /** Fire a transition for a pseudo-ui submit (command = transition key/URN). */
   submit(command: string, data: Record<string, unknown>): Promise<void>
   /** Release the underlying workflow subscription (called on unmount). */

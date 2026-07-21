@@ -355,6 +355,9 @@
 .d-instancelist-table tbody tr:hover {
   background: var(--color-surface-variant, #f6f7fb);
 }
+.d-instancelist-row--clickable {
+  cursor: pointer;
+}
 .d-instancelist-status td {
   text-align: center;
   color: var(--color-muted, #889);
@@ -717,6 +720,27 @@
 }
 .d-workflow-error { background: #fdecea; color: var(--color-danger, #b3261e); padding: 0.6rem 0.9rem; border-radius: var(--radius-sm, 6px); margin-bottom: 1rem; }
 .d-workflow-loading { display: flex; justify-content: center; padding: 2rem 0; color: var(--color-primary, #4f46e5); }
+
+/* Read-only instance detail (fallback when a state defines no UI view). */
+.d-detail {
+  display: grid;
+  grid-template-columns: minmax(8rem, max-content) 1fr;
+  gap: 0.4rem 1rem;
+  margin: 0;
+  font-size: 0.9rem;
+}
+.d-detail__key {
+  font-weight: 600;
+  color: var(--color-muted, #667);
+  word-break: break-word;
+}
+.d-detail__val {
+  margin: 0;
+  color: var(--color-on-surface, #1f2430);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.d-detail__empty { grid-column: 1 / -1; color: var(--color-muted, #889); }
 
 /* Selected/active state for toggle-group Buttons (locale / shell-mode / token). */
 .p-button.d-button--active,

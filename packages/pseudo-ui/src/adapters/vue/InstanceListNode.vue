@@ -239,6 +239,23 @@ function runAction(c: InstanceColumn, row: Record<string, unknown>): void {
   delegate.onAction('navigate', { key: a.navigate, payload })
 }
 
+/** Row click → open the record's detail (its current-state view) in a new tab. */
+function onRowClick(row: Record<string, unknown>): void {
+  const rd = props.node.rowDetail
+  if (!rd || !delegate.onAction) return
+  delegate.onAction('navigate', {
+    key: rd.navigate,
+    payload: {
+      domain: props.node.domain,
+      workflow: props.node.workflow,
+      instanceId: row.id ?? row.key,
+      // Tab title = the entity label (localized here); subtitle = the record key.
+      title: localizeLabel(rd.title, ctx.lang) || props.node.workflow,
+      key: row.key ?? row.id,
+    },
+  })
+}
+
 /** The active sort direction on this column, or null if it isn't the sorted one. */
 function sortState(c: InstanceColumn): 'asc' | 'desc' | null {
   const a = activeSort.value
@@ -452,13 +469,19 @@ onMounted(async () => {
         <tr v-else-if="!items.length" class="d-instancelist-status">
           <td :colspan="columns.length || 1">{{ ctx.lang.startsWith('tr') ? 'Kayıt yok' : 'No records' }}</td>
         </tr>
-        <tr v-else v-for="(row, ri) in items" :key="(row.id as string) ?? ri">
+        <tr
+          v-else
+          v-for="(row, ri) in items"
+          :key="(row.id as string) ?? ri"
+          :class="{ 'd-instancelist-row--clickable': !!props.node.rowDetail }"
+          @click="onRowClick(row)"
+        >
           <td v-for="(c, ci) in columns" :key="ci" :title="c.kind === 'action' ? '' : cell(row, c)">
             <button
               v-if="c.kind === 'action'"
               type="button"
               class="d-instancelist-action"
-              @click="runAction(c, row)"
+              @click.stop="runAction(c, row)"
             >
               {{ colLabel(c) }}
             </button>
