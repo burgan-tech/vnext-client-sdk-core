@@ -233,9 +233,10 @@ function runAction(c: InstanceColumn, row: Record<string, unknown>): void {
       isAttribute: !!f.isAttribute,
     }))
     .filter((f) => f.value != null && f.value !== '')
-  // Scalar copies (keyed by field) let the host use them for tab identity/title.
+  // Scalar copies (keyed by field) let the host use them for tab identity.
   const payload: Record<string, unknown> = { filter }
   for (const f of filter) payload[f.field] = f.value
+  if (a.subtitle) payload.subtitle = fillTemplate(a.subtitle, row)
   delegate.onAction('navigate', { key: a.navigate, payload })
 }
 

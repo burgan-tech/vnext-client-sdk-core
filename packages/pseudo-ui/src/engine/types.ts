@@ -142,6 +142,12 @@ export interface InstanceRowAction {
    * clicked row via {@link InstanceRowActionFilter.valueFrom}.
    */
   filter?: InstanceRowActionFilter[]
+  /**
+   * Template for the opened tab's second line ("{{dot.path}}" from the clicked
+   * row) — e.g. the parent record's name, so a person's Users tab reads as
+   * "Users · Ada Lovelace".
+   */
+  subtitle?: string
 }
 export interface InstanceRowActionFilter extends InstanceFieldFilter {
   /** Dot-path into the row snapshot supplying this filter's value. */
