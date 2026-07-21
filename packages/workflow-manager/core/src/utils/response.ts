@@ -408,6 +408,8 @@ export function parseQueryResponse(response: HttpResponse<unknown>): ParsedQuery
     first: asStringDefault(linksRaw.first),
     next: asStringDefault(linksRaw.next),
     prev: asStringDefault(linksRaw.prev),
+    // Optional: only some backend envelopes include a `last` link.
+    ...(linksRaw.last !== undefined ? { last: asStringDefault(linksRaw.last) } : {}),
   };
   return { items, links, raw: obj };
 }

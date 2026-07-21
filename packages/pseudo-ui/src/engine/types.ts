@@ -161,6 +161,12 @@ export interface InstanceQueryResult {
   items: Record<string, unknown>[]
   hasNext: boolean
   hasPrev: boolean
+  /**
+   * 1-based number of the last page, when the backend advertises it (HAL `last`
+   * link). Undefined when the envelope has no `last` link — the "jump to last"
+   * control is then unavailable. First page is always 1, so needs no field.
+   */
+  lastPage?: number
 }
 
 /**

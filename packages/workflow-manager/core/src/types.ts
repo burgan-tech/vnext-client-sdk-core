@@ -267,6 +267,8 @@ export interface VNextPaginationLinks {
   first: string;
   next: string;
   prev: string;
+  /** Link to the last page. Optional — not every backend envelope includes it. */
+  last?: string;
 }
 
 // ============================================================================

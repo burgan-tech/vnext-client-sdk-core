@@ -42,6 +42,7 @@ const page = ref(1)
 const items = ref<Record<string, unknown>[]>([])
 const hasNext = ref(false)
 const hasPrev = ref(false)
+const lastPage = ref<number | undefined>(undefined)
 const loading = ref(false)
 const errorText = ref('')
 
@@ -126,6 +127,7 @@ async function load(): Promise<void> {
     items.value = res.items ?? []
     hasNext.value = !!res.hasNext
     hasPrev.value = !!res.hasPrev
+    lastPage.value = res.lastPage
   } catch (e) {
     errorText.value = e instanceof Error ? e.message : String(e)
     items.value = []
@@ -139,6 +141,12 @@ function next(): void {
 }
 function prev(): void {
   if (hasPrev.value && page.value > 1 && !loading.value) page.value -= 1
+}
+function first(): void {
+  if (hasPrev.value && !loading.value) page.value = 1
+}
+function last(): void {
+  if (lastPage.value && lastPage.value > page.value && !loading.value) page.value = lastPage.value
 }
 
 watch([page, activeSort], () => void load())
@@ -186,9 +194,19 @@ onMounted(() => void load())
       </tbody>
     </table>
     <div v-if="columns.length" class="d-instancelist-pager">
-      <button type="button" :disabled="!hasPrev || loading" @click="prev" aria-label="Previous">‹</button>
-      <span class="d-instancelist-page">{{ page }}</span>
-      <button type="button" :disabled="!hasNext || loading" @click="next" aria-label="Next">›</button>
+      <button type="button" :disabled="!hasPrev || loading" @click="first" aria-label="First page">«</button>
+      <button type="button" :disabled="!hasPrev || loading" @click="prev" aria-label="Previous page">‹</button>
+      <span class="d-instancelist-page">{{ lastPage ? `${page} / ${lastPage}` : page }}</span>
+      <button type="button" :disabled="!hasNext || loading" @click="next" aria-label="Next page">›</button>
+      <button
+        v-if="lastPage"
+        type="button"
+        :disabled="page >= lastPage || loading"
+        @click="last"
+        aria-label="Last page"
+      >
+        »
+      </button>
     </div>
   </div>
 </template>
