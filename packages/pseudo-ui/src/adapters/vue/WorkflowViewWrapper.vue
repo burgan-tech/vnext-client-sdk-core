@@ -90,8 +90,13 @@ const schema = computed<DataSchema>(() => session?.schema?.value ?? EMPTY_SCHEMA
 // UI view, fall back to a read-only dump of the instance data so the detail is
 // still useful. (A state that DOES define a view renders it as usual.)
 const detailMode = computed(() => !!config.value.instanceId)
+// The instance attributes, fed to the state view so its `$instance.*` binds
+// resolve (read/detail views display these; without it the view renders blank).
+const instanceValues = computed<Record<string, unknown>>(
+  () => (session?.data.value ?? {}) as Record<string, unknown>,
+)
 const detailRows = computed<Array<{ key: string; value: string }>>(() => {
-  const d = (session?.data.value ?? {}) as Record<string, unknown>
+  const d = instanceValues.value
   return Object.entries(d)
     .filter(([, v]) => v !== null && v !== undefined && v !== '')
     .map(([key, v]) => ({ key, value: typeof v === 'object' ? JSON.stringify(v, null, 2) : String(v) }))
@@ -141,6 +146,7 @@ onUnmounted(() => session?.dispose?.())
         :schema="schema"
         :view="view"
         :lang="ctx.lang"
+        :bound-instance-values="instanceValues"
       />
       <!-- No state view (e.g. a terminal state): show the instance data read-only. -->
       <dl v-else-if="ready && detailMode" class="d-detail">

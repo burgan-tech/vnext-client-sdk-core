@@ -239,19 +239,31 @@ function runAction(c: InstanceColumn, row: Record<string, unknown>): void {
   delegate.onAction('navigate', { key: a.navigate, payload })
 }
 
+/** Fill a "{{dot.path}}" template from the row (for the detail tab subtitle). */
+function fillTemplate(tpl: string, row: Record<string, unknown>): string {
+  return tpl
+    .replace(/\{\{\s*([^}]+?)\s*\}\}/g, (_, p: string) => {
+      const v = getPath(row, p)
+      return v == null ? '' : String(v)
+    })
+    .trim()
+}
+
 /** Row click → open the record's detail (its current-state view) in a new tab. */
 function onRowClick(row: Record<string, unknown>): void {
   const rd = props.node.rowDetail
   if (!rd || !delegate.onAction) return
+  const key = String(row.key ?? row.id ?? '')
   delegate.onAction('navigate', {
     key: rd.navigate,
     payload: {
       domain: props.node.domain,
       workflow: props.node.workflow,
       instanceId: row.id ?? row.key,
-      // Tab title = the entity label (localized here); subtitle = the record key.
+      // Tab title = the entity label; subtitle = a configured row template (else key).
       title: localizeLabel(rd.title, ctx.lang) || props.node.workflow,
-      key: row.key ?? row.id,
+      key,
+      subtitle: rd.subtitle ? fillTemplate(rd.subtitle, row) : key,
     },
   })
 }

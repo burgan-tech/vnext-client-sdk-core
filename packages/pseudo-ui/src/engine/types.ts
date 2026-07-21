@@ -204,6 +204,12 @@ export interface InstanceListNode extends ComponentNode {
   rowDetail?: {
     navigate: string
     title?: MultiLangText | string | Array<{ language: string; label: string }>
+    /**
+     * Template for the detail tab's second line, with `{{dot.path}}` placeholders
+     * resolved against the clicked row (e.g. "{{attributes.name.first}} {{attributes.name.last}}").
+     * Defaults to the row's business key.
+     */
+    subtitle?: string
   }
 }
 
