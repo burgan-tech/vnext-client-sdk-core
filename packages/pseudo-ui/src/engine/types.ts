@@ -107,11 +107,37 @@ export interface WorkflowViewConfig {
   startFields?: WorkflowStartField[]
 }
 
+/** A filter operand on a snapshot field, applied server-side. */
+export interface InstanceFieldFilter {
+  /** Backend field name to filter on (e.g. "deviceId", "status"). */
+  field: string
+  /** Comparison operator (default "like" for column search, "eq" for actions). */
+  op?: string
+  /** Wrap under `attributes.<field>` (for instance-data fields). */
+  isAttribute?: boolean
+}
+
+/** A row action: navigate to another route, seeding a filter from the row. */
+export interface InstanceRowAction {
+  /** Target route/nav key to open (as a tab). */
+  navigate: string
+  /**
+   * Filter to seed on the target list. Each entry's value is read from the
+   * clicked row via {@link InstanceRowActionFilter.valueFrom}.
+   */
+  filter?: InstanceRowActionFilter[]
+}
+export interface InstanceRowActionFilter extends InstanceFieldFilter {
+  /** Dot-path into the row snapshot supplying this filter's value. */
+  valueFrom: string
+}
+
 /** A column in an {@link InstanceListNode}: which snapshot field to show + its label. */
 export interface InstanceColumn {
   /** Dot-path into the instance snapshot, e.g. "key", "status", "currentState",
-   * "createdAt", "attributes.deviceId", "attributes.deviceInfo.deviceModel". */
-  bind: string
+   * "createdAt", "attributes.deviceId", "attributes.deviceInfo.deviceModel".
+   * Optional for action columns (`kind: "action"`), which render a button. */
+  bind?: string
   label?: MultiLangText | string | Array<{ language: string; label: string }>
   /**
    * Render hint (default: plain text):
@@ -127,6 +153,15 @@ export interface InstanceColumn {
    * for columns the backend can't sort. May differ from {@link bind}.
    */
   sortField?: string
+  /**
+   * Presence makes the column header filterable: a funnel icon opens a search
+   * input that filters the list server-side by {@link InstanceFieldFilter.field}.
+   */
+  filter?: InstanceFieldFilter
+  /** "action" renders a button (using {@link action}) instead of a data cell. */
+  kind?: 'action'
+  /** The row action for `kind: "action"` columns. */
+  action?: InstanceRowAction
 }
 
 /**

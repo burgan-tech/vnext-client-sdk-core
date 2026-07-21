@@ -46,8 +46,92 @@ const lastPage = ref<number | undefined>(undefined)
 const loading = ref(false)
 const errorText = ref('')
 
+// Column filters are view-driven: a column with a `filter` config gets a funnel
+// icon opening a search input. `draft` holds live keystrokes; `applied` is the
+// committed set that actually drives the query (debounced), so we re-query once
+// the user pauses rather than on every keystroke.
+const draftFilters = ref<Record<string, string>>({})
+const appliedFilters = ref<Record<string, string>>({})
+const openFilter = ref<string | null>(null)
+let filterTimer: ReturnType<typeof setTimeout> | undefined
+
+type FieldFilter = { field: string; operator: string; value: unknown; isAttribute: boolean }
+
+function toggleFilter(c: InstanceColumn): void {
+  if (!c.filter) return
+  openFilter.value = openFilter.value === c.filter.field ? null : c.filter.field
+}
+function onFilterInput(c: InstanceColumn, value: string): void {
+  if (!c.filter) return
+  draftFilters.value = { ...draftFilters.value, [c.filter.field]: value }
+  if (filterTimer) clearTimeout(filterTimer)
+  filterTimer = setTimeout(() => {
+    page.value = 1
+    appliedFilters.value = { ...draftFilters.value }
+  }, 350)
+}
+function clearFilter(c: InstanceColumn): void {
+  if (!c.filter) return
+  const field = c.filter.field
+  const nextDraft = { ...draftFilters.value }
+  const nextApplied = { ...appliedFilters.value }
+  delete nextDraft[field]
+  delete nextApplied[field]
+  draftFilters.value = nextDraft
+  page.value = 1
+  appliedFilters.value = nextApplied
+  openFilter.value = null
+}
+function isFiltered(c: InstanceColumn): boolean {
+  return !!(c.filter && appliedFilters.value[c.filter.field])
+}
+
+/** Column filters (server-side) built from the committed `appliedFilters` set. */
+function columnFilters(): FieldFilter[] {
+  const out: FieldFilter[] = []
+  for (const c of columns.value) {
+    if (!c.filter) continue
+    const v = appliedFilters.value[c.filter.field]
+    if (v == null || v === '') continue
+    out.push({
+      field: c.filter.field,
+      operator: c.filter.op ?? 'like',
+      value: v,
+      isAttribute: !!c.filter.isAttribute,
+    })
+  }
+  return out
+}
+
+/** Config base filter (if a plain array) AND the active column filters. */
+function effectiveFilter(): unknown {
+  const cols = columnFilters()
+  const base = Array.isArray(props.node.filter) ? (props.node.filter as FieldFilter[]) : []
+  const all = [...base, ...cols]
+  if (all.length) return all
+  return props.node.filter ?? undefined
+}
+
 function colLabel(c: InstanceColumn): string {
-  return localizeLabel(c.label, ctx.lang) || c.bind
+  return localizeLabel(c.label, ctx.lang) || c.bind || ''
+}
+
+/** Build the row-action navigation payload from the clicked row. */
+function runAction(c: InstanceColumn, row: Record<string, unknown>): void {
+  const a = c.action
+  if (!a || !delegate.onAction) return
+  const filter = (a.filter ?? [])
+    .map((f) => ({
+      field: f.field,
+      operator: f.op ?? 'eq',
+      value: getPath(row, f.valueFrom),
+      isAttribute: !!f.isAttribute,
+    }))
+    .filter((f) => f.value != null && f.value !== '')
+  // Scalar copies (keyed by field) let the host use them for tab identity/title.
+  const payload: Record<string, unknown> = { filter }
+  for (const f of filter) payload[f.field] = f.value
+  delegate.onAction('navigate', { key: a.navigate, payload })
 }
 
 /** The active sort direction on this column, or null if it isn't the sorted one. */
@@ -75,6 +159,7 @@ function getPath(obj: unknown, path: string): unknown {
 }
 
 function cell(row: Record<string, unknown>, c: InstanceColumn): string {
+  if (!c.bind) return ''
   const v = getPath(row, c.bind)
   if (v == null) return ''
   if (c.format === 'datetime' || c.format === 'date') {
@@ -97,7 +182,7 @@ function isChip(c: InstanceColumn): boolean {
  * states use "chip", which stays grey).
  */
 function chipClass(row: Record<string, unknown>, c: InstanceColumn): string {
-  if (c.format !== 'status') return 'd-instancelist-chip'
+  if (c.format !== 'status' || !c.bind) return 'd-instancelist-chip'
   const s = String(getPath(row, c.bind) ?? '').toLowerCase()
   const tone =
     s === 'active' ? 'success' : s === 'busy' || s === 'faulted' ? 'danger' : 'muted'
@@ -121,7 +206,7 @@ async function load(): Promise<void> {
       ...(props.node.version ? { version: props.node.version } : {}),
       page: page.value,
       pageSize: pageSize.value,
-      ...(props.node.filter !== undefined ? { filter: props.node.filter } : {}),
+      ...(effectiveFilter() !== undefined ? { filter: effectiveFilter() } : {}),
       ...(activeSort.value ? { sort: activeSort.value } : {}),
     })
     items.value = res.items ?? []
@@ -149,7 +234,7 @@ function last(): void {
   if (lastPage.value && lastPage.value > page.value && !loading.value) page.value = lastPage.value
 }
 
-watch([page, activeSort], () => void load())
+watch([page, activeSort, appliedFilters], () => void load())
 onMounted(() => void load())
 </script>
 
@@ -162,19 +247,49 @@ onMounted(() => void load())
           <th
             v-for="(c, i) in columns"
             :key="i"
+            class="d-instancelist-th"
             :class="{ 'd-instancelist-th--sortable': !!c.sortField }"
             :aria-sort="sortState(c) === 'asc' ? 'ascending' : sortState(c) === 'desc' ? 'descending' : undefined"
-            @click="toggleSort(c)"
           >
             <span class="d-instancelist-th-inner">
-              {{ colLabel(c) }}
-              <span
-                v-if="c.sortField"
-                class="d-instancelist-sort"
-                :class="{ 'is-active': !!sortState(c) }"
-                >{{ sortState(c) === 'asc' ? '▲' : sortState(c) === 'desc' ? '▼' : '⇅' }}</span
+              <span class="d-instancelist-th-label" @click="toggleSort(c)">
+                {{ c.kind === 'action' ? '' : colLabel(c) }}
+                <span
+                  v-if="c.sortField"
+                  class="d-instancelist-sort"
+                  :class="{ 'is-active': !!sortState(c) }"
+                  >{{ sortState(c) === 'asc' ? '▲' : sortState(c) === 'desc' ? '▼' : '⇅' }}</span
+                >
+              </span>
+              <button
+                v-if="c.filter"
+                type="button"
+                class="d-instancelist-funnel"
+                :class="{ 'is-active': isFiltered(c) }"
+                aria-label="Filter"
+                @click.stop="toggleFilter(c)"
               >
+                <i class="pi pi-filter"></i>
+              </button>
             </span>
+            <div v-if="c.filter && openFilter === c.filter.field" class="d-instancelist-filterpop" @click.stop>
+              <input
+                type="text"
+                class="d-instancelist-filterinput"
+                :value="draftFilters[c.filter.field] ?? ''"
+                :placeholder="ctx.lang.startsWith('tr') ? 'Ara…' : 'Search…'"
+                @input="onFilterInput(c, ($event.target as HTMLInputElement).value)"
+              />
+              <button
+                v-if="isFiltered(c)"
+                type="button"
+                class="d-instancelist-filterclear"
+                aria-label="Clear filter"
+                @click="clearFilter(c)"
+              >
+                ×
+              </button>
+            </div>
           </th>
         </tr>
       </thead>
@@ -186,8 +301,16 @@ onMounted(() => void load())
           <td :colspan="columns.length || 1">{{ ctx.lang.startsWith('tr') ? 'Kayıt yok' : 'No records' }}</td>
         </tr>
         <tr v-else v-for="(row, ri) in items" :key="(row.id as string) ?? ri">
-          <td v-for="(c, ci) in columns" :key="ci" :title="cell(row, c)">
-            <span v-if="isChip(c)" :class="chipClass(row, c)">{{ cell(row, c) }}</span>
+          <td v-for="(c, ci) in columns" :key="ci" :title="c.kind === 'action' ? '' : cell(row, c)">
+            <button
+              v-if="c.kind === 'action'"
+              type="button"
+              class="d-instancelist-action"
+              @click="runAction(c, row)"
+            >
+              {{ colLabel(c) }}
+            </button>
+            <span v-else-if="isChip(c)" :class="chipClass(row, c)">{{ cell(row, c) }}</span>
             <template v-else>{{ cell(row, c) }}</template>
           </td>
         </tr>

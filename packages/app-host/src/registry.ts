@@ -42,12 +42,23 @@ export function buildRouteRegistry(
   const itemsByKey = new Map<string, NavItem>();
   for (const item of flat) itemsByKey.set(item.key!, item);
 
-  const routes = flat.map((item) => ({
-    key: item.key!,
-    lifetime: 'singleton',
-    defaultTitle: item.title ?? item.key!,
-    config: { navItem: item },
-  }));
+  const routes = flat.map((item) => {
+    // A nav item may declare tab identity in its config: `singletonKey` (payload
+    // fields that distinguish tabs — e.g. ["deviceId"] so each drill-down opens
+    // its own tab) and `lifetime`. Both are optional and default to a plain
+    // singleton (one tab per route key).
+    const cfg = (item.config ?? {}) as Record<string, unknown>;
+    const singletonKey = Array.isArray(cfg.singletonKey)
+      ? (cfg.singletonKey as string[])
+      : undefined;
+    return {
+      key: item.key!,
+      lifetime: (typeof cfg.lifetime === 'string' ? cfg.lifetime : 'singleton') as string,
+      ...(singletonKey ? { singletonKey } : {}),
+      defaultTitle: item.title ?? item.key!,
+      config: { navItem: item },
+    };
+  });
 
   const registry = {
     config: {

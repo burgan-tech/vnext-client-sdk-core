@@ -188,8 +188,15 @@
   padding: 0.55rem 0.8rem;
   border-bottom: 1px solid var(--color-border, #e3e6ef);
   white-space: nowrap;
+}
+/* Cells truncate long values; headers stay visible so the filter popover shows. */
+.d-instancelist-table td {
   overflow: hidden;
   text-overflow: ellipsis;
+}
+.d-instancelist-th {
+  position: relative;
+  overflow: visible;
 }
 .d-instancelist-chip {
   display: inline-flex;
@@ -219,17 +226,22 @@
   color: var(--color-muted, #667);
   border-bottom: 2px solid var(--color-border, #e3e6ef);
 }
-.d-instancelist-th--sortable {
-  cursor: pointer;
-  user-select: none;
-}
-.d-instancelist-th--sortable:hover {
-  color: var(--color-on-surface, #1f2430);
-}
 .d-instancelist-th-inner {
   display: inline-flex;
   align-items: center;
   gap: 0.3rem;
+}
+.d-instancelist-th-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+.d-instancelist-th--sortable .d-instancelist-th-label {
+  cursor: pointer;
+  user-select: none;
+}
+.d-instancelist-th--sortable .d-instancelist-th-label:hover {
+  color: var(--color-on-surface, #1f2430);
 }
 .d-instancelist-sort {
   font-size: 0.7rem;
@@ -238,6 +250,75 @@
 .d-instancelist-sort.is-active {
   opacity: 1;
   color: var(--color-primary, #2563eb);
+}
+/* Filter funnel + popover */
+.d-instancelist-funnel {
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  padding: 0.1rem 0.2rem;
+  font-size: 0.75rem;
+  color: var(--color-muted, #889);
+  opacity: 0.45;
+  line-height: 1;
+}
+.d-instancelist-funnel:hover {
+  opacity: 0.9;
+}
+.d-instancelist-funnel.is-active {
+  opacity: 1;
+  color: var(--color-primary, #2563eb);
+}
+.d-instancelist-filterpop {
+  position: absolute;
+  top: 100%;
+  left: 0.4rem;
+  z-index: 20;
+  margin-top: 0.25rem;
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.35rem;
+  background: var(--color-surface, #fff);
+  border: 1px solid var(--color-border, #e3e6ef);
+  border-radius: 8px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.12);
+}
+.d-instancelist-filterinput {
+  border: 1px solid var(--color-border, #d6dae6);
+  border-radius: 6px;
+  padding: 0.3rem 0.5rem;
+  font: inherit;
+  font-size: 0.85rem;
+  min-width: 11rem;
+  color: var(--color-on-surface, #1f2430);
+  background: var(--color-surface, #fff);
+}
+.d-instancelist-filterclear {
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-size: 1.1rem;
+  line-height: 1;
+  color: var(--color-muted, #889);
+  padding: 0 0.25rem;
+}
+/* Row-action button (e.g. drill-down to a filtered list) */
+.d-instancelist-action {
+  border: 1px solid var(--color-primary, #2563eb);
+  background: transparent;
+  color: var(--color-primary, #2563eb);
+  border-radius: 6px;
+  padding: 0.2rem 0.6rem;
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.d-instancelist-action:hover {
+  background: var(--color-primary, #2563eb);
+  color: #fff;
 }
 .d-instancelist-table tbody tr:hover {
   background: var(--color-surface-variant, #f6f7fb);
