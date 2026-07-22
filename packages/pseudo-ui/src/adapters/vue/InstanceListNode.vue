@@ -541,12 +541,15 @@ onMounted(async () => {
             v-for="(c, i) in columns"
             :key="i"
             class="d-instancelist-th"
-            :class="{ 'd-instancelist-th--sortable': !!c.sortField }"
+            :class="{
+              'd-instancelist-th--sortable': !!c.sortField,
+              'd-instancelist-th--meta': c.kind === 'menu' && !!c.icon,
+            }"
             :aria-sort="sortState(c) === 'asc' ? 'ascending' : sortState(c) === 'desc' ? 'descending' : undefined"
           >
             <span class="d-instancelist-th-inner">
               <span class="d-instancelist-th-label" @click="toggleSort(c)">
-                {{ c.kind === 'action' ? '' : colLabel(c) }}
+                {{ c.kind ? '' : colLabel(c) }}
                 <span
                   v-if="c.sortField"
                   class="d-instancelist-sort"
