@@ -261,17 +261,33 @@ function runAction(a: InstanceRowAction | undefined, row: Record<string, unknown
   delegate.onAction('navigate', { key: a.navigate, payload })
 }
 
-// Menu (combo) columns: which row+column's dropdown is open.
-const openRowMenu = ref<string | null>(null)
-function menuId(ri: number, ci: number): string {
-  return `${ri}:${ci}`
+// Menu (combo) columns: the open dropdown is teleported to <body> and fixed to
+// the button's rect, so the table's overflow never clips it.
+type OpenMenu = {
+  id: string
+  items: Array<{ label?: unknown; action: InstanceRowAction }>
+  row: Record<string, unknown>
+  top: number
+  right: number
 }
-function toggleRowMenu(id: string): void {
-  openRowMenu.value = openRowMenu.value === id ? null : id
+const openMenu = ref<OpenMenu | null>(null)
+function toggleMenu(
+  id: string,
+  items: Array<{ label?: unknown; action: InstanceRowAction }> | undefined,
+  row: Record<string, unknown>,
+  e: MouseEvent,
+): void {
+  if (openMenu.value?.id === id) {
+    openMenu.value = null
+    return
+  }
+  const r = (e.currentTarget as HTMLElement).getBoundingClientRect()
+  openMenu.value = { id, items: items ?? [], row, top: r.bottom + 4, right: window.innerWidth - r.right }
 }
 function pickMenu(item: { label?: unknown; action: InstanceRowAction }, row: Record<string, unknown>): void {
-  openRowMenu.value = null
-  runAction(item.action, row, item.label)
+  const it = item
+  openMenu.value = null
+  runAction(it.action, row, it.label)
 }
 
 /** Fill a "{{dot.path}}" template from the row (for the detail tab subtitle). */
@@ -572,22 +588,15 @@ onMounted(async () => {
             >
               {{ colLabel(c) }}
             </button>
-            <span v-else-if="c.kind === 'menu'" class="d-instancelist-menu">
-              <button type="button" class="d-instancelist-action" @click.stop="toggleRowMenu(menuId(ri, ci))">
-                {{ colLabel(c) }} ▾
-              </button>
-              <div v-if="openRowMenu === menuId(ri, ci)" class="d-instancelist-menupop" @click.stop>
-                <button
-                  v-for="(it, ii) in c.items ?? []"
-                  :key="ii"
-                  type="button"
-                  class="d-instancelist-menuitem"
-                  @click="pickMenu(it, row)"
-                >
-                  {{ localizeLabel(it.label, ctx.lang) || it.action.navigate }}
-                </button>
-              </div>
-            </span>
+            <button
+              v-else-if="c.kind === 'menu'"
+              type="button"
+              class="d-instancelist-action"
+              :class="{ 'is-open': openMenu?.id === `${ri}:${ci}` }"
+              @click.stop="toggleMenu(`${ri}:${ci}`, c.items, row, $event)"
+            >
+              {{ colLabel(c) }} ▾
+            </button>
             <span v-else-if="isChip(c)" :class="chipClass(row, c)">{{ cell(row, c) }}</span>
             <template v-else>{{ cell(row, c) }}</template>
           </td>
@@ -638,5 +647,28 @@ onMounted(async () => {
         </div>
       </div>
     </div>
+
+    <!-- Combo (menu) dropdown — teleported to body + fixed to the button rect so
+         the table's overflow never clips it. -->
+    <Teleport to="body">
+      <template v-if="openMenu">
+        <div class="d-menu-backdrop" @click="openMenu = null" @wheel="openMenu = null"></div>
+        <div
+          class="d-menu-pop"
+          :style="{ top: openMenu.top + 'px', right: openMenu.right + 'px' }"
+          @click.stop
+        >
+          <button
+            v-for="(it, ii) in openMenu.items"
+            :key="ii"
+            type="button"
+            class="d-menu-item"
+            @click="pickMenu(it, openMenu.row)"
+          >
+            {{ localizeLabel(it.label, ctx.lang) || it.action.navigate }}
+          </button>
+        </div>
+      </template>
+    </Teleport>
   </div>
 </template>
