@@ -169,7 +169,9 @@ export interface InstanceRowActionFilter extends InstanceFieldFilter {
 /** One entry in a `kind: "menu"` column's dropdown. */
 export interface InstanceMenuItem {
   label?: MultiLangText | string | Array<{ language: string; label: string }>
-  action: InstanceRowAction
+  /** A non-clickable section heading (groups the items below it). No `action`. */
+  heading?: MultiLangText | string | Array<{ language: string; label: string }>
+  action?: InstanceRowAction
 }
 
 /** A column in an {@link InstanceListNode}: which snapshot field to show + its label. */
@@ -208,6 +210,11 @@ export interface InstanceColumn {
   action?: InstanceRowAction
   /** The dropdown entries for `kind: "menu"` columns. */
   items?: InstanceMenuItem[]
+  /**
+   * PrimeVue icon class (e.g. "pi pi-ellipsis-v") for a `kind: "menu"` trigger —
+   * renders a compact icon button instead of a text "Label ▾" button.
+   */
+  icon?: string
 }
 
 /**

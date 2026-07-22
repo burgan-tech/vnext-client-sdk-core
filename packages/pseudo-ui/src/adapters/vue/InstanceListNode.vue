@@ -263,17 +263,12 @@ function runAction(a: InstanceRowAction | undefined, row: Record<string, unknown
 
 // Menu (combo) columns: the open dropdown is teleported to <body> and fixed to
 // the button's rect, so the table's overflow never clips it.
-type OpenMenu = {
-  id: string
-  items: Array<{ label?: unknown; action: InstanceRowAction }>
-  row: Record<string, unknown>
-  top: number
-  right: number
-}
+type MenuEntry = { label?: unknown; heading?: unknown; action?: InstanceRowAction }
+type OpenMenu = { id: string; items: MenuEntry[]; row: Record<string, unknown>; top: number; right: number }
 const openMenu = ref<OpenMenu | null>(null)
 function toggleMenu(
   id: string,
-  items: Array<{ label?: unknown; action: InstanceRowAction }> | undefined,
+  items: MenuEntry[] | undefined,
   row: Record<string, unknown>,
   e: MouseEvent,
 ): void {
@@ -284,10 +279,9 @@ function toggleMenu(
   const r = (e.currentTarget as HTMLElement).getBoundingClientRect()
   openMenu.value = { id, items: items ?? [], row, top: r.bottom + 4, right: window.innerWidth - r.right }
 }
-function pickMenu(item: { label?: unknown; action: InstanceRowAction }, row: Record<string, unknown>): void {
-  const it = item
+function pickMenu(item: MenuEntry, row: Record<string, unknown>): void {
   openMenu.value = null
-  runAction(it.action, row, it.label)
+  runAction(item.action, row, item.label)
 }
 
 /** Fill a "{{dot.path}}" template from the row (for the detail tab subtitle). */
@@ -577,7 +571,10 @@ onMounted(async () => {
           <td
             v-for="(c, ci) in columns"
             :key="ci"
-            :class="{ 'd-instancelist-actioncell': !!c.kind }"
+            :class="{
+              'd-instancelist-actioncell': !!c.kind,
+              'd-instancelist-metacell': c.kind === 'menu' && !!c.icon,
+            }"
             :title="c.kind ? '' : cell(row, c)"
           >
             <button
@@ -591,11 +588,16 @@ onMounted(async () => {
             <button
               v-else-if="c.kind === 'menu'"
               type="button"
-              class="d-instancelist-action"
-              :class="{ 'is-open': openMenu?.id === `${ri}:${ci}` }"
+              :class="[
+                c.icon ? 'd-instancelist-info' : 'd-instancelist-action',
+                { 'is-open': openMenu?.id === `${ri}:${ci}` },
+              ]"
+              :title="c.icon ? colLabel(c) : undefined"
+              :aria-label="colLabel(c)"
               @click.stop="toggleMenu(`${ri}:${ci}`, c.items, row, $event)"
             >
-              {{ colLabel(c) }} ▾
+              <i v-if="c.icon" :class="c.icon"></i>
+              <template v-else>{{ colLabel(c) }} ▾</template>
             </button>
             <span v-else-if="isChip(c)" :class="chipClass(row, c)">{{ cell(row, c) }}</span>
             <template v-else>{{ cell(row, c) }}</template>
@@ -658,15 +660,12 @@ onMounted(async () => {
           :style="{ top: openMenu.top + 'px', right: openMenu.right + 'px' }"
           @click.stop
         >
-          <button
-            v-for="(it, ii) in openMenu.items"
-            :key="ii"
-            type="button"
-            class="d-menu-item"
-            @click="pickMenu(it, openMenu.row)"
-          >
-            {{ localizeLabel(it.label, ctx.lang) || it.action.navigate }}
-          </button>
+          <template v-for="(it, ii) in openMenu.items" :key="ii">
+            <div v-if="it.heading" class="d-menu-heading">{{ localizeLabel(it.heading, ctx.lang) }}</div>
+            <button v-else type="button" class="d-menu-item" @click="pickMenu(it, openMenu.row)">
+              {{ localizeLabel(it.label, ctx.lang) || it.action?.navigate }}
+            </button>
+          </template>
         </div>
       </template>
     </Teleport>
