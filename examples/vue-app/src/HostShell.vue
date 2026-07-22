@@ -15,6 +15,7 @@ import { usePageRouter } from 'page-router-vue';
 import type { MorphTokenStatus } from '@morph/core';
 import type { AppHost, NavItem, TokenLevel } from '@burgan-tech/app-host';
 import { contextStore } from './sdk/context';
+import { localize } from './sdk/i18n';
 import { getMorphClient } from './boot/morphClient';
 import { loadAndApplyTheme } from './boot/theme';
 import MasterLayoutRenderer from './components/MasterLayoutRenderer.vue';
@@ -42,6 +43,13 @@ const tokenLevel = computed<TokenLevel>(() => props.host.state.tokenLevel);
 const locales = computed<Array<{ code: string; label: string }>>(
   () => props.host.state.clientConfig.i18n?.locales ?? [],
 );
+
+// Active UI locale + the config-fed generic UI-strings dictionary — so chrome
+// labels the host itself supplies (e.g. the profile trigger) localize from
+// config, never a hardcoded literal. A missing key falls back to the key id.
+const lang = computed(() => state.locale.value ?? props.host.state.clientConfig.i18n?.default ?? 'en');
+const uiStrings = computed<Record<string, unknown>>(() => props.host.state.clientConfig.i18n?.strings ?? {});
+const uiText = (key: string) => localize(uiStrings.value[key] as never, lang.value) || key;
 
 // Theme switch — available themes + default come from client-config; the active
 // theme is applied at runtime via the shell `theme` workflow (loadAndApplyTheme).
@@ -81,7 +89,7 @@ const status = computed(() => {
       command: `urn:shell:token:${s.contextKey}`,
     })),
     registered: r?.deviceInstanceId ? `${r.deviceInstanceId.slice(0, 8)}(${r.status})` : 'no',
-    identity: loggedIn ? 'Hesabım' : 'Misafir',
+    identity: uiText(loggedIn ? 'profile.account' : 'profile.guest'),
     isLoggedIn: loggedIn,
   };
 });

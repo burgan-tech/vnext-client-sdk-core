@@ -22,5 +22,6 @@ export async function getTransitionHistory(input: {
     toState: e.toState,
     ...(e.startedAt ?? e.createdAt ? { at: e.startedAt ?? e.createdAt } : {}),
     ...(e.triggerType ? { triggerType: e.triggerType } : {}),
+    raw: e, // full backend record for the `{ }` raw viewer
   }));
 }

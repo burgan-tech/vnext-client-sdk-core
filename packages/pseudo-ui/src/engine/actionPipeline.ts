@@ -70,6 +70,10 @@ export interface ActionPipelineDeps {
   /** Apply the SDK-internal `toggle` side effect: flip the boolean at `descriptor.bind`
    *  (typically a `$ui.*` flag, e.g. a dropdown open/close). Adapter-specific. */
   applyToggle: (descriptor: ActionDescriptor) => void
+  /** Apply the SDK-internal `load` side effect: fetch via `delegate.loadData`
+   *  and write the result into `descriptor.into` ($ui/$form). Adapter-specific
+   *  (path writes + arg/into interpolation differ per framework). Load-once. */
+  applyLoad?: (descriptor: ActionDescriptor, item?: Record<string, unknown>) => Promise<void>
   /** Clear ctx.formData + ctx.errors (adapter-specific because Vue reactive
    *  needs the explicit Object.keys iteration). */
   applyReset: () => void
@@ -154,6 +158,14 @@ async function dispatchSingle(
   // SDK-internal: toggle → adapter flips the boolean at `bind` (e.g. $ui.open). Host NOT called.
   if (typeof descriptor === 'object' && descriptor.action === 'toggle' && descriptor.bind) {
     deps.applyToggle(descriptor)
+    deps.notifyChange?.()
+    return
+  }
+
+  // SDK-internal: load → adapter lazily fetches (via delegate.loadData) and writes
+  // the result into `descriptor.into`. Host data-fetch, but NOT the onAction seam.
+  if (typeof descriptor === 'object' && descriptor.action === 'load' && descriptor.into) {
+    await deps.applyLoad?.(descriptor, item)
     deps.notifyChange?.()
     return
   }

@@ -11,23 +11,59 @@ import type {
   InstanceColumn,
   InstanceListNode,
   InstanceRowAction,
-  TransitionHistoryItem,
 } from '../../engine/types'
 import { localizeLabel } from '../../engine/expressionResolver'
 import { useFormContext } from './useFormContext'
-import { useDelegate } from './injection'
-import WorkflowHistory from './WorkflowHistory.vue'
+import { useDelegate, useUiStrings, useDataDomain } from './injection'
+import { useHistory } from './useHistory'
+import HistoryModal from './HistoryModal.vue'
 
 const props = defineProps<{ node: InstanceListNode }>()
 const ctx = useFormContext()
 const delegate = useDelegate()
 const log = delegate.onLog ?? (() => {})
 
-const columns = computed<InstanceColumn[]>(() => props.node.columns ?? [])
+// Generic UI-chrome strings (section headings, empty-state, tooltips) come from
+// the host's config-fed dictionary — never a translated literal in this SDK. A
+// missing key falls back to the key id (visible-but-honest), so a new language
+// is a config edit, not a code change.
+const uiStrings = useUiStrings()
+function uiText(key: string): string {
+  return localizeLabel(uiStrings[key] as never, ctx.lang) || key
+}
 
-// Sort is view-driven: the default comes from the node's `sort` config; the user
-// then re-sorts interactively by clicking a column whose config marks it sortable
-// (`sortField`). No sort field is hard-coded here.
+// The listed instances' data domain. A solution-specific domain literal (e.g. an
+// IDM domain) doesn't belong in every view: when the node omits `domain` we fall
+// back to a host-provided default (fed from config). See useDataDomain.
+const defaultDomain = useDataDomain()
+const domain = computed<string>(() => props.node.domain || defaultDomain || '')
+
+// Columns = the view's business columns + a standard trailing trio (state /
+// status / created) that EVERY instance carries. Views declare only what's
+// specific to them; a view opts out of the trio with `systemColumns: false`.
+// The trio's labels resolve from config (see colLabel), so no literals here.
+const SYSTEM_COLUMNS: InstanceColumn[] = [
+  { bind: 'currentState', format: 'chip', sortField: 'currentState', filter: { field: 'currentState', type: 'state' } },
+  { bind: 'status', format: 'status', sortField: 'status', filter: { field: 'status', type: 'status' } },
+  { bind: 'createdAt', format: 'datetime', sortField: 'createdAt', filter: { field: 'createdAt', type: 'daterange' } },
+]
+const columns = computed<InstanceColumn[]>(() => {
+  const base = props.node.columns ?? []
+  return props.node.systemColumns === false ? base : [...base, ...SYSTEM_COLUMNS]
+})
+
+// Row-detail: click a row → open the instance's detail. Default is clickable,
+// routing to the generic `instance-detail` surface; a view opts out with
+// `rowDetail: false`. `title`/`subtitle` stay per-view.
+const rowDetail = computed(() => {
+  const rd = props.node.rowDetail
+  if (rd === false) return null
+  const base = rd && typeof rd === 'object' ? rd : {}
+  return { navigate: 'instance-detail', ...base } as { navigate: string; title?: unknown; subtitle?: string }
+})
+
+// Sort is view-driven (a column marked `sortField` is clickable to re-sort);
+// when the view omits `sort` we default to newest-first. No field hard-coded.
 type SortSpec = { field: string; direction: 'asc' | 'desc' }
 function normalizeSort(s: unknown): SortSpec | undefined {
   if (s && typeof s === 'object') {
@@ -38,7 +74,7 @@ function normalizeSort(s: unknown): SortSpec | undefined {
   }
   return undefined
 }
-const activeSort = ref<SortSpec | undefined>(normalizeSort(props.node.sort))
+const activeSort = ref<SortSpec | undefined>(normalizeSort(props.node.sort) ?? { field: 'createdAt', direction: 'desc' })
 
 const pageSize = computed(() =>
   typeof props.node.pageSize === 'number' && props.node.pageSize > 0 ? props.node.pageSize : 20,
@@ -223,8 +259,21 @@ function effectiveFilter(): unknown {
   return props.node.filter ?? undefined
 }
 
+// Generic column binds every instance list shares — their labels come from the
+// config-fed dictionary so a column can omit `label` (and a new language is a
+// config edit). A view's own `label` always wins.
+const COL_LABEL_KEYS: Record<string, string> = {
+  key: 'list.col.key',
+  currentState: 'list.col.state',
+  status: 'list.col.status',
+  createdAt: 'list.col.created',
+}
 function colLabel(c: InstanceColumn): string {
-  return localizeLabel(c.label, ctx.lang) || c.bind || ''
+  const explicit = localizeLabel(c.label, ctx.lang)
+  if (explicit) return explicit
+  const k = COL_LABEL_KEYS[c.bind ?? '']
+  if (k) return uiText(k)
+  return c.bind ?? ''
 }
 
 /** Run a row action (from an action column or a menu item) against a row. */
@@ -273,47 +322,75 @@ type MenuEntry = {
   label?: unknown
   heading?: unknown
   italic?: boolean
-  builtin?: 'details' | 'metadata' | 'history'
+  loading?: boolean
+  empty?: boolean
+  builtin?: 'details' | 'metadata' | 'history' | 'transition'
+  txKey?: string
+  hasView?: boolean
   action?: InstanceRowAction
 }
+type TxState = { loading: boolean; items: Array<{ key: string; hasView?: boolean }> }
 type OpenMenu = { id: string; items: MenuEntry[]; row: Record<string, unknown>; top: number; right: number }
 const openMenu = ref<OpenMenu | null>(null)
 
-/** True when the list has its own `kind:menu` column; else we auto-render one. */
-const hasMenuColumn = computed(() => columns.value.some((c) => c.kind === 'menu'))
-
 /**
- * Compose a row's ⋯ menu: built-in Details first, the view's own items (Links /
- * Actions) in the middle, then a technical section with Metadata + History.
+ * Compose a row's ⋯ menu — one uniform menu for every list, assembled from the
+ * node's own config: Details, then the `links` section, the `actions` section,
+ * the instance's available transitions (lazy), then a technical Metadata/History
+ * section. There is no per-column "menu"; the sections are first-class node props.
  */
-function composeMenu(configItems: MenuEntry[] | undefined): MenuEntry[] {
+function composeMenu(tx: TxState): MenuEntry[] {
   const items: MenuEntry[] = []
-  if (props.node.rowDetail) {
-    items.push({ label: { tr: 'Detay', en: 'Details' }, builtin: 'details' })
+  if (rowDetail.value) items.push({ label: uiText('list.menu.details'), builtin: 'details' })
+  const links = props.node.links ?? []
+  if (links.length) {
+    items.push({ heading: uiText('list.menu.links') })
+    items.push(...links.map((l) => ({ label: l.label, action: l.action })))
   }
-  if (configItems?.length) items.push(...configItems)
-  const tech: MenuEntry[] = [{ label: { tr: 'Üst Veri', en: 'Metadata' }, builtin: 'metadata', italic: true }]
-  if (delegate.getTransitionHistory) {
-    tech.push({ label: { tr: 'Geçmiş', en: 'History' }, builtin: 'history', italic: true })
+  const actions = props.node.actions ?? []
+  if (actions.length) {
+    items.push({ heading: uiText('list.menu.actions') })
+    items.push(...actions.map((a) => ({ label: a.label, action: a.action })))
   }
-  if (items.length) items.push({ heading: { tr: 'Teknik', en: 'System' } })
+  if (delegate.getInstanceTransitions) {
+    items.push({ heading: uiText('list.menu.transitions') })
+    if (tx.loading) items.push({ loading: true })
+    else if (!tx.items.length) items.push({ empty: true })
+    else items.push(...tx.items.map((t) => ({ label: t.key, builtin: 'transition' as const, txKey: t.key, hasView: t.hasView })))
+  }
+  const tech: MenuEntry[] = [{ label: uiText('list.menu.metadata'), builtin: 'metadata', italic: true }]
+  if (delegate.getTransitionHistory) tech.push({ label: uiText('list.menu.history'), builtin: 'history', italic: true })
+  items.push({ heading: uiText('list.menu.system') })
   items.push(...tech)
   return items
 }
-function toggleMenu(
-  id: string,
-  configItems: MenuEntry[] | undefined,
-  row: Record<string, unknown>,
-  e: MouseEvent,
-): void {
+function instanceIdOf(row: Record<string, unknown>): string {
+  return String(row.id ?? row.key ?? '')
+}
+function toggleMenu(id: string, row: Record<string, unknown>, e: MouseEvent): void {
   if (openMenu.value?.id === id) {
     openMenu.value = null
     return
   }
   const r = (e.currentTarget as HTMLElement).getBoundingClientRect()
-  openMenu.value = { id, items: composeMenu(configItems), row, top: r.bottom + 4, right: window.innerWidth - r.right }
+  const tx: TxState = { loading: !!delegate.getInstanceTransitions, items: [] }
+  openMenu.value = { id, items: composeMenu(tx), row, top: r.bottom + 4, right: window.innerWidth - r.right }
+  // Lazy-load this instance's available transitions (only when the menu opens).
+  if (delegate.getInstanceTransitions) {
+    delegate
+      .getInstanceTransitions({ domain: domain.value, workflow: props.node.workflow, instanceId: instanceIdOf(row) })
+      .then((txs) => {
+        if (openMenu.value?.id !== id) return
+        openMenu.value = { ...openMenu.value, items: composeMenu({ loading: false, items: txs }) }
+      })
+      .catch(() => {
+        if (openMenu.value?.id !== id) return
+        openMenu.value = { ...openMenu.value, items: composeMenu({ loading: false, items: [] }) }
+      })
+  }
 }
 function pickMenu(item: MenuEntry, row: Record<string, unknown>): void {
+  if (item.loading || item.empty) return
   openMenu.value = null
   if (item.builtin === 'details') return onRowClick(row)
   if (item.builtin === 'metadata') {
@@ -321,28 +398,36 @@ function pickMenu(item: MenuEntry, row: Record<string, unknown>): void {
     return
   }
   if (item.builtin === 'history') return void openHistoryFor(row)
+  if (item.builtin === 'transition') return void onTransition(row, item.txKey ?? '', !!item.hasView)
   runAction(item.action, row, item.label)
 }
 
-// Transition-history popup (list row menu → History), fetched via the host.
-const showHistory = ref(false)
-const loadingHistory = ref(false)
-const historyItems = ref<TransitionHistoryItem[]>([])
+/** Trigger a transition from the row. No form → apply + reload; form → open detail. */
+async function onTransition(row: Record<string, unknown>, txKey: string, hasView: boolean): Promise<void> {
+  if (!txKey) return
+  // Transitions that need input open the record (its state view collects it);
+  // the display-driven modal/page form is a follow-up.
+  if (hasView) return onRowClick(row)
+  if (!delegate.applyTransition) return
+  await delegate.applyTransition({
+    domain: domain.value,
+    workflow: props.node.workflow,
+    instanceId: instanceIdOf(row),
+    transitionKey: txKey,
+  })
+  await load()
+}
+
+// Transition history (list row menu → History). The surface (config view in a
+// modal / page, or the built-in fallback) is decided by useHistory.
+const history = useHistory()
 async function openHistoryFor(row: Record<string, unknown>): Promise<void> {
   if (!delegate.getTransitionHistory) return
-  showHistory.value = true
-  loadingHistory.value = true
-  try {
-    historyItems.value = await delegate.getTransitionHistory({
-      domain: props.node.domain,
-      workflow: props.node.workflow,
-      instanceId: String(row.id ?? row.key ?? ''),
-    })
-  } catch {
-    historyItems.value = []
-  } finally {
-    loadingHistory.value = false
-  }
+  const instanceId = instanceIdOf(row)
+  await history.show(
+    { domain: domain.value, workflow: props.node.workflow, instanceId, title: rowDetail.value?.title, subtitle: instanceId },
+    () => delegate.getTransitionHistory!({ domain: domain.value, workflow: props.node.workflow, instanceId }),
+  )
 }
 
 /** Fill a "{{dot.path}}" template from the row (for the detail tab subtitle). */
@@ -357,13 +442,13 @@ function fillTemplate(tpl: string, row: Record<string, unknown>): string {
 
 /** Row click → open the record's detail (its current-state view) in a new tab. */
 function onRowClick(row: Record<string, unknown>): void {
-  const rd = props.node.rowDetail
+  const rd = rowDetail.value
   if (!rd || !delegate.onAction) return
   const key = String(row.key ?? row.id ?? '')
   delegate.onAction('navigate', {
     key: rd.navigate,
     payload: {
-      domain: props.node.domain,
+      domain: domain.value,
       workflow: props.node.workflow,
       instanceId: row.id ?? row.key,
       // Tab title = the entity label; subtitle = a configured row template (else key).
@@ -467,7 +552,7 @@ async function load(): Promise<void> {
   if (!delegate.queryInstances) {
     log('error', 'InstanceList needs delegate.queryInstances, but none was provided', undefined, {
       source: 'InstanceList',
-      workflow: `${props.node.domain}/${props.node.workflow}`,
+      workflow: `${domain.value}/${props.node.workflow}`,
     })
     return
   }
@@ -475,7 +560,7 @@ async function load(): Promise<void> {
   errorText.value = ''
   try {
     const res = await delegate.queryInstances({
-      domain: props.node.domain,
+      domain: domain.value,
       workflow: props.node.workflow,
       ...(props.node.version ? { version: props.node.version } : {}),
       page: page.value,
@@ -515,14 +600,14 @@ onMounted(async () => {
   if (columns.value.some((c) => filterType(c) === 'state') && delegate.getWorkflowStates) {
     try {
       workflowStates.value = await delegate.getWorkflowStates({
-        domain: props.node.domain,
+        domain: domain.value,
         workflow: props.node.workflow,
         ...(props.node.version ? { version: props.node.version } : {}),
       })
     } catch (e) {
       log('error', 'InstanceList could not load workflow states for the state filter', undefined, {
         source: 'InstanceList',
-        workflow: `${props.node.domain}/${props.node.workflow}`,
+        workflow: `${domain.value}/${props.node.workflow}`,
         error: e instanceof Error ? e.message : String(e),
       })
     }
@@ -541,10 +626,7 @@ onMounted(async () => {
             v-for="(c, i) in columns"
             :key="i"
             class="d-instancelist-th"
-            :class="{
-              'd-instancelist-th--sortable': !!c.sortField,
-              'd-instancelist-th--meta': c.kind === 'menu' && !!c.icon,
-            }"
+            :class="{ 'd-instancelist-th--sortable': !!c.sortField }"
             :aria-sort="sortState(c) === 'asc' ? 'ascending' : sortState(c) === 'desc' ? 'descending' : undefined"
           >
             <span class="d-instancelist-th-inner">
@@ -583,7 +665,7 @@ onMounted(async () => {
                   type="date"
                   class="d-instancelist-filterdate"
                   :value="dateVal(c, 'from')"
-                  :aria-label="ctx.lang.startsWith('tr') ? 'Başlangıç' : 'From'"
+                  :aria-label="uiText('list.filter.from')"
                   @change="onDate(c, 'from', ($event.target as HTMLInputElement).value)"
                 />
                 <span class="d-instancelist-filterdash">–</span>
@@ -591,7 +673,7 @@ onMounted(async () => {
                   type="date"
                   class="d-instancelist-filterdate"
                   :value="dateVal(c, 'to')"
-                  :aria-label="ctx.lang.startsWith('tr') ? 'Bitiş' : 'To'"
+                  :aria-label="uiText('list.filter.to')"
                   @change="onDate(c, 'to', ($event.target as HTMLInputElement).value)"
                 />
               </template>
@@ -601,7 +683,7 @@ onMounted(async () => {
                 type="text"
                 class="d-instancelist-filterinput"
                 :value="textVal(c)"
-                :placeholder="ctx.lang.startsWith('tr') ? 'Ara…' : 'Search…'"
+                :placeholder="uiText('list.search')"
                 @input="onTextInput(c, ($event.target as HTMLInputElement).value)"
               />
               <button
@@ -615,32 +697,29 @@ onMounted(async () => {
               </button>
             </div>
           </th>
-          <th v-if="!hasMenuColumn" class="d-instancelist-th d-instancelist-th--meta" aria-hidden="true"></th>
+          <th class="d-instancelist-th d-instancelist-th--meta" aria-hidden="true"></th>
         </tr>
       </thead>
       <tbody>
         <tr v-if="loading" class="d-instancelist-status">
-          <td :colspan="columns.length + (hasMenuColumn ? 0 : 1)"><i class="pi pi-spinner pi-spin"></i></td>
+          <td :colspan="columns.length + 1"><i class="pi pi-spinner pi-spin"></i></td>
         </tr>
         <tr v-else-if="!items.length" class="d-instancelist-status">
-          <td :colspan="columns.length + (hasMenuColumn ? 0 : 1)">
-            {{ ctx.lang.startsWith('tr') ? 'Kayıt yok' : 'No records' }}
+          <td :colspan="columns.length + 1">
+            {{ uiText('list.noRecords') }}
           </td>
         </tr>
         <tr
           v-else
           v-for="(row, ri) in items"
           :key="(row.id as string) ?? ri"
-          :class="{ 'd-instancelist-row--clickable': !!props.node.rowDetail }"
+          :class="{ 'd-instancelist-row--clickable': !!rowDetail }"
           @click="onRowClick(row)"
         >
           <td
             v-for="(c, ci) in columns"
             :key="ci"
-            :class="{
-              'd-instancelist-actioncell': !!c.kind,
-              'd-instancelist-metacell': c.kind === 'menu' && !!c.icon,
-            }"
+            :class="{ 'd-instancelist-actioncell': !!c.kind }"
             :title="c.kind ? '' : cell(row, c)"
           >
             <button
@@ -651,31 +730,19 @@ onMounted(async () => {
             >
               {{ colLabel(c) }}
             </button>
-            <button
-              v-else-if="c.kind === 'menu'"
-              type="button"
-              :class="[
-                c.icon ? 'd-instancelist-info' : 'd-instancelist-action',
-                { 'is-open': openMenu?.id === `${ri}:${ci}` },
-              ]"
-              :title="c.icon ? colLabel(c) : undefined"
-              :aria-label="colLabel(c)"
-              @click.stop="toggleMenu(`${ri}:${ci}`, c.items, row, $event)"
-            >
-              <i v-if="c.icon" :class="c.icon"></i>
-              <template v-else>{{ colLabel(c) }} ▾</template>
-            </button>
             <span v-else-if="isChip(c)" :class="chipClass(row, c)">{{ cell(row, c) }}</span>
             <template v-else>{{ cell(row, c) }}</template>
           </td>
-          <td v-if="!hasMenuColumn" class="d-instancelist-metacell">
+          <!-- Uniform per-row ⋯ menu (Details / Links / Actions / Transitions /
+               System). Always present; composed from the node's own config. -->
+          <td class="d-instancelist-metacell">
             <button
               type="button"
               class="d-instancelist-info"
-              :class="{ 'is-open': openMenu?.id === `auto:${ri}` }"
-              :title="ctx.lang.startsWith('tr') ? 'İşlemler' : 'Actions'"
-              aria-label="Actions"
-              @click.stop="toggleMenu(`auto:${ri}`, undefined, row, $event)"
+              :class="{ 'is-open': openMenu?.id === `menu:${ri}` }"
+              :title="uiText('list.menu.title')"
+              :aria-label="uiText('list.menu.title')"
+              @click.stop="toggleMenu(`menu:${ri}`, row, $event)"
             >
               <i class="pi pi-ellipsis-v"></i>
             </button>
@@ -703,7 +770,7 @@ onMounted(async () => {
     <div v-if="metaRow" class="d-raw-modal" @click.self="metaRow = null">
       <div class="d-raw-dialog d-raw-dialog--sm" role="dialog" aria-modal="true">
         <header class="d-raw-head">
-          <span>{{ ctx.lang.startsWith('tr') ? 'Teknik Bilgi' : 'Metadata' }}</span>
+          <span>{{ uiText('list.metadata.title') }}</span>
           <button type="button" class="d-raw-close" aria-label="Close" @click="metaRow = null">×</button>
         </header>
         <div class="d-hist">
@@ -717,16 +784,9 @@ onMounted(async () => {
       </div>
     </div>
 
-    <!-- Transition-history popup (row menu → History). -->
-    <div v-if="showHistory" class="d-raw-modal" @click.self="showHistory = false">
-      <div class="d-raw-dialog d-raw-dialog--sm" role="dialog" aria-modal="true">
-        <header class="d-raw-head">
-          <span>{{ ctx.lang.startsWith('tr') ? 'Geçiş Geçmişi' : 'Transition History' }}</span>
-          <button type="button" class="d-raw-close" aria-label="Close" @click="showHistory = false">×</button>
-        </header>
-        <WorkflowHistory :items="historyItems" :loading="loadingHistory" :lang="ctx.lang" />
-      </div>
-    </div>
+    <!-- Transition-history popup (row menu → History). Shared modal shell:
+         config view / built-in fallback + a `{ }` raw-JSON toggle. -->
+    <HistoryModal :history="history" :title="uiText('list.history.title')" :lang="ctx.lang" />
 
     <!-- Combo (menu) dropdown — teleported to body + fixed to the button rect so
          the table's overflow never clips it. -->
@@ -740,11 +800,13 @@ onMounted(async () => {
         >
           <template v-for="(it, ii) in openMenu.items" :key="ii">
             <div v-if="it.heading" class="d-menu-heading">{{ localizeLabel(it.heading, ctx.lang) }}</div>
+            <div v-else-if="it.loading" class="d-menu-loading">…</div>
+            <div v-else-if="it.empty" class="d-menu-empty">{{ uiText('list.menu.noTransitions') }}</div>
             <button
               v-else
               type="button"
               class="d-menu-item"
-              :class="{ 'd-menu-item--italic': it.italic }"
+              :class="{ 'd-menu-item--italic': it.italic, 'd-menu-item--tx': it.builtin === 'transition' }"
               @click="pickMenu(it, openMenu.row)"
             >
               {{ localizeLabel(it.label, ctx.lang) || it.action?.navigate }}

@@ -29,6 +29,20 @@ export interface NestedComponentNode extends ComponentNode {
 }
 
 /**
+ * Displays `value` (an expression like "$item.raw" or a literal) as
+ * syntax-highlighted JSON. PURE display — show/hide is declarative via the
+ * standard `visible` prop (a Button `toggle` on a `$ui` key drives it), so a view
+ * can reveal an item's own record inline with no client-side state. Per-row keys
+ * use `{{$item.x}}` interpolation, e.g. `visible: "$ui.open_{{$item.id}}"`.
+ */
+export interface JsonNode extends ComponentNode {
+  type: 'Json'
+  value: string | unknown
+  /** Show/hide expression (e.g. "$ui.open_{{$item.id}}"). */
+  visible?: string
+}
+
+/**
  * Amorphie navigation list: renders a data-bound array of nav items (groups +
  * leaves), and on tap emits a `navigate` action carrying the tapped item via the
  * delegate — so the host maps the intent to its router (open a view / start a
@@ -166,11 +180,9 @@ export interface InstanceRowActionFilter extends InstanceFieldFilter {
   valueFrom: string
 }
 
-/** One entry in a `kind: "menu"` column's dropdown. */
+/** One entry in a row's ⋯ menu (a `links` or `actions` item on the list node). */
 export interface InstanceMenuItem {
   label?: MultiLangText | string | Array<{ language: string; label: string }>
-  /** A non-clickable section heading (groups the items below it). No `action`. */
-  heading?: MultiLangText | string | Array<{ language: string; label: string }>
   action?: InstanceRowAction
 }
 
@@ -200,21 +212,10 @@ export interface InstanceColumn {
    * input that filters the list server-side by {@link InstanceFieldFilter.field}.
    */
   filter?: InstanceFieldFilter
-  /**
-   * - "action" renders a single button (using {@link action}).
-   * - "menu" renders a dropdown button (label + {@link items}) grouping several
-   *   actions — e.g. a "Links" or "Actions" combo per row.
-   */
-  kind?: 'action' | 'menu'
+  /** "action" renders a single inline button (using {@link action}). */
+  kind?: 'action'
   /** The row action for `kind: "action"` columns. */
   action?: InstanceRowAction
-  /** The dropdown entries for `kind: "menu"` columns. */
-  items?: InstanceMenuItem[]
-  /**
-   * PrimeVue icon class (e.g. "pi pi-ellipsis-v") for a `kind: "menu"` trigger —
-   * renders a compact icon button instead of a text "Label ▾" button.
-   */
-  icon?: string
 }
 
 /**
@@ -224,30 +225,56 @@ export interface InstanceColumn {
  */
 export interface InstanceListNode extends ComponentNode {
   type: 'InstanceList'
-  domain: string
+  /**
+   * Data domain of the listed workflow. Optional: when omitted, the host-provided
+   * default (PseudoView `dataDomain`, fed from config) is used — so a
+   * solution-specific domain literal need not be repeated in every view.
+   */
+  domain?: string
   workflow: string
   version?: string
   pageSize?: number
   filter?: unknown
+  /** Default sort. Omit → newest-first (`createdAt` desc). */
   sort?: unknown
-  columns: InstanceColumn[]
   /**
-   * Makes rows clickable → navigate to `rowDetail.navigate`, carrying the row's
-   * instance identity ({domain, workflow, instanceId, key} + `title`) as the tab
-   * payload (a detail surface renders that instance's current-state view). Omit
-   * for a non-interactive list. `title` is the singular entity label the detail
-   * tab shows (e.g. "Device") instead of a generic "Record Detail".
+   * Business columns. A standard trailing trio (state / status / created) is
+   * appended automatically (every instance carries them); set
+   * {@link systemColumns} to `false` to suppress it. Their labels come from
+   * config, so those columns need no `label`.
    */
-  rowDetail?: {
-    navigate: string
-    title?: MultiLangText | string | Array<{ language: string; label: string }>
-    /**
-     * Template for the detail tab's second line, with `{{dot.path}}` placeholders
-     * resolved against the clicked row (e.g. "{{attributes.name.first}} {{attributes.name.last}}").
-     * Defaults to the row's business key.
-     */
-    subtitle?: string
-  }
+  columns: InstanceColumn[]
+  /** Set `false` to suppress the auto state/status/created trailing columns. */
+  systemColumns?: boolean
+  /**
+   * "Links" section of every row's ⋯ menu — navigations to related records
+   * (e.g. a user's logins / consents / person). Rendered under a "Links" heading.
+   */
+  links?: InstanceMenuItem[]
+  /**
+   * "Actions" section of every row's ⋯ menu — operations on the record
+   * (e.g. change/reset password). Rendered under an "Actions" heading.
+   */
+  actions?: InstanceMenuItem[]
+  /**
+   * Rows are clickable by DEFAULT → navigate to `rowDetail.navigate` (defaults to
+   * the generic `instance-detail` surface), carrying the row's instance identity
+   * ({domain, workflow, instanceId, key} + `title`) as the tab payload. Set
+   * `false` for a non-interactive list. `title` is the singular entity label the
+   * detail tab shows (e.g. "Device"); `navigate` may be omitted to use the default.
+   */
+  rowDetail?:
+    | false
+    | {
+        navigate?: string
+        title?: MultiLangText | string | Array<{ language: string; label: string }>
+        /**
+         * Template for the detail tab's second line, with `{{dot.path}}` placeholders
+         * resolved against the clicked row (e.g. "{{attributes.name.first}} {{attributes.name.last}}").
+         * Defaults to the row's business key.
+         */
+        subtitle?: string
+      }
 }
 
 /** A single page query the host runs for an {@link InstanceListNode}. */
@@ -341,6 +368,12 @@ export interface TransitionHistoryItem {
   at?: string
   /** "manual" | "automatic". */
   triggerType?: string
+  /**
+   * The FULL backend transition record (id, timestamps, duration, body, header,
+   * …), passed through untouched. The list rendering uses the fields above; the
+   * `{ }` raw viewer dumps this so nothing is hidden.
+   */
+  raw?: unknown
 }
 
 export type ButtonAction = 'submit' | 'cancel' | 'back'
@@ -452,6 +485,17 @@ export interface ActionDescriptor {
   bind?: string
   /** Required when `action === 'select'`. Literal value or `$...` expression. */
   value?: unknown
+  /**
+   * `action === 'load'` — lazy data fetch (SDK-internal; host called via
+   * `delegate.loadData`). On dispatch the SDK resolves {@link args} (each `$...`
+   * value against the current item), calls `loadData({source, args})`, and writes
+   * the result into {@link into} (a `$ui.*`/`$form.*` path, `{{…}}`-interpolated
+   * per item). Load-once: skips if `into` already holds a value. Pairs with a
+   * `toggle` + a node bound to `into` for expand-to-load-detail rows.
+   */
+  source?: string
+  args?: Record<string, unknown>
+  into?: string
   /**
    * Should the SDK run `validateAllFields()` before dispatching?
    *
@@ -710,6 +754,33 @@ export interface PseudoViewDelegate {
     workflow: string
     instanceId: string
   }): Promise<TransitionHistoryItem[]>
+  /**
+   * Lazily fetch an instance's currently-available transitions (for a list row's
+   * ⋯ menu, loaded on open). `hasView` marks transitions that need a form.
+   */
+  getInstanceTransitions?(input: {
+    domain: string
+    workflow: string
+    instanceId: string
+  }): Promise<Array<{ key: string; hasView?: boolean; hasSchema?: boolean }>>
+  /**
+   * Generic lazy data fetch for the `load` action (expand-to-load-detail rows,
+   * etc.). Called with a view-declared `source` id + resolved `args`; the SDK
+   * writes the returned value into the action's `into` ($ui/$form) slot. `source`
+   * is opaque to the SDK — the host routes it to the right query.
+   */
+  loadData?(input: { source: string; args?: Record<string, unknown> }): Promise<unknown>
+  /**
+   * Apply a transition to an instance (ad-hoc trigger from a list row, no form).
+   * Returns ok=false with an error message on failure.
+   */
+  applyTransition?(input: {
+    domain: string
+    workflow: string
+    instanceId: string
+    transitionKey: string
+    body?: Record<string, unknown>
+  }): Promise<{ ok: boolean; error?: string }>
   /**
    * Called when a user-triggered action reaches the host. For a plain
    * action, the SDK invokes this with three arguments (the 4th

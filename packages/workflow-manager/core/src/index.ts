@@ -121,6 +121,8 @@ export type {
   GetWorkflowStatesInput,
   GetWorkflowStatesResult,
   WorkflowStateInfo,
+  GetAvailableTransitionsInput,
+  GetAvailableTransitionsResult,
 
   // ---- query / filter
   QueryInstancesInput,

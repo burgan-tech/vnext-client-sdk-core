@@ -115,6 +115,7 @@ export function makeDriveWorkflow(opts: WorkflowDriverOptions = {}) {
           toState: e.toState,
           at: e.startedAt ?? e.createdAt,
           triggerType: e.triggerType,
+          raw: e, // full backend record for the `{ }` raw viewer
         }));
       },
       async start(values) {

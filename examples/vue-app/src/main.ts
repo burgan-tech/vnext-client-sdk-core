@@ -27,7 +27,14 @@ import { getMorphClient } from './boot/morphClient';
 import { loadAndApplyTheme } from './boot/theme';
 import { CTX } from './boot/constants';
 import { Boundary, Storage, setContextValue } from './sdk/context';
-import { ITEMS_BY_KEY, APP_ROUTER, APP_SET_TOKEN_LEVEL } from './boot/keys';
+import {
+  ITEMS_BY_KEY,
+  APP_ROUTER,
+  APP_SET_TOKEN_LEVEL,
+  APP_UI_STRINGS,
+  APP_DATA_DOMAIN,
+  APP_CONFIG_VIEWS,
+} from './boot/keys';
 
 let app: App | null = null;
 let disposeHistory: (() => void) | null = null;
@@ -96,6 +103,9 @@ async function start(overrideLevel?: TokenLevel): Promise<void> {
   app.provide(ITEMS_BY_KEY, host.built.itemsByKey);
   app.provide(APP_ROUTER, router);
   app.provide(APP_SET_TOKEN_LEVEL, reboot);
+  app.provide(APP_UI_STRINGS, host.state.clientConfig.i18n?.strings ?? {});
+  app.provide(APP_DATA_DOMAIN, (host.state.clientConfig.dataDomain as string | undefined) ?? '');
+  app.provide(APP_CONFIG_VIEWS, (host.state.clientConfig.views as Record<string, unknown> | undefined) ?? {});
   app.mount('#app');
 
   // eslint-disable-next-line no-console

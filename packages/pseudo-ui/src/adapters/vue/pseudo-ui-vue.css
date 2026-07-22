@@ -387,6 +387,15 @@
   white-space: nowrap;
 }
 .d-menu-item:hover { background: var(--color-hover, #f1f2f8); }
+.d-menu-item--italic { font-style: italic; color: var(--color-muted, #667); }
+.d-menu-item--tx { color: var(--color-primary, #2f6fed); font-weight: 600; }
+.d-menu-loading,
+.d-menu-empty {
+  padding: 0.45rem 0.7rem;
+  font-size: 0.8rem;
+  color: var(--color-muted, #889);
+  font-style: italic;
+}
 .d-menu-heading {
   padding: 0.45rem 0.7rem 0.2rem;
   font-size: 0.68rem;
@@ -856,18 +865,27 @@
 /* Transition history list */
 .d-hist { padding: 0.5rem 1rem 1rem; overflow: auto; }
 .d-hist__empty { color: var(--color-muted, #889); text-align: center; padding: 1.5rem; }
-.d-hist__list { list-style: none; margin: 0; padding: 0; }
+/* History row (config view: .d-hist / .d-hist__item Column). Layout is declarative
+   in the view (Row + mainAxisAlignment); this only adds the row divider/spacing. */
 .d-hist__item {
-  display: grid;
-  grid-template-columns: 1fr auto;
-  gap: 0.15rem 1rem;
+  gap: 0.2rem;
   padding: 0.55rem 0;
   border-bottom: 1px solid var(--color-border, #eef0f6);
   font-size: 0.88rem;
 }
-.d-hist__states { font-weight: 600; color: var(--color-on-surface, #1f2430); }
-.d-hist__key { color: var(--color-primary, #2563eb); font-size: 0.8rem; }
-.d-hist__meta { grid-column: 1 / -1; color: var(--color-muted, #889); font-size: 0.78rem; }
+/* Generic Json (raw-value display) node — its highlighted JSON block. */
+.d-jsonview__json {
+  margin: 0.4rem 0 0.1rem;
+  padding: 0.6rem 0.8rem;
+  max-height: 40vh;
+  overflow: auto;
+  background: var(--color-surface-variant, #f6f7fb);
+  border: 1px solid var(--color-border, #eef0f6);
+  border-radius: 8px;
+  font-size: 0.76rem;
+  line-height: 1.5;
+  white-space: pre;
+}
 .d-raw-modal {
   position: fixed;
   inset: 0;

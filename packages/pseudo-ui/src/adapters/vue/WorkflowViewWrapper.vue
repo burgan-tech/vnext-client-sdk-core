@@ -19,8 +19,10 @@ import type {
 import { resolveExpression, localizeLabel } from '../../engine/expressionResolver'
 import { useFormContext } from './useFormContext'
 import { useDelegate, provideDelegate } from './injection'
+import { useHistory } from './useHistory'
+import { highlightJson } from './jsonHighlight'
+import HistoryModal from './HistoryModal.vue'
 import NestedComponentWrapper from './NestedComponentWrapper.vue'
-import WorkflowHistory from './WorkflowHistory.vue'
 
 const props = defineProps<{
   node: WorkflowViewNode
@@ -99,22 +101,6 @@ const instanceValues = computed<Record<string, unknown>>(
 // Raw instance-data viewer (detail pages): a `{ }` button opens a modal with the
 // full instance data as pretty, syntax-highlighted JSON (scrollable).
 const showRaw = ref(false)
-function escapeHtml(s: string): string {
-  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-}
-function highlightJson(value: unknown): string {
-  const json = escapeHtml(JSON.stringify(value, null, 2) ?? 'null')
-  return json.replace(
-    /("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false)\b|\bnull\b|-?\d+(\.\d*)?([eE][+-]?\d+)?)/g,
-    (m) => {
-      let cls = 'd-json-num'
-      if (/^"/.test(m)) cls = /:$/.test(m) ? 'd-json-key' : 'd-json-str'
-      else if (/true|false/.test(m)) cls = 'd-json-bool'
-      else if (/null/.test(m)) cls = 'd-json-null'
-      return `<span class="${cls}">${m}</span>`
-    },
-  )
-}
 // Raw viewer shows the FULL instance (metadata + attributes) when the host
 // provides it; falls back to just the attributes otherwise.
 const rawData = computed<Record<string, unknown>>(
@@ -126,11 +112,7 @@ const rawJson = computed(() => highlightJson(rawData.value))
 // and transition history (button → modal). All optional on the session.
 const stateLabel = computed(() => session?.state?.value ?? '')
 const transitionOptions = computed(() => session?.transitions?.value ?? [])
-const showHistory = ref(false)
-const loadingHistory = ref(false)
-const historyItems = ref<
-  Array<{ transitionKey: string; fromState: string; toState: string; at?: string; triggerType?: string }>
->([])
+const history = useHistory()
 async function onPickTransition(e: Event): Promise<void> {
   const el = e.target as HTMLSelectElement
   const key = el.value
@@ -139,15 +121,10 @@ async function onPickTransition(e: Event): Promise<void> {
 }
 async function openHistory(): Promise<void> {
   if (!session?.history) return
-  showHistory.value = true
-  loadingHistory.value = true
-  try {
-    historyItems.value = await session.history()
-  } catch {
-    historyItems.value = []
-  } finally {
-    loadingHistory.value = false
-  }
+  await history.show(
+    { domain: config.value.domain, workflow: config.value.name, instanceId: config.value.instanceId ?? '' },
+    () => session!.history!(),
+  )
 }
 
 const detailRows = computed<Array<{ key: string; value: string }>>(() => {
@@ -255,16 +232,14 @@ onUnmounted(() => session?.dispose?.())
       </div>
     </template>
 
-    <!-- Transition history modal. -->
-    <div v-if="showHistory" class="d-raw-modal" @click.self="showHistory = false">
-      <div class="d-raw-dialog" role="dialog" aria-modal="true">
-        <header class="d-raw-head">
-          <span>{{ ctx.lang.startsWith('tr') ? 'Geçiş Geçmişi' : 'Transition History' }}</span>
-          <button type="button" class="d-raw-close" aria-label="Close" @click="showHistory = false">×</button>
-        </header>
-        <WorkflowHistory :items="historyItems" :loading="loadingHistory" :lang="ctx.lang" />
-      </div>
-    </div>
+    <!-- Transition history: shared modal shell (config view / fallback + a
+         `{ }` raw-JSON toggle). A page-display history view opens as a tab
+         instead (handled in useHistory). -->
+    <HistoryModal
+      :history="history"
+      :title="ctx.lang.startsWith('tr') ? 'Geçiş Geçmişi' : 'Transition History'"
+      :lang="ctx.lang"
+    />
 
     <!-- Raw instance-data modal (scrollable, JSON syntax-highlighted). -->
     <div v-if="showRaw" class="d-raw-modal" @click.self="showRaw = false">

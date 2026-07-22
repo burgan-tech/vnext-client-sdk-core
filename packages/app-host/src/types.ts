@@ -127,8 +127,25 @@ export interface LevelConfig {
 
 export interface ClientConfig {
   theme?: Record<string, unknown>;
-  /** Supported UI locales for the language switch. */
-  i18n?: { default?: string; locales?: Array<{ code: string; label: string }> };
+  /**
+   * Supported UI locales for the language switch, plus `strings`: a dictionary of
+   * generic UI-chrome labels the pseudo-ui SDK renders itself (keyed by a stable
+   * id, each a localizable label). Fed to `<PseudoView :ui-strings>` so the SDK
+   * carries no translated literals.
+   */
+  i18n?: {
+    default?: string;
+    locales?: Array<{ code: string; label: string }>;
+    strings?: Record<string, unknown>;
+  };
+  /** Default data domain for instance-listing views that omit their own `domain`. */
+  dataDomain?: string;
+  /**
+   * Config-referenced surface views the SDK opens (e.g. transition history):
+   * `{ transitionHistory: { key, domain, flow } }`. Modal vs page is decided by
+   * the referenced view's own `display`.
+   */
+  views?: Record<string, unknown>;
   api?: Record<string, unknown>;
   router?: { defaultMode?: string; allowChangeMode?: boolean; [k: string]: unknown };
   /** Per-token-level chrome + navigation manifest. */

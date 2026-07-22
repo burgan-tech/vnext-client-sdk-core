@@ -12,21 +12,35 @@ import { computed, inject, ref, watch } from 'vue';
 import type { IPageRouter } from 'page-router';
 import { usePageRouter } from 'page-router-vue';
 import type { NavItem, TokenLevel } from '@burgan-tech/app-host';
-import type { ViewDefinition, PseudoViewDelegate } from '@burgan-tech/pseudo-ui';
+import type { ViewDefinition, PseudoViewDelegate, TransitionHistoryItem } from '@burgan-tech/pseudo-ui';
 import { PseudoView } from '@burgan-tech/pseudo-ui/vue';
 import { loadShellView } from '../boot/appHost';
 import { makeDriveWorkflow } from '../boot/workflowDriver';
 import { queryInstances } from '../boot/instanceQuery';
 import { getWorkflowStates } from '../boot/workflowStates';
 import { getTransitionHistory } from '../boot/transitionHistory';
+import { getInstanceTransitions, applyTransition } from '../boot/instanceTransitions';
 import { localize } from '../sdk/i18n';
-import { ITEMS_BY_KEY, APP_ROUTER, APP_SET_TOKEN_LEVEL } from '../boot/keys';
+import {
+  ITEMS_BY_KEY,
+  APP_ROUTER,
+  APP_SET_TOKEN_LEVEL,
+  APP_UI_STRINGS,
+  APP_DATA_DOMAIN,
+  APP_CONFIG_VIEWS,
+} from '../boot/keys';
 
 const props = defineProps<{ item: { key: string } }>();
 
 const itemsByKey = inject(ITEMS_BY_KEY, new Map<string, NavItem>());
 const router = inject<IPageRouter | null>(APP_ROUTER, null);
 const setTokenLevel = inject<((level: TokenLevel) => void) | null>(APP_SET_TOKEN_LEVEL, null);
+// Generic UI-chrome strings for the SDK (config-fed; see APP_UI_STRINGS).
+const uiStrings = inject<Record<string, unknown>>(APP_UI_STRINGS, {});
+// Default data domain for list views that omit `domain` (config-fed).
+const dataDomain = inject<string>(APP_DATA_DOMAIN, '');
+// Config-referenced surface views the SDK opens (e.g. transition history).
+const configViews = inject<Record<string, unknown>>(APP_CONFIG_VIEWS, {});
 
 // Active locale (TR/EN) drives which LocalizedString branch pseudo-ui renders.
 const routerState = router ? usePageRouter(router) : null;
@@ -136,6 +150,32 @@ const isFullPage = computed(
 // group headers) and the child items (group). For a dynamicView it carries the
 // tab payload — a drill-down's `filter` reaches the InstanceList this way and is
 // shown as a seeded, visible column filter.
+// A history PAGE route (nav `config.dataSource === "transitionHistory"`) renders
+// a history view that needs its rows fed as `$instance.transitions` — the host
+// fetches them here (the view stays pure layout; data comes from outside).
+const isHistoryPage = computed(
+  () => (nav.value?.config?.['dataSource'] as string | undefined) === 'transitionHistory',
+);
+const pageTransitions = ref<TransitionHistoryItem[]>([]);
+watch(
+  [isHistoryPage, payload],
+  async ([isHist, p]) => {
+    const domain = String(p.domain ?? '');
+    const workflow = String(p.workflow ?? '');
+    const instanceId = String(p.instanceId ?? '');
+    if (!isHist || !domain || !workflow || !instanceId) {
+      pageTransitions.value = [];
+      return;
+    }
+    try {
+      pageTransitions.value = await getTransitionHistory({ domain, workflow, instanceId });
+    } catch {
+      pageTransitions.value = [];
+    }
+  },
+  { immediate: true },
+);
+
 const instanceData = computed<Record<string, unknown>>(() => {
   const n = nav.value;
   if (!n) return {};
@@ -145,7 +185,9 @@ const instanceData = computed<Record<string, unknown>>(() => {
   if (n.type === 'workflow') {
     return { title: t(n.title) || n.key, subtitle: n.subtitle ? t(n.subtitle) : '' };
   }
-  if (n.type === 'dynamicView') return { ...payload.value };
+  if (n.type === 'dynamicView') {
+    return { ...payload.value, ...(isHistoryPage.value ? { transitions: pageTransitions.value } : {}) };
+  }
   return {};
 });
 
@@ -168,6 +210,9 @@ const delegate: PseudoViewDelegate = {
   getWorkflowStates,
   // Transition history for the list row menu's History item.
   getTransitionHistory,
+  // Lazy available-transitions + ad-hoc trigger for the list row's ⋯ menu.
+  getInstanceTransitions,
+  applyTransition,
   async onAction(action, data, command) {
     // Navigation taps (e.g. a group's children, or a row-action drill-down that
     // carries a filter payload).
@@ -199,6 +244,9 @@ const delegate: PseudoViewDelegate = {
       :instance-data="instanceData"
       :lang="lang"
       :delegate="delegate"
+      :ui-strings="uiStrings"
+      :data-domain="dataDomain"
+      :config-views="configViews"
     />
 
     <div v-else-if="loading" class="navview-loading">

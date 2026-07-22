@@ -466,6 +466,22 @@ export interface GetInstanceResult {
   error?: WorkflowErrorPayload;
 }
 
+export interface GetAvailableTransitionsInput {
+  domain: string;
+  name: string;
+  /** UUID or business key. */
+  instanceId: string;
+  version?: string;
+}
+
+export interface GetAvailableTransitionsResult {
+  ok: boolean;
+  transitions: VNextAvailableTransition[];
+  currentState?: string;
+  statusCode?: number;
+  error?: WorkflowErrorPayload;
+}
+
 export interface GetWorkflowStatesInput {
   domain: string;
   /** Workflow name whose definition (and thus states) to read. */

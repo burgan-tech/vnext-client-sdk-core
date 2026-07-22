@@ -1,5 +1,21 @@
 import type { FormContext, MultiLangText, LovFilterParam } from './types'
 
+/**
+ * Interpolate `{{ expr }}` placeholders in a string with resolved values (each
+ * inner expression evaluated via {@link resolveExpression}). Lets a declarative
+ * `bind`/`visible` build a per-row key from the ForEach item, e.g.
+ * `"$ui.open_{{$item.id}}"` → `"$ui.open_abc123"` — so each repeated row toggles
+ * its OWN ui-state, expressed purely in the view (no client-side/CSS state).
+ * Returns the string unchanged when it has no placeholders.
+ */
+export function interpolate(str: string, ctx: FormContext, item?: Record<string, unknown>): string {
+  if (!str || !str.includes('{{')) return str
+  return str.replace(/\{\{\s*([^}]+?)\s*\}\}/g, (_m, inner) => {
+    const v = resolveExpression(String(inner).trim(), ctx, item)
+    return v == null ? '' : String(v)
+  })
+}
+
 export function resolveExpression(expr: string, ctx: FormContext, item?: Record<string, unknown>): unknown {
   if (!expr || !expr.startsWith('$')) return expr
 

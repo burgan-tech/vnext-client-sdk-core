@@ -2,7 +2,7 @@
 import { computed, watch, onMounted, ref } from 'vue'
 import type { ComponentNode, SchemaProperty, LovItem, ForEachNode, NestedComponentNode, NavigationNode, TabStripNode, WorkflowViewNode, ActionDescriptor, CardNode, ButtonNode, TextNode, TabViewNode, MultiLangText, DataSchema, ViewDefinition } from '../../engine/types'
 import { useFormContext } from './useFormContext'
-import { resolveTextContent, resolveExpression, resolveMultiLang, localizeLabel } from '../../engine/expressionResolver'
+import { resolveTextContent, resolveExpression, resolveMultiLang, localizeLabel, interpolate } from '../../engine/expressionResolver'
 import { resolveNestedBind, applyNestedUpdate, getByPath, setByPath } from '../../engine/bindResolver'
 import { getSchemaProperty, getFieldLabel, getEnumOptions, isFieldRequired, mapLovItemsToOptions, validateField, getArrayItemSchema } from '../../engine/schemaResolver'
 import { evaluateConditional } from '../../engine/conditionalEngine'
@@ -15,6 +15,7 @@ import WorkflowViewWrapper from './WorkflowViewWrapper.vue'
 import TimerNode from './TimerNode.vue'
 import InstanceListNode from './InstanceListNode.vue'
 import NavigationTree from './NavigationTree.vue'
+import JsonView from './JsonView.vue'
 import ErrorBoundary from './ErrorBoundary.vue'
 import DesignerNode from './DesignerNode.vue'
 
@@ -201,6 +202,15 @@ const forEachItems = computed<Record<string, unknown>[]>(() => {
   return arr
 })
 
+// --- Json (raw value viewer) ---
+// Resolves the node's `value` (an expression like "$item.raw", or a literal) so
+// JsonView can dump it as collapsible JSON.
+const jsonValue = computed<unknown>(() => {
+  if (props.node.type !== 'Json') return null
+  const v = (props.node as { value?: unknown }).value
+  return typeof v === 'string' ? resolveExpression(v, ctx, props.item) : v
+})
+
 // --- Navigation (Amorphie nav list) ---
 const navigationItems = computed<Record<string, unknown>[]>(() => {
   if (props.node.type !== 'Navigation') return []
@@ -367,6 +377,18 @@ function removeArrayItem(index: number) {
  * framework-specific writes via `applySelect` / `applyReset` /
  * `runValidation` and surfaces the validation-error toast.
  */
+// A node with a string `action` PLUS a sibling `bind` (e.g. Button
+// action:"toggle"/"select" + bind:"$ui.x") must dispatch as a descriptor OBJECT
+// so the pipeline routes it to the SDK-internal applyToggle/applySelect (which
+// need `bind`); a bare string would fall through to the host instead.
+function actionOf(node: { action?: unknown; bind?: unknown; value?: unknown }): string | ActionDescriptor {
+  const a = node.action
+  if (typeof a === 'string' && typeof node.bind === 'string') {
+    return { action: a, bind: node.bind, ...(node.value !== undefined ? { value: node.value } : {}) }
+  }
+  return a as string | ActionDescriptor
+}
+
 function handleAction(action: string | ActionDescriptor | ActionDescriptor[], command?: string): Promise<void> {
   // A `command` may be a literal URN or an expression (e.g. "$item.command"),
   // so items in a ForEach can each carry their own command. Resolve if bound.
@@ -384,13 +406,14 @@ function handleAction(action: string | ActionDescriptor | ActionDescriptor[], co
         typeof descriptor.value === 'string' && (descriptor.value as string).startsWith('$')
           ? resolveExpression(descriptor.value as string, ctx, props.item)
           : descriptor.value
-      const bind = descriptor.bind!
+      // Interpolate `{{$item.x}}` so a repeated row targets its own key.
+      const bind = interpolate(descriptor.bind!, ctx, props.item)
       if (bind.startsWith('$ui.')) ctx.uiState[bind.slice(4)] = resolvedValue
       else if (bind.startsWith('$form.')) writeForm(ctx.formData, bind.slice(6), resolvedValue)
       else writeForm(ctx.formData, bind, resolvedValue)
     },
     applyToggle: (descriptor) => {
-      const bind = descriptor.bind!
+      const bind = interpolate(descriptor.bind!, ctx, props.item)
       if (bind.startsWith('$ui.')) {
         const key = bind.slice(4)
         ctx.uiState[key] = !ctx.uiState[key]
@@ -398,6 +421,21 @@ function handleAction(action: string | ActionDescriptor | ActionDescriptor[], co
         const key = bind.slice(6)
         writeForm(ctx.formData, key, !getByPath(ctx.formData, key.split('.')))
       }
+    },
+    applyLoad: async (descriptor, item) => {
+      const it = item ?? props.item
+      if (!delegate.loadData || !descriptor.into) return
+      const into = interpolate(descriptor.into, ctx, it)
+      // Load-once: skip when the target already holds a value.
+      if (resolveExpression(into, ctx, it) != null) return
+      // Resolve `$...` arg values against the current item.
+      const args: Record<string, unknown> = {}
+      for (const [k, v] of Object.entries(descriptor.args ?? {})) {
+        args[k] = typeof v === 'string' && v.startsWith('$') ? resolveExpression(v, ctx, it) : v
+      }
+      const result = await delegate.loadData({ source: descriptor.source ?? '', args })
+      if (into.startsWith('$ui.')) ctx.uiState[into.slice(4)] = result
+      else if (into.startsWith('$form.')) writeForm(ctx.formData, into.slice(6), result)
     },
     applyReset: () => {
       for (const k of Object.keys(ctx.formData)) delete ctx.formData[k]
@@ -458,15 +496,17 @@ const text = (content: string | MultiLangText | undefined) => resolveTextContent
 
 function resolveVisibility(expr?: unknown): boolean {
   if (typeof expr !== 'string') return false
-  return !!resolveExpression(expr, ctx, props.item)
+  // Interpolate `{{$item.x}}` first so per-row `visible` keys resolve.
+  return !!resolveExpression(interpolate(expr, ctx, props.item), ctx, props.item)
 }
 
 function setVisibility(expr: unknown, value: boolean) {
   if (typeof expr !== 'string') return
-  if (expr.startsWith('$ui.')) {
-    ctx.uiState[expr.slice(4)] = value
-  } else if (expr.startsWith('$form.')) {
-    writeForm(ctx.formData, expr.slice(6), value)
+  const e = interpolate(expr, ctx, props.item)
+  if (e.startsWith('$ui.')) {
+    ctx.uiState[e.slice(4)] = value
+  } else if (e.startsWith('$form.')) {
+    writeForm(ctx.formData, e.slice(6), value)
   }
 }
 
@@ -1054,7 +1094,7 @@ function menuItems(items: any[]) {
     :outlined="node.variant === 'outlined'"
     :text="node.variant === 'text'"
     :class="{ 'd-button--active': (node as any).active !== undefined && resolveVisibility((node as any).active) }"
-    @click="handleAction((node as ButtonNode).action, (node as ButtonNode).command)"
+    @click="handleAction(actionOf(node as any), (node as ButtonNode).command)"
   >
     <template v-if="(node as ButtonNode).icon" #icon>
       <i class="material-icons">{{ (node as ButtonNode).icon }}</i>
@@ -1198,6 +1238,13 @@ function menuItems(items: any[]) {
       />
     </template>
   </ErrorBoundary>
+
+  <!-- === CONTROL: Json (raw-value display; show/hide via node `visible`) === -->
+  <JsonView
+    v-else-if="node.type === 'Json'"
+    v-show="(node as any).visible === undefined || resolveVisibility((node as any).visible)"
+    :value="jsonValue"
+  />
 
   <!-- === CONTROL: Navigation (Amorphie nav list, emits navigate intent) === -->
   <nav v-else-if="node.type === 'Navigation'" class="d-navigation">

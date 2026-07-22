@@ -30,6 +30,8 @@ import type {
   GetWorkflowStatesInput,
   GetWorkflowStatesResult,
   WorkflowStateInfo,
+  GetAvailableTransitionsInput,
+  GetAvailableTransitionsResult,
   GetTransitionHistoryInput,
   GetTransitionHistoryResult,
   HttpResponse,
@@ -433,6 +435,36 @@ export class WorkflowManager {
       });
     }
     return { ok: true, states, ...(res.statusCode !== undefined ? { statusCode: res.statusCode } : {}) };
+  }
+
+  /**
+   * Read an instance's currently-available transitions (a one-off state fetch,
+   * no polling) — for a list row's lazy "Transitions" menu. Each transition
+   * carries its `view`/`schema` refs so the caller can decide inline-trigger vs
+   * form.
+   */
+  async getAvailableTransitions(input: GetAvailableTransitionsInput): Promise<GetAvailableTransitionsResult> {
+    if (this._isDisposed) return { ok: false, transitions: [] };
+    const response = await this.deps.api.getInstanceState({
+      domain: input.domain,
+      name: input.name,
+      instanceIdOrKey: input.instanceId,
+    });
+    if (!response.ok && !is304(response)) {
+      return {
+        ok: false,
+        transitions: [],
+        statusCode: response.status,
+        error: errorPayloadFromResponse(response, 'getAvailableTransitions failed'),
+      };
+    }
+    const raw = parseStateFunctionResponse(response);
+    return {
+      ok: true,
+      transitions: raw.transitions ?? [],
+      ...(raw.state !== undefined ? { currentState: raw.state } : {}),
+      statusCode: response.status,
+    };
   }
 
   async callDomainFunction(input: DomainFunctionInput): Promise<FunctionCallResult> {

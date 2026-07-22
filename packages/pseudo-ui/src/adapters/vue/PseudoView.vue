@@ -2,7 +2,8 @@
 import { watch, onMounted, nextTick, reactive, watchEffect, computed } from 'vue'
 import type { DataSchema, ViewDefinition, PseudoViewDelegate } from '../../engine/types'
 import { createFormContext, provideFormContext } from './useFormContext'
-import { provideDelegate, provideRenderRoot, provideDesigner } from './injection'
+import { provideDelegate, provideRenderRoot, provideDesigner, provideUiStrings, provideDataDomain, provideConfigViews } from './injection'
+import type { UiStrings, ConfigViews } from './injection'
 import type { DesignerMode, DesignerClassNames, DesignerState } from './injection'
 import { useLookups } from './useLookups'
 import { adoptStylesIntoRoot } from './styleInjection'
@@ -52,6 +53,25 @@ const props = withDefaults(defineProps<{
    * with the exported `adoptStylesIntoRoot` helper.
    */
   renderRoot?: ShadowRoot
+  /**
+   * Generic UI-chrome strings (section headings, empty-state text, tooltips) the
+   * SDK renders itself, keyed by a stable id with localizable values. Host-fed
+   * from backend config so the SDK carries no translated literals. See
+   * {@link UiStrings}.
+   */
+  uiStrings?: UiStrings
+  /**
+   * Default data domain for instance-querying nodes (e.g. InstanceList) whose
+   * config omits `domain`. Host-fed from config so a solution-specific domain
+   * isn't repeated per view.
+   */
+  dataDomain?: string
+  /**
+   * Config-referenced surface views (e.g. `{ transitionHistory: {key,domain,flow} }`).
+   * Host-fed from config; the SDK opens these as a modal or page per the referenced
+   * VIEW's own `display`. See {@link ConfigViews}.
+   */
+  configViews?: ConfigViews
 }>(), { designer: false })
 
 const emit = defineEmits<{
@@ -72,6 +92,11 @@ const liveDelegate = new Proxy({} as PseudoViewDelegate, {
 })
 provideDelegate(liveDelegate)
 provideRenderRoot(props.renderRoot)
+// Generic UI-chrome strings (host-fed from config). Loaded at boot before any
+// view renders, so a plain snapshot is enough — no reactivity needed.
+provideUiStrings(props.uiStrings ?? {})
+provideDataDomain(props.dataDomain ?? '')
+provideConfigViews(props.configViews ?? {})
 
 if (props.renderRoot) {
   adoptStylesIntoRoot(props.renderRoot, [vueStyleCss])
