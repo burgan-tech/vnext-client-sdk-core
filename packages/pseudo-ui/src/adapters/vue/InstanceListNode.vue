@@ -7,10 +7,16 @@
 -->
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
-import type { InstanceColumn, InstanceListNode, InstanceRowAction } from '../../engine/types'
+import type {
+  InstanceColumn,
+  InstanceListNode,
+  InstanceRowAction,
+  TransitionHistoryItem,
+} from '../../engine/types'
 import { localizeLabel } from '../../engine/expressionResolver'
 import { useFormContext } from './useFormContext'
 import { useDelegate } from './injection'
+import WorkflowHistory from './WorkflowHistory.vue'
 
 const props = defineProps<{ node: InstanceListNode }>()
 const ctx = useFormContext()
@@ -263,12 +269,40 @@ function runAction(a: InstanceRowAction | undefined, row: Record<string, unknown
 
 // Menu (combo) columns: the open dropdown is teleported to <body> and fixed to
 // the button's rect, so the table's overflow never clips it.
-type MenuEntry = { label?: unknown; heading?: unknown; action?: InstanceRowAction }
+type MenuEntry = {
+  label?: unknown
+  heading?: unknown
+  italic?: boolean
+  builtin?: 'details' | 'metadata' | 'history'
+  action?: InstanceRowAction
+}
 type OpenMenu = { id: string; items: MenuEntry[]; row: Record<string, unknown>; top: number; right: number }
 const openMenu = ref<OpenMenu | null>(null)
+
+/** True when the list has its own `kind:menu` column; else we auto-render one. */
+const hasMenuColumn = computed(() => columns.value.some((c) => c.kind === 'menu'))
+
+/**
+ * Compose a row's ⋯ menu: built-in Details first, the view's own items (Links /
+ * Actions) in the middle, then a technical section with Metadata + History.
+ */
+function composeMenu(configItems: MenuEntry[] | undefined): MenuEntry[] {
+  const items: MenuEntry[] = []
+  if (props.node.rowDetail) {
+    items.push({ label: { tr: 'Detay', en: 'Details' }, builtin: 'details' })
+  }
+  if (configItems?.length) items.push(...configItems)
+  const tech: MenuEntry[] = [{ label: { tr: 'Üst Veri', en: 'Metadata' }, builtin: 'metadata', italic: true }]
+  if (delegate.getTransitionHistory) {
+    tech.push({ label: { tr: 'Geçmiş', en: 'History' }, builtin: 'history', italic: true })
+  }
+  if (items.length) items.push({ heading: { tr: 'Teknik', en: 'System' } })
+  items.push(...tech)
+  return items
+}
 function toggleMenu(
   id: string,
-  items: MenuEntry[] | undefined,
+  configItems: MenuEntry[] | undefined,
   row: Record<string, unknown>,
   e: MouseEvent,
 ): void {
@@ -277,11 +311,38 @@ function toggleMenu(
     return
   }
   const r = (e.currentTarget as HTMLElement).getBoundingClientRect()
-  openMenu.value = { id, items: items ?? [], row, top: r.bottom + 4, right: window.innerWidth - r.right }
+  openMenu.value = { id, items: composeMenu(configItems), row, top: r.bottom + 4, right: window.innerWidth - r.right }
 }
 function pickMenu(item: MenuEntry, row: Record<string, unknown>): void {
   openMenu.value = null
+  if (item.builtin === 'details') return onRowClick(row)
+  if (item.builtin === 'metadata') {
+    metaRow.value = row
+    return
+  }
+  if (item.builtin === 'history') return void openHistoryFor(row)
   runAction(item.action, row, item.label)
+}
+
+// Transition-history popup (list row menu → History), fetched via the host.
+const showHistory = ref(false)
+const loadingHistory = ref(false)
+const historyItems = ref<TransitionHistoryItem[]>([])
+async function openHistoryFor(row: Record<string, unknown>): Promise<void> {
+  if (!delegate.getTransitionHistory) return
+  showHistory.value = true
+  loadingHistory.value = true
+  try {
+    historyItems.value = await delegate.getTransitionHistory({
+      domain: props.node.domain,
+      workflow: props.node.workflow,
+      instanceId: String(row.id ?? row.key ?? ''),
+    })
+  } catch {
+    historyItems.value = []
+  } finally {
+    loadingHistory.value = false
+  }
 }
 
 /** Fill a "{{dot.path}}" template from the row (for the detail tab subtitle). */
@@ -551,15 +612,17 @@ onMounted(async () => {
               </button>
             </div>
           </th>
-          <th class="d-instancelist-th d-instancelist-th--meta" aria-hidden="true"></th>
+          <th v-if="!hasMenuColumn" class="d-instancelist-th d-instancelist-th--meta" aria-hidden="true"></th>
         </tr>
       </thead>
       <tbody>
         <tr v-if="loading" class="d-instancelist-status">
-          <td :colspan="columns.length + 1"><i class="pi pi-spinner pi-spin"></i></td>
+          <td :colspan="columns.length + (hasMenuColumn ? 0 : 1)"><i class="pi pi-spinner pi-spin"></i></td>
         </tr>
         <tr v-else-if="!items.length" class="d-instancelist-status">
-          <td :colspan="columns.length + 1">{{ ctx.lang.startsWith('tr') ? 'Kayıt yok' : 'No records' }}</td>
+          <td :colspan="columns.length + (hasMenuColumn ? 0 : 1)">
+            {{ ctx.lang.startsWith('tr') ? 'Kayıt yok' : 'No records' }}
+          </td>
         </tr>
         <tr
           v-else
@@ -602,15 +665,16 @@ onMounted(async () => {
             <span v-else-if="isChip(c)" :class="chipClass(row, c)">{{ cell(row, c) }}</span>
             <template v-else>{{ cell(row, c) }}</template>
           </td>
-          <td class="d-instancelist-metacell">
+          <td v-if="!hasMenuColumn" class="d-instancelist-metacell">
             <button
               type="button"
               class="d-instancelist-info"
-              :title="ctx.lang.startsWith('tr') ? 'Teknik bilgi' : 'Technical info'"
-              aria-label="Metadata"
-              @click.stop="metaRow = row"
+              :class="{ 'is-open': openMenu?.id === `auto:${ri}` }"
+              :title="ctx.lang.startsWith('tr') ? 'İşlemler' : 'Actions'"
+              aria-label="Actions"
+              @click.stop="toggleMenu(`auto:${ri}`, undefined, row, $event)"
             >
-              <i class="pi pi-info-circle"></i>
+              <i class="pi pi-ellipsis-v"></i>
             </button>
           </td>
         </tr>
@@ -650,6 +714,17 @@ onMounted(async () => {
       </div>
     </div>
 
+    <!-- Transition-history popup (row menu → History). -->
+    <div v-if="showHistory" class="d-raw-modal" @click.self="showHistory = false">
+      <div class="d-raw-dialog d-raw-dialog--sm" role="dialog" aria-modal="true">
+        <header class="d-raw-head">
+          <span>{{ ctx.lang.startsWith('tr') ? 'Geçiş Geçmişi' : 'Transition History' }}</span>
+          <button type="button" class="d-raw-close" aria-label="Close" @click="showHistory = false">×</button>
+        </header>
+        <WorkflowHistory :items="historyItems" :loading="loadingHistory" :lang="ctx.lang" />
+      </div>
+    </div>
+
     <!-- Combo (menu) dropdown — teleported to body + fixed to the button rect so
          the table's overflow never clips it. -->
     <Teleport to="body">
@@ -662,7 +737,13 @@ onMounted(async () => {
         >
           <template v-for="(it, ii) in openMenu.items" :key="ii">
             <div v-if="it.heading" class="d-menu-heading">{{ localizeLabel(it.heading, ctx.lang) }}</div>
-            <button v-else type="button" class="d-menu-item" @click="pickMenu(it, openMenu.row)">
+            <button
+              v-else
+              type="button"
+              class="d-menu-item"
+              :class="{ 'd-menu-item--italic': it.italic }"
+              @click="pickMenu(it, openMenu.row)"
+            >
               {{ localizeLabel(it.label, ctx.lang) || it.action?.navigate }}
             </button>
           </template>

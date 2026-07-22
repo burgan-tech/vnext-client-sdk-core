@@ -18,6 +18,7 @@ import { loadShellView } from '../boot/appHost';
 import { makeDriveWorkflow } from '../boot/workflowDriver';
 import { queryInstances } from '../boot/instanceQuery';
 import { getWorkflowStates } from '../boot/workflowStates';
+import { getTransitionHistory } from '../boot/transitionHistory';
 import { localize } from '../sdk/i18n';
 import { ITEMS_BY_KEY, APP_ROUTER, APP_SET_TOKEN_LEVEL } from '../boot/keys';
 
@@ -165,6 +166,8 @@ const delegate: PseudoViewDelegate = {
   queryInstances,
   // Selectable states for a `state`-type column filter (read off the workflow def).
   getWorkflowStates,
+  // Transition history for the list row menu's History item.
+  getTransitionHistory,
   async onAction(action, data, command) {
     // Navigation taps (e.g. a group's children, or a row-action drill-down that
     // carries a filter payload).

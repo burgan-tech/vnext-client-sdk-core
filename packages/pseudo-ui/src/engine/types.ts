@@ -702,6 +702,15 @@ export interface PseudoViewDelegate {
     version?: string
   }): Promise<Array<{ value: string; label?: MultiLangText | string | Array<{ language: string; label: string }> }>>
   /**
+   * Fetch an instance's transition history (for the list row menu's History
+   * item / the detail page). Required only if views expose History.
+   */
+  getTransitionHistory?(input: {
+    domain: string
+    workflow: string
+    instanceId: string
+  }): Promise<TransitionHistoryItem[]>
+  /**
    * Called when a user-triggered action reaches the host. For a plain
    * action, the SDK invokes this with three arguments (the 4th
    * `context` is omitted). When the `ActionDescriptor` declares

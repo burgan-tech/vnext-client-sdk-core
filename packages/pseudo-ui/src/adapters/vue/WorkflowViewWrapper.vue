@@ -20,6 +20,7 @@ import { resolveExpression, localizeLabel } from '../../engine/expressionResolve
 import { useFormContext } from './useFormContext'
 import { useDelegate, provideDelegate } from './injection'
 import NestedComponentWrapper from './NestedComponentWrapper.vue'
+import WorkflowHistory from './WorkflowHistory.vue'
 
 const props = defineProps<{
   node: WorkflowViewNode
@@ -148,11 +149,6 @@ async function openHistory(): Promise<void> {
     loadingHistory.value = false
   }
 }
-function fmtAt(at?: string): string {
-  if (!at) return ''
-  const d = new Date(at)
-  return Number.isNaN(d.getTime()) ? at : d.toLocaleString(ctx.lang)
-}
 
 const detailRows = computed<Array<{ key: string; value: string }>>(() => {
   const d = instanceValues.value
@@ -266,19 +262,7 @@ onUnmounted(() => session?.dispose?.())
           <span>{{ ctx.lang.startsWith('tr') ? 'Geçiş Geçmişi' : 'Transition History' }}</span>
           <button type="button" class="d-raw-close" aria-label="Close" @click="showHistory = false">×</button>
         </header>
-        <div class="d-hist">
-          <div v-if="loadingHistory" class="d-hist__empty"><i class="pi pi-spinner pi-spin"></i></div>
-          <p v-else-if="!historyItems.length" class="d-hist__empty">
-            {{ ctx.lang.startsWith('tr') ? 'Kayıt yok' : 'No history' }}
-          </p>
-          <ol v-else class="d-hist__list">
-            <li v-for="(h, i) in historyItems" :key="i" class="d-hist__item">
-              <span class="d-hist__states">{{ h.fromState }} → {{ h.toState }}</span>
-              <span class="d-hist__key">{{ h.transitionKey }}</span>
-              <span class="d-hist__meta">{{ fmtAt(h.at) }}{{ h.triggerType ? ' · ' + h.triggerType : '' }}</span>
-            </li>
-          </ol>
-        </div>
+        <WorkflowHistory :items="historyItems" :loading="loadingHistory" :lang="ctx.lang" />
       </div>
     </div>
 
