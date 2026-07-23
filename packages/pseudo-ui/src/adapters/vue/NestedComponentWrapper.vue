@@ -13,6 +13,8 @@ const props = defineProps<{
   lang: string
   boundValues?: Record<string, unknown>
   boundInstanceValues?: Record<string, unknown>
+  /** Separate schema for submit-time validation (labels still use `schema`). */
+  validationSchema?: DataSchema | null
 }>()
 
 const emit = defineEmits<{
@@ -25,6 +27,7 @@ const log = delegate.onLog ?? (() => {})
 log('debug', 'NestedComponent initializing', undefined, { source: 'NestedComponent', boundKeys: [...Object.keys(props.boundValues ?? {}), ...Object.keys(props.boundInstanceValues ?? {})] })
 
 const ctx = createFormContext(props.schema, props.lang)
+if (props.validationSchema) ctx.validationSchema = props.validationSchema
 provideFormContext(ctx)
 
 // Adopt a late-resolved schema in place (host may resolve the transition schema

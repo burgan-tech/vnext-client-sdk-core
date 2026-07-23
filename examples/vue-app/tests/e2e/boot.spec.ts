@@ -14,9 +14,10 @@ test('clientId → backend master chrome + device homepage', async ({ page }) =>
   await booted;
 
   // Chrome — all backend-defined (master View + sub-components + outlets):
-  await expect(page.getByText('Amorphie')).toBeVisible(); // shell-brand sub-component
-  await expect(page.getByText('Burgan', { exact: true })).toBeVisible(); // AppBar (master)
-  // nav outlet (NavMenu) — localized item label resolved for the default (en) locale.
+  await expect(page.getByText('Amorphie')).toBeVisible(); // single app title in the full-width AppBar
+  // nav outlet (NavMenu) — localized labels for the default (en) locale. "About Us"
+  // lives under the collapsible "Information" device-nav group; expand it first.
+  await page.getByRole('button', { name: 'Information' }).click();
   await expect(page.getByRole('button', { name: 'About Us' })).toBeVisible();
 
   // Content (router outlet) — device pre-login dashboard:
@@ -24,11 +25,11 @@ test('clientId → backend master chrome + device homepage', async ({ page }) =>
 
   // Profile menu (AppBar outlet): pre-login shows the guest trigger; opening it
   // reveals the session status flags (device token held + registration).
-  const profile = page.getByRole('button', { name: /Misafir/ });
+  const profile = page.getByRole('button', { name: /Guest/ });
   await expect(profile).toBeVisible();
   await profile.click();
   await expect(page.getByText(/Device ✓/)).toBeVisible(); // device token flag (localized level label)
-  await expect(page.getByText(/\(B\)/)).toBeVisible(); // registration status
+  await expect(page.getByText(/SESSION/)).toBeVisible(); // session status block rendered (registration value is env-dependent)
 
   // Language toggle (profile menu) → backend nav labels are localized: switching
   // to TR re-resolves the [{language,label}] arrays ("About Us" → "Hakkımızda").

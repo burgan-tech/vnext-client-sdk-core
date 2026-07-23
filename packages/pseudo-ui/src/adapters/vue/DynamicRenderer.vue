@@ -457,8 +457,11 @@ function handleAction(action: string | ActionDescriptor | ActionDescriptor[], co
 }
 
 function validateAllFields() {
-  if (!ctx.schema.properties) return
-  for (const [key, prop] of Object.entries(ctx.schema.properties)) {
+  // Validate against `validationSchema` when supplied (e.g. a transition's own
+  // input schema — "only the data it takes"); labels still come from ctx.schema.
+  const vSchema = ctx.validationSchema ?? ctx.schema
+  if (!vSchema.properties) return
+  for (const [key, prop] of Object.entries(vSchema.properties)) {
     // Only validate fields the view actually binds; a required field it doesn't
     // render (supplied via x-context-source / start attributes) must not block submit.
     if (ctx.boundFields && ctx.boundFields.size > 0 && !ctx.boundFields.has(key)) continue
@@ -468,7 +471,7 @@ function validateAllFields() {
     const cond = evaluateConditional(prop['x-conditional'], ctx.formData, ctx.instanceData, ctx.params)
     if (!cond.visible) continue
 
-    const req = isFieldRequired(ctx.schema, key, ctx.formData, ctx.instanceData, ctx.params)
+    const req = isFieldRequired(vSchema, key, ctx.formData, ctx.instanceData, ctx.params)
     const error = validateField(prop, readForm(ctx.formData, key), req, ctx.lang)
     if (error) {
       ctx.errors[key] = error

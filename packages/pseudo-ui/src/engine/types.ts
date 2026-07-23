@@ -689,6 +689,15 @@ export interface FormContext {
    */
   boundFields?: Set<string>
   /**
+   * Optional separate schema for SUBMIT-TIME VALIDATION (required + field rules).
+   * When set, validation runs against THIS schema's properties, while labels /
+   * `$schema.*` still resolve from {@link schema}. Used by transition forms: the
+   * field LABELS come from the entity master schema (x-labels), but the form must
+   * validate only the data the transition actually takes (its input schema), not
+   * the master's stricter required set. Unset = validate against {@link schema}.
+   */
+  validationSchema?: DataSchema
+  /**
    * Designer/preview mode flag. When true, adapters render structural
    * placeholders that the live runtime would otherwise skip:
    *   - `ForEach` with an empty `source` renders its template once with an
@@ -781,6 +790,29 @@ export interface PseudoViewDelegate {
     transitionKey: string
     body?: Record<string, unknown>
   }): Promise<{ ok: boolean; error?: string }>
+  /**
+   * Resolve a transition's FORM (view + schema) so the client can collect input
+   * before firing it — e.g. an `update` transition that edits the record. The
+   * host reads the SECURITY-FILTERED runtime state (only fireable transitions),
+   * loads the view/schema, and — for an edit (`loadData`) — returns the
+   * instance's current attributes as `data` to prefill the form. Returns null
+   * when the transition has no form (the caller then fires it directly via
+   * {@link applyTransition}).
+   */
+  getTransitionForm?(input: {
+    domain: string
+    workflow: string
+    instanceId: string
+    transitionKey: string
+  }): Promise<{
+    view: ViewDefinition | null
+    /** Label schema (entity master, x-labels) — resolves field labels. */
+    schema?: DataSchema | null
+    /** Validation schema (the transition's own input) — required + rules. */
+    validationSchema?: DataSchema | null
+    data?: Record<string, unknown>
+    display?: string
+  } | null>
   /**
    * Called when a user-triggered action reaches the host. For a plain
    * action, the SDK invokes this with three arguments (the 4th

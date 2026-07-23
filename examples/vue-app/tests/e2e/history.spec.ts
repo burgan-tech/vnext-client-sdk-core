@@ -19,6 +19,8 @@ test('SDI: browser Back uses page-router history (no full reload)', async ({ pag
   await expect(page.getByRole('button', { name: 'Sign In' })).toBeVisible();
 
   // Navigate to a content view via the sidebar (SDI → replaces the router body).
+  // "Information Security" lives under the collapsible "Information" group; expand it.
+  await page.getByRole('button', { name: 'Information' }).click();
   await page.getByRole('button', { name: 'Information Security' }).click();
   await expect(page).toHaveURL(/#\/info-security$/);
   await expect(page.getByRole('button', { name: 'Sign In' })).toHaveCount(0);

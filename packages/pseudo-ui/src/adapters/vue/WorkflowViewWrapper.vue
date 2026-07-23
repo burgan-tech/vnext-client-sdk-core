@@ -11,6 +11,7 @@ import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import type {
   DataSchema,
   PseudoViewDelegate,
+  ViewDefinition,
   WorkflowSession,
   WorkflowStartField,
   WorkflowViewConfig,
@@ -22,6 +23,7 @@ import { useDelegate, provideDelegate } from './injection'
 import { useHistory } from './useHistory'
 import { highlightJson } from './jsonHighlight'
 import HistoryModal from './HistoryModal.vue'
+import TransitionForm from './TransitionForm.vue'
 import NestedComponentWrapper from './NestedComponentWrapper.vue'
 
 const props = defineProps<{
@@ -113,11 +115,34 @@ const rawJson = computed(() => highlightJson(rawData.value))
 const stateLabel = computed(() => session?.state?.value ?? '')
 const transitionOptions = computed(() => session?.transitions?.value ?? [])
 const history = useHistory()
+// A picked transition with a FORM (view+schema) opens it (prefilled for edit);
+// Save fires it via the session. A no-form transition fires ad-hoc (empty body).
+type TxForm = { view: ViewDefinition; schema: DataSchema | null; validationSchema: DataSchema | null; data: Record<string, unknown>; txKey: string }
+const txForm = ref<TxForm | null>(null)
 async function onPickTransition(e: Event): Promise<void> {
   const el = e.target as HTMLSelectElement
   const key = el.value
   el.value = ''
-  if (key && session) await session.submit(key, {})
+  if (!key || !session) return
+  if (parent.getTransitionForm) {
+    const form = await parent.getTransitionForm({
+      domain: config.value.domain,
+      workflow: config.value.name,
+      instanceId: config.value.instanceId ?? '',
+      transitionKey: key,
+    })
+    if (form?.view) {
+      txForm.value = { view: form.view, schema: form.schema ?? null, validationSchema: form.validationSchema ?? null, data: form.data ?? {}, txKey: key }
+      return
+    }
+  }
+  await session.submit(key, {})
+}
+async function onTxApply(body: Record<string, unknown>): Promise<void> {
+  const f = txForm.value
+  if (!f || !session) return
+  txForm.value = null
+  await session.submit(f.txKey, body)
 }
 async function openHistory(): Promise<void> {
   if (!session?.history) return
@@ -239,6 +264,19 @@ onUnmounted(() => session?.dispose?.())
       :history="history"
       :title="ctx.lang.startsWith('tr') ? 'Geçiş Geçmişi' : 'Transition History'"
       :lang="ctx.lang"
+    />
+
+    <!-- Transition form (toolbar dropdown → a transition that needs input).
+         Self-presenting view (its own Dialog + buttons); we just bridge. -->
+    <TransitionForm
+      v-if="txForm"
+      :view="txForm.view"
+      :schema="txForm.schema"
+      :validation-schema="txForm.validationSchema"
+      :data="txForm.data"
+      :lang="ctx.lang"
+      @apply="onTxApply"
+      @close="txForm = null"
     />
 
     <!-- Raw instance-data modal (scrollable, JSON syntax-highlighted). -->

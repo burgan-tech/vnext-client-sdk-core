@@ -20,6 +20,7 @@ import { queryInstances } from '../boot/instanceQuery';
 import { getWorkflowStates } from '../boot/workflowStates';
 import { getTransitionHistory } from '../boot/transitionHistory';
 import { getInstanceTransitions, applyTransition } from '../boot/instanceTransitions';
+import { getTransitionForm } from '../boot/transitionForm';
 import { localize } from '../sdk/i18n';
 import {
   ITEMS_BY_KEY,
@@ -213,6 +214,9 @@ const delegate: PseudoViewDelegate = {
   // Lazy available-transitions + ad-hoc trigger for the list row's ⋯ menu.
   getInstanceTransitions,
   applyTransition,
+  // Resolve a transition's form (view+schema, prefilled for edit) from the
+  // security-filtered runtime state.
+  getTransitionForm,
   async onAction(action, data, command) {
     // Navigation taps (e.g. a group's children, or a row-action drill-down that
     // carries a filter payload).

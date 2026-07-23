@@ -11,12 +11,15 @@ import type {
   InstanceColumn,
   InstanceListNode,
   InstanceRowAction,
+  ViewDefinition,
+  DataSchema,
 } from '../../engine/types'
 import { localizeLabel } from '../../engine/expressionResolver'
 import { useFormContext } from './useFormContext'
 import { useDelegate, useUiStrings, useDataDomain } from './injection'
 import { useHistory } from './useHistory'
 import HistoryModal from './HistoryModal.vue'
+import TransitionForm from './TransitionForm.vue'
 
 const props = defineProps<{ node: InstanceListNode }>()
 const ctx = useFormContext()
@@ -402,19 +405,32 @@ function pickMenu(item: MenuEntry, row: Record<string, unknown>): void {
   runAction(item.action, row, item.label)
 }
 
-/** Trigger a transition from the row. No form → apply + reload; form → open detail. */
+// A transition that needs input opens its FORM (view+schema, prefilled for edit)
+// in a modal; Save fires the transition + reloads. No-form transitions fire ad-hoc.
+type TxForm = { view: ViewDefinition; schema: DataSchema | null; validationSchema: DataSchema | null; data: Record<string, unknown>; txKey: string; instanceId: string }
+const txForm = ref<TxForm | null>(null)
+
 async function onTransition(row: Record<string, unknown>, txKey: string, hasView: boolean): Promise<void> {
   if (!txKey) return
-  // Transitions that need input open the record (its state view collects it);
-  // the display-driven modal/page form is a follow-up.
-  if (hasView) return onRowClick(row)
+  const instanceId = instanceIdOf(row)
+  if (hasView && delegate.getTransitionForm) {
+    const form = await delegate.getTransitionForm({ domain: domain.value, workflow: props.node.workflow, instanceId, transitionKey: txKey })
+    if (form?.view) {
+      txForm.value = { view: form.view, schema: form.schema ?? null, validationSchema: form.validationSchema ?? null, data: form.data ?? {}, txKey, instanceId }
+      return
+    }
+  }
+  // No form → fire the transition ad-hoc.
   if (!delegate.applyTransition) return
-  await delegate.applyTransition({
-    domain: domain.value,
-    workflow: props.node.workflow,
-    instanceId: instanceIdOf(row),
-    transitionKey: txKey,
-  })
+  await delegate.applyTransition({ domain: domain.value, workflow: props.node.workflow, instanceId, transitionKey: txKey })
+  await load()
+}
+
+async function onTxApply(body: Record<string, unknown>): Promise<void> {
+  const f = txForm.value
+  if (!f || !delegate.applyTransition) return
+  txForm.value = null // close the form; the view owns its own busy affordance
+  await delegate.applyTransition({ domain: domain.value, workflow: props.node.workflow, instanceId: f.instanceId, transitionKey: f.txKey, body })
   await load()
 }
 
@@ -787,6 +803,19 @@ onMounted(async () => {
     <!-- Transition-history popup (row menu → History). Shared modal shell:
          config view / built-in fallback + a `{ }` raw-JSON toggle. -->
     <HistoryModal :history="history" :title="uiText('list.history.title')" :lang="ctx.lang" />
+
+    <!-- Transition form (⋯ menu → a transition that needs input, e.g. update).
+         The view is self-presenting (its own Dialog + buttons); we just bridge. -->
+    <TransitionForm
+      v-if="txForm"
+      :view="txForm.view"
+      :schema="txForm.schema"
+      :validation-schema="txForm.validationSchema"
+      :data="txForm.data"
+      :lang="ctx.lang"
+      @apply="onTxApply"
+      @close="txForm = null"
+    />
 
     <!-- Combo (menu) dropdown — teleported to body + fixed to the button rect so
          the table's overflow never clips it. -->

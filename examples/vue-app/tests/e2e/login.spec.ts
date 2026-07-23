@@ -30,12 +30,12 @@ test('2FA login → 2fa token + navigation flip', async ({ page }) => {
   // Second factor — OTP field or push approve, whichever the backend routes to.
   await handleSecondFactor(page);
 
-  // Flip to 2FA: the master swaps to the 2FA chrome (authenticated AppBar title).
-  await expect(page.getByText('Burgan · Accounts')).toBeVisible({ timeout: 60_000 });
+  // Flip to 2FA: the master swaps to the 2FA chrome (full-width AppBar app title).
+  await expect(page.getByText('Amorphie')).toBeVisible({ timeout: 60_000 });
 
   // The profile menu now shows the logged-in identity; opening it reveals the
   // 2fa token flag (the session status moved from the sidebar into the profile).
-  const profile = page.getByRole('button', { name: /Hesabım/ });
+  const profile = page.getByRole('button', { name: /My Account/ });
   await expect(profile).toBeVisible();
   await profile.click();
   await expect(page.getByText(/2-Factor ✓/)).toBeVisible();
