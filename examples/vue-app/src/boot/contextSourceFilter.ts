@@ -48,11 +48,17 @@ function findTransition(def: WorkflowDef, transitionKey: string): Transition | n
 }
 
 // ── Context-store readers (ambient values live in device/memory) ────────────
+// The context-store is JUST storage: a schema reads a value by the exact key it
+// was written under. The active subject/user identity is exposed by the store
+// under its own names (`activeSubject`/`activeUser`) — so a schema pulls them by
+// THOSE keys, like any other value (`device.id`, `device.installation.id`). No
+// subject/user "identity" concept is layered on top.
 const readers: ContextSourceReaders = {
-  readContext: (boundary, key) =>
-    getContextValue(key, { boundary: Boundary[boundary], storage: Storage.memory }),
-  // subject = customer/scope, user = actor (see subject/actor identity model).
-  readIdentity: (kind) => (kind === 'subject' ? contextStore.activeSubject : contextStore.activeUser),
+  readContext: (boundary, key) => {
+    if (key === 'activeSubject') return contextStore.activeSubject; // customer / scope
+    if (key === 'activeUser') return contextStore.activeUser; // acting user
+    return getContextValue(key, { boundary: Boundary[boundary], storage: Storage.memory });
+  },
 };
 
 export const contextSourceBodyFilter: TransitionBodyFilter = {

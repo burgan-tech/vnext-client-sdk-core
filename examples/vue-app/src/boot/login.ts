@@ -8,7 +8,7 @@
 // ─────────────────────────────────────────────────────────────────────────
 import { contextStore } from '../sdk/context';
 import { apiFetch } from './workflowClient';
-import { reinitMorphClient, getLoginAuthId, setMorphTokens, getInteractiveLoginWorkflow } from './morphClient';
+import { reinitMorphClient, getLoginAuthId, setMorphTokens, getInteractiveLoginWorkflow, getMorphClient } from './morphClient';
 
 /**
  * Decode a JWT into the two identities the IDM always carries after login:
@@ -126,4 +126,26 @@ export async function completeLogin(
   }
   console.info(`%c[login] ✅ tokens acquired for ${authId} (access ${tokens.accessToken.slice(0, 12)}…)`, 'color:#2a9d3f;font-weight:bold');
   return tokens;
+}
+
+/**
+ * Restore the in-memory identity (activeSubject/activeUser) at BOOT from the
+ * PERSISTED access token's JWT claims. The token level is derived from whichever
+ * tokens survived (storage tier is config-driven, per context) — but the identity
+ * lives only in memory, so on refresh it's lost while the token (and thus the
+ * level) remains. This re-derives it from the SAME source (the token), keeping the
+ * two consistent in BOTH cases: token persisted → level + identity restored;
+ * token in-memory → gone → no token → no identity (device). No network / refresh.
+ */
+export async function restoreIdentityFromToken(): Promise<void> {
+  const authId = getLoginAuthId();
+  const client = getMorphClient();
+  if (!authId || !client) return;
+  const claims = await client.auth(authId).getClaims().catch(() => null);
+  if (!claims) return; // no interactive token (e.g. device level) → no identity
+  const sub = (claims.sub as string | undefined) ?? null;
+  const act = (claims['act_sub'] as string | undefined) ?? sub;
+  contextStore.activeSubject = sub; // müşteri / scope
+  contextStore.activeUser = act ?? 'user'; // acting user (individual: = subject)
+  reinitMorphClient(); // refresh the actor-scoped morph `$subject` variable
 }

@@ -401,7 +401,7 @@ function pickMenu(item: MenuEntry, row: Record<string, unknown>): void {
     return
   }
   if (item.builtin === 'history') return void openHistoryFor(row)
-  if (item.builtin === 'transition') return void onTransition(row, item.txKey ?? '', !!item.hasView)
+  if (item.builtin === 'transition') return void onTransition(row, item.txKey ?? '')
   runAction(item.action, row, item.label)
 }
 
@@ -410,10 +410,15 @@ function pickMenu(item: MenuEntry, row: Record<string, unknown>): void {
 type TxForm = { view: ViewDefinition; schema: DataSchema | null; validationSchema: DataSchema | null; data: Record<string, unknown>; txKey: string; instanceId: string }
 const txForm = ref<TxForm | null>(null)
 
-async function onTransition(row: Record<string, unknown>, txKey: string, hasView: boolean): Promise<void> {
+async function onTransition(row: Record<string, unknown>, txKey: string): Promise<void> {
   if (!txKey) return
   const instanceId = instanceIdOf(row)
-  if (hasView && delegate.getTransitionForm) {
+  // Ask for the transition's form; getTransitionForm is the single authority on
+  // whether a transition has a form (it returns null when there's none) — we then
+  // fire the transition ad-hoc. (getTransitionForm currently ground-truths via the
+  // view endpoint to dodge a runtime hasView bug on wizard-state transitions; see
+  // its TEMPORARY-WORKAROUND note. This delegation stays correct after that fix.)
+  if (delegate.getTransitionForm) {
     const form = await delegate.getTransitionForm({ domain: domain.value, workflow: props.node.workflow, instanceId, transitionKey: txKey })
     if (form?.view) {
       txForm.value = { view: form.view, schema: form.schema ?? null, validationSchema: form.validationSchema ?? null, data: form.data ?? {}, txKey, instanceId }
@@ -454,6 +459,26 @@ function fillTemplate(tpl: string, row: Record<string, unknown>): string {
       return v == null ? '' : String(v)
     })
     .trim()
+}
+
+// Header "new record" button → start the workflow via the generic instance-start
+// surface. A unique start key per click gives each new record its own tab + instance.
+const createLabel = computed(() => localizeLabel(props.node.create?.label, ctx.lang) || uiText('list.new'))
+function onCreate(): void {
+  if (!delegate.onAction || !props.node.create) return
+  const workflow = props.node.create.workflow ?? props.node.workflow
+  const dom = props.node.create.domain ?? domain.value
+  const startKey = `${workflow}-${Date.now()}`
+  delegate.onAction('navigate', {
+    key: 'instance-start',
+    payload: {
+      domain: dom,
+      workflow,
+      startKey,
+      title: localizeLabel(props.node.create.title ?? props.node.create.label, ctx.lang) || uiText('list.new'),
+      subtitle: '',
+    },
+  })
 }
 
 /** Row click → open the record's detail (its current-state view) in a new tab. */
@@ -634,6 +659,12 @@ onMounted(async () => {
 
 <template>
   <div class="d-instancelist">
+    <!-- Header "new record" button — starts the workflow (instance-start). -->
+    <div v-if="props.node.create" class="d-instancelist-header">
+      <button type="button" class="d-instancelist-new" @click="onCreate">
+        <i class="pi pi-plus"></i>{{ createLabel }}
+      </button>
+    </div>
     <div v-if="errorText" class="d-instancelist-error">{{ errorText }}</div>
     <table class="d-instancelist-table">
       <thead>

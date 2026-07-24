@@ -115,20 +115,50 @@ const rawJson = computed(() => highlightJson(rawData.value))
 const stateLabel = computed(() => session?.state?.value ?? '')
 const transitionOptions = computed(() => session?.transitions?.value ?? [])
 const history = useHistory()
+
+// A STATE view that carries its OWN submit action is a FORM that self-drives —
+// its submit fires the transition (e.g. the login `pre-login` state view). Such a
+// view must NOT trigger the transition-form auto-advance (that renders the form
+// twice) nor show the transition toolbar. A state view with NO submit is purely
+// informational (e.g. the north-star summary) → toolbar + auto-advance apply.
+function nodeHasSubmit(n: unknown): boolean {
+  if (!n || typeof n !== 'object') return false
+  const o = n as { action?: unknown; children?: unknown[]; actions?: unknown[] }
+  if (o.action === 'submit') return true
+  return [...(o.children ?? []), ...(o.actions ?? [])].some(nodeHasSubmit)
+}
+const stateViewIsForm = computed(() => {
+  const v = view.value as { view?: unknown } | null
+  return nodeHasSubmit(v?.view ?? v)
+})
 // A picked transition with a FORM (view+schema) opens it (prefilled for edit);
 // Save fires it via the session. A no-form transition fires ad-hoc (empty body).
 type TxForm = { view: ViewDefinition; schema: DataSchema | null; validationSchema: DataSchema | null; data: Record<string, unknown>; txKey: string }
 const txForm = ref<TxForm | null>(null)
-async function onPickTransition(e: Event): Promise<void> {
-  const el = e.target as HTMLSelectElement
-  const key = el.value
-  el.value = ''
+// Open a transition: if it has a form (view), show it (prefilled); otherwise fire
+// it directly. Shared by the toolbar dropdown and wizard auto-advance.
+// The live instance id (set after start/open) — a started instance's id isn't
+// known from the route, so per-instance calls must read it from the session.
+function liveInstanceId(): string {
+  return session?.instanceId?.value || config.value.instanceId || ''
+}
+async function openTransition(key: string, hasSchema = false): Promise<void> {
   if (!key || !session) return
+  // A SCHEMA-LESS transition takes no input → it's a pass-through with no form:
+  // fire it directly. Probing the view endpoint for a view-less transition
+  // (`go`/`begin`/`approve`) would 404 — so only probe when there IS a schema.
+  // `hasSchema` comes from the state response (synchronous — immune to the async
+  // view-content load race).
+  if (!hasSchema) {
+    await session.submit(key, {})
+    return
+  }
+  // Has an INPUT schema → open its own form if it exposes one…
   if (parent.getTransitionForm) {
     const form = await parent.getTransitionForm({
       domain: config.value.domain,
       workflow: config.value.name,
-      instanceId: config.value.instanceId ?? '',
+      instanceId: liveInstanceId(),
       transitionKey: key,
     })
     if (form?.view) {
@@ -136,8 +166,56 @@ async function onPickTransition(e: Event): Promise<void> {
       return
     }
   }
-  await session.submit(key, {})
+  // …else its input comes from the current STATE's own form (e.g. login: the
+  // pre-login state form collects userName/password, then fires `login`). Firing
+  // it with an EMPTY body here would 400 — so do NOTHING; the state form drives it.
 }
+function txHasSchema(key: string): boolean {
+  return !!(session?.transitions?.value ?? []).find((t) => t.key === key)?.hasSchema
+}
+async function onPickTransition(e: Event): Promise<void> {
+  const el = e.target as HTMLSelectElement
+  const key = el.value
+  el.value = ''
+  await openTransition(key, txHasSchema(key))
+}
+
+// Auto-advance one transition without making the user pick — for CLIENT-driven
+// states only: a `wizard` step (always one transition, opens its form) OR a
+// schema-less pass-through from the ENTRY (`initial`) state (e.g. draft→go, so a
+// boot flow reaches its first wizard/dialog on its own). Backend `intermediate`
+// states are NOT auto-driven (they progress server-side). Guarded once per state.
+let autoAdvancedState: string | null = null
+watch(
+  () => [session?.ready.value, session?.stateType?.value, session?.state?.value, (session?.transitions?.value ?? []).length] as const,
+  async () => {
+    if (!session || txForm.value) return
+    // A self-driving state FORM (login) owns its own submit — never auto-open a
+    // transition form over it (that double-renders). Only info/viewless states do.
+    if (stateViewIsForm.value) return
+    const st = session.state?.value ?? null
+    const txs = session.transitions?.value ?? []
+    const stType = session.stateType?.value
+    const passthrough = stType === 'initial' && txs.length === 1 && !txs[0].hasSchema
+    if ((stType === 'wizard' || passthrough) && txs.length === 1 && st && st !== autoAdvancedState) {
+      autoAdvancedState = st
+      await openTransition(txs[0].key, !!txs[0].hasSchema)
+    }
+  },
+  { immediate: true },
+)
+// Notify the host once the flow reaches a FINISH state — a boot-flow modal host
+// uses this to dismiss itself (the flow drove itself to completion).
+let flowCompleted = false
+watch(
+  () => session?.stateType?.value,
+  (st) => {
+    if (st === 'finish' && !flowCompleted) {
+      flowCompleted = true
+      parent.onWorkflowComplete?.(config.value)
+    }
+  },
+)
 async function onTxApply(body: Record<string, unknown>): Promise<void> {
   const f = txForm.value
   if (!f || !session) return
@@ -147,7 +225,7 @@ async function onTxApply(body: Record<string, unknown>): Promise<void> {
 async function openHistory(): Promise<void> {
   if (!session?.history) return
   await history.show(
-    { domain: config.value.domain, workflow: config.value.name, instanceId: config.value.instanceId ?? '' },
+    { domain: config.value.domain, workflow: config.value.name, instanceId: liveInstanceId() },
     () => session!.history!(),
   )
 }
@@ -186,8 +264,10 @@ onUnmounted(() => session?.dispose?.())
 
 <template>
   <div class="d-workflow" :class="{ 'd-workflow--detail': detailMode }">
-    <!-- Detail pages: state + available transitions + history + raw JSON. -->
-    <div v-if="detailMode && ready" class="d-detail-toolbar">
+    <!-- State + transitions + history + raw JSON. Shown on detail pages AND on
+         any VIEWLESS state (e.g. after a direct start landing on draft/review) so
+         the instance can be driven; a state that has its own view self-drives. -->
+    <div v-if="ready && !stateViewIsForm && (detailMode || !view || transitionOptions.length)" class="d-detail-toolbar">
       <span v-if="stateLabel" class="d-detail-state">
         <span class="d-detail-state__label">{{ ctx.lang.startsWith('tr') ? 'Durum' : 'State' }}</span>
         <span class="d-instancelist-chip d-instancelist-chip--success">{{ stateLabel }}</span>
@@ -242,8 +322,9 @@ onUnmounted(() => session?.dispose?.())
         :lang="ctx.lang"
         :bound-instance-values="instanceValues"
       />
-      <!-- No state view (e.g. a terminal state): show the instance data read-only. -->
-      <dl v-else-if="ready && detailMode" class="d-detail">
+      <!-- No state view (viewless state — e.g. draft/review/terminal): show the
+           instance data read-only so the surface never dead-spins. -->
+      <dl v-else-if="ready" class="d-detail">
         <template v-for="row in detailRows" :key="row.key">
           <dt class="d-detail__key">{{ row.key }}</dt>
           <dd class="d-detail__val">{{ row.value }}</dd>

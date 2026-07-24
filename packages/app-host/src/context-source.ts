@@ -13,11 +13,15 @@
 
 import type { ContextBoundary } from './context-providers.js';
 
-/** The three binding forms an `x-context-source` value can take. */
+/** The binding forms an `x-context-source` value can take. The context-store is
+ * ONLY a storage layer — a value is addressed by the exact (boundary, key) it was
+ * written under, so the producer (`x-context-target` / boot) and the consumer
+ * (this schema annotation) meet on the SAME key. There is no identity/subject
+ * concept here: things like the active subject/user are read by their real store
+ * keys (e.g. `activeSubject`), just like `device.installation.id`. */
 export type ContextSourceBinding =
   | { const: unknown }
-  | { context: { boundary: ContextBoundary; key: string; storage?: string } }
-  | { identity: 'subject' | 'user' };
+  | { context: { boundary: ContextBoundary; key: string; storage?: string } };
 
 /** Minimal JSON-schema view this resolver walks. */
 export interface SourceSchema {
@@ -30,16 +34,14 @@ export interface SourceSchema {
 export interface ContextSourceReaders {
   /** Read a context-store value (boundary + key). Storage tier is the host's
    * concern (ambient values live in memory); an optional `storage` hint is passed
-   * through from the binding when present. */
+   * through from the binding when present. The host maps well-known store keys
+   * (e.g. the active subject/user identity) to their real values here. */
   readContext(boundary: ContextBoundary, key: string, storage?: string): unknown;
-  /** Read a context-store identity: 'subject' (customer/scope) or 'user' (actor). */
-  readIdentity(kind: 'subject' | 'user'): string | null;
 }
 
 function resolveBinding(binding: ContextSourceBinding, readers: ContextSourceReaders): unknown {
   if ('const' in binding) return binding.const;
   if ('context' in binding) return readers.readContext(binding.context.boundary, binding.context.key, binding.context.storage);
-  if ('identity' in binding) return readers.readIdentity(binding.identity);
   return undefined;
 }
 
@@ -59,7 +61,10 @@ export function resolveContextSource(schema: SourceSchema | null | undefined, re
     const binding = prop['x-context-source'];
     if (binding) {
       const value = resolveBinding(binding, readers);
-      if (value !== undefined) out[name] = value;
+      // Omit unresolved values — a missing context/identity (e.g. no active
+      // subject) must NOT be injected as `null`, which would fail a `type:string`
+      // (non-nullable) schema and break the start/transition.
+      if (value != null) out[name] = value;
       continue;
     }
     // No binding on this property — recurse into nested objects so annotations on

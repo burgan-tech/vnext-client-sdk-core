@@ -49,14 +49,27 @@ export async function getTransitionForm(input: {
     instanceId: input.instanceId,
   });
   const t = (res.transitions ?? []).find((x) => x.key === input.transitionKey);
-  if (!t?.view?.hasView) return null; // no form → caller fires the transition directly
+  if (!t) return null; // not available to this caller
 
+  // ⚠️ TEMPORARY WORKAROUND — REMOVE once the runtime bug is fixed (platform team,
+  // ETA ~2026-07-24). BUG: the runtime reports `view.hasView:false` for a
+  // WIZARD-state (stateType 5) transition even when it HAS a view — confirmed on
+  // shell runtime 0.0.68 AND 0.0.71 (a NON-wizard transition correctly reports
+  // true; a wizard STATE view also reports true). So `t.view.hasView` can't be
+  // trusted yet. Until the fix ships we ground-truth the form on the view endpoint
+  // itself: 200 + content ⇒ there IS a form (open it); 404 "View definition not
+  // found" ⇒ no view ⇒ fire the transition directly.
+  // WHEN FIXED: delete this fetch-to-detect and restore the strict binding
+  //   `if (!t?.view?.hasView) return null;`  then build the viewPath as before.
   // The `…/functions/view` endpoint returns { key, content, type, display, label }
   // — content/display at the TOP LEVEL (not under `attributes`).
-  const viewPath = txFunctionPath(t.view.href, input.domain, input.workflow, input.instanceId);
-  if (!viewPath) return null;
-  const viewRec = (await apiFetch(viewPath)).data as { content?: unknown; display?: unknown } | null;
+  const viewPath =
+    txFunctionPath(t.view?.href, input.domain, input.workflow, input.instanceId) ??
+    `/${input.domain}/workflows/${input.workflow}/instances/${input.instanceId}/functions/view?transitionKey=${encodeURIComponent(input.transitionKey)}`;
+  const viewResp = await apiFetch(viewPath);
+  const viewRec = viewResp.ok ? (viewResp.data as { content?: unknown; display?: unknown } | null) : null;
   const view = (viewRec?.content as ViewDefinition) ?? null;
+  if (!view) return null; // no form → caller fires the transition directly
   const display = viewRec?.display as string | undefined;
 
   // Field LABELS come from the view's `dataSchema` (the entity MASTER schema,
@@ -74,11 +87,20 @@ export async function getTransitionForm(input: {
     validationSchema = ((sd?.schema ?? sd?.content ?? sd) as DataSchema) ?? null;
   }
 
-  // `loadData` = edit: seed the form with the instance's current attributes.
+  // `loadData` = edit: seed the form with the instance's current attributes. Read
+  // from the LIVE `functions/data` endpoint (shape { data, eTag, … }) — NOT the
+  // bare `GET …/instances/{id}`, which is a read-model projection that lags right
+  // after a transition and 404s (breaking the wizard auto-advance). Best-effort:
+  // a prefill failure must NEVER block the form from opening.
   let data: Record<string, unknown> = {};
-  if (t.view.loadData) {
-    const inst = await workflowManager.getInstance({ domain: input.domain, name: input.workflow, instanceId: input.instanceId });
-    data = (inst.instance?.attributes ?? {}) as Record<string, unknown>;
+  if (t.view?.loadData) {
+    try {
+      const dataPath = `/${input.domain}/workflows/${input.workflow}/instances/${input.instanceId}/functions/data`;
+      const dataResp = await apiFetch(dataPath, { query: { sync: 'true' } });
+      if (dataResp.ok) data = ((dataResp.data as { data?: Record<string, unknown> } | null)?.data ?? {}) as Record<string, unknown>;
+    } catch {
+      /* prefill is best-effort — open the form empty rather than fail */
+    }
   }
 
   return { view, schema, validationSchema, data, ...(display ? { display } : {}) };

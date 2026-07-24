@@ -19,6 +19,7 @@ import { localize } from './sdk/i18n';
 import { getMorphClient } from './boot/morphClient';
 import { loadAndApplyTheme } from './boot/theme';
 import MasterLayoutRenderer from './components/MasterLayoutRenderer.vue';
+import BootFlowHost from './components/BootFlowHost.vue';
 
 const props = defineProps<{
   router: IPageRouter;
@@ -122,4 +123,7 @@ async function onLogout(): Promise<void> {
     :on-theme="onTheme"
     :on-logout="onLogout"
   />
+  <!-- UI-surfacing initialization flows (e.g. a post-2FA email-update dialog),
+       driven through the standard WorkflowView mechanism. -->
+  <BootFlowHost />
 </template>

@@ -247,6 +247,18 @@ export interface InstanceListNode extends ComponentNode {
   /** Set `false` to suppress the auto state/status/created trailing columns. */
   systemColumns?: boolean
   /**
+   * A header "new record" button that STARTS the workflow — navigates to the
+   * generic `instance-start` surface for a fresh instance (each click gets a
+   * unique start key → its own tab + instance). `workflow`/`domain` default to
+   * the list's own; `title` labels the started record's tab.
+   */
+  create?: {
+    label?: MultiLangText | string | Array<{ language: string; label: string }>
+    workflow?: string
+    domain?: string
+    title?: MultiLangText | string | Array<{ language: string; label: string }>
+  }
+  /**
    * "Links" section of every row's ⋯ menu — navigations to related records
    * (e.g. a user's logins / consents / person). Rendered under a "Links" heading.
    */
@@ -323,12 +335,25 @@ export interface WorkflowSession {
   schema?: ReadableRef<DataSchema | null>
   /** Current instance attributes, exposed to the view via `$instance.*`. */
   data: ReadableRef<Record<string, unknown>>
+  /**
+   * The live instance id — set after `start()` (a freshly created instance) or
+   * `open()`. Subsequent per-instance calls (transitions, history) must use THIS,
+   * not a route param, since a started instance's id isn't known up front.
+   */
+  instanceId?: ReadableRef<string | null>
   /** True once an instance is started and its view is available. */
   ready: ReadableRef<boolean>
   /** Human-readable error text; empty string when there is none. */
   error: ReadableRef<string>
   /** Current state key (detail pages show it). Optional. */
   state?: ReadableRef<string | null>
+  /**
+   * Current state's type (e.g. `'wizard'`, `'intermediate'`, `'finish'`) when the
+   * backend reports it. A `'wizard'` state (which by convention has exactly ONE
+   * transition) is auto-advanced: the client opens that transition's form
+   * automatically rather than making the user pick it. Optional.
+   */
+  stateType?: ReadableRef<string | null>
   /**
    * Full instance envelope (metadata + attributes + …) for the raw-data viewer.
    * Optional; falls back to {@link data} (attributes only) when absent.
@@ -738,6 +763,13 @@ export interface PseudoViewDelegate {
    * `WorkflowView` nodes.
    */
   driveWorkflow?(config: WorkflowViewConfig): WorkflowSession
+  /**
+   * Called once when a driven `WorkflowView` flow reaches a FINISH state (its
+   * `stateType` becomes `'finish'`). Lets a host surface that owns a flow's
+   * lifecycle react to completion — e.g. a boot-flow modal dismissing itself.
+   * Optional.
+   */
+  onWorkflowComplete?(config: WorkflowViewConfig): void
   /**
    * Query a workflow's instances for an `InstanceList` node (one page, read-only).
    * The host owns the transport; pseudo-ui renders the table + pager. Required

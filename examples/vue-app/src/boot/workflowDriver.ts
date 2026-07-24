@@ -52,6 +52,8 @@ export function makeDriveWorkflow(opts: WorkflowDriverOptions = {}) {
     const data = computed<Record<string, unknown>>(() => (wf.data.value ?? {}) as Record<string, unknown>);
     // Detail-page extras: current state + available transitions (from the SDK).
     const state = computed<string | null>(() => (wf.currentState.value as string | undefined) ?? null);
+    // State type (e.g. 'wizard') from the state response — drives wizard auto-advance.
+    const stateType = computed<string | null>(() => (wf.state.value?.stateType as string | undefined) ?? null);
     const transitions = computed(() =>
       (wf.transitions.value ?? []).map((t) => ({ key: t.key, hasSchema: !!t.schema?.hasSchema })),
     );
@@ -99,7 +101,9 @@ export function makeDriveWorkflow(opts: WorkflowDriverOptions = {}) {
       data,
       ready,
       error,
+      instanceId: computed<string | null>(() => instanceId.value ?? null),
       state,
+      stateType,
       transitions,
       snapshot,
       async history() {

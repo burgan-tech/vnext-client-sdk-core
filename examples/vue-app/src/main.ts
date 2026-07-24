@@ -23,6 +23,7 @@ import NavView from './components/NavView.vue';
 import { bootAppHost } from './boot/appHost';
 import { workflowManager } from './boot/workflowClient';
 import { runInitialization, type InitEntry } from './boot/initialization';
+import { restoreIdentityFromToken } from './boot/login';
 import { getMorphClient } from './boot/morphClient';
 import { loadAndApplyTheme } from './boot/theme';
 import { CTX } from './boot/constants';
@@ -48,6 +49,11 @@ let appHost: AppHost | null = null;
 async function start(overrideLevel?: TokenLevel): Promise<void> {
   const host = appHost ?? (appHost = await bootAppHost());
   if (overrideLevel && overrideLevel !== host.state.tokenLevel) await host.setTokenLevel(overrideLevel);
+
+  // Restore the in-memory identity (activeSubject/activeUser) from the persisted
+  // access token's JWT, so a refresh that keeps the token (→ tokenLevel) also
+  // keeps the identity consistent. No-op at device level (no interactive token).
+  await restoreIdentityFromToken();
 
   // Theme (a slow shell read) is global to the client and applied to the document
   // root, so apply it once on first boot — not on every token-level switch.
@@ -114,13 +120,13 @@ async function start(overrideLevel?: TokenLevel): Promise<void> {
     'color:#4f46e5;font-weight:bold',
   );
 
-  // Run the config-driven initialization workflows ONCE (first boot, not on a
-  // token-level re-boot), after mount so the UI is up. Headless + tolerant; the
-  // x-context-source filter fills each payload from context-store.
-  if (!overrideLevel) {
-    const init = (host.state.clientConfig.initialization ?? []) as InitEntry[];
-    if (init.length) void runInitialization(workflowManager, init, { tokenLevel: host.state.tokenLevel });
-  }
+  // Run the config-driven initialization workflows on EVERY start (boot AND a
+  // token-level flip), after mount so the UI is up. The runner scopes each entry
+  // by its `when.tokenLevel` and de-dups per level per session — so a post-2FA
+  // flip runs the 2FA-level entries (e.g. the email-update dialog) while boot ran
+  // the device-level ones. UI-surfacing flows are queued for BootFlowHost.
+  const init = (host.state.clientConfig.initialization ?? []) as InitEntry[];
+  if (init.length) void runInitialization(workflowManager, init, { tokenLevel: host.state.tokenLevel });
 }
 
 /** Re-boot for a token-level switch / post-login flip. Surfaces failures like the

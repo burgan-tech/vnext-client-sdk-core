@@ -1386,7 +1386,7 @@ function menuItems(items: any[]) {
   <PrimeDialog
     v-else-if="node.type === 'Dialog'"
     :append-to="overlayTarget"
-    :visible="resolveVisibility(node.visible)"
+    :visible="(node as any).visible === undefined ? true : resolveVisibility(node.visible)"
     @update:visible="setVisibility(node.visible, $event)"
     :modal="true"
     :closable="(node as any).dismissible !== false"

@@ -29,7 +29,12 @@ function workflowHeaderFor(path: string): Record<string, string> {
 }
 
 function buildUrl(path: string, query?: HttpRequest['query']): string {
-  const url = new URL(idmBase() + path, window.location.origin);
+  // Two backends: the `shell` domain lives on the local shell orchestrator
+  // (Vite `/shell` proxy → :4221), everything else on the IDM host (`idmBase`).
+  // A `/shell/...` path routes same-origin so the `/shell` proxy handles it;
+  // prepending `idmBase` (the IDM `/api/v1`) would (wrongly) send it to IDM.
+  const base = path.startsWith('/shell/') ? '' : idmBase();
+  const url = new URL(base + path, window.location.origin);
   for (const [k, v] of Object.entries(query ?? {})) {
     if (v === undefined) continue;
     if (Array.isArray(v)) v.forEach((x) => url.searchParams.append(k, x));
